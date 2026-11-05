@@ -20,7 +20,7 @@ Estima el precio de bolsa promedio de la **semana siguiente**, ponderado por dem
 
 ## Datos
 
-API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología.
+API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología. La demanda de los días más recientes puede venir incompleta; esos días se estiman con la generación, el tablero lo avisa y la semana no se califica hasta que esté completa.
 
 ## Qué tan bien funciona (evaluación simulada 2018–2026)
 
@@ -50,6 +50,7 @@ Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 202
 - No se probaron fuentes externas a XM y NOAA, como pronósticos de aportes o mantenimientos programados.
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
+- Un ensamble de Ridge y LEAR diario erró ~3 % menos, con significancia en 2022–2024 si se conoce la semana completa. Se añadió tras ver resultados y falta validarlo con pronósticos reales (E11).
 
 ## Pendiente con XM
 

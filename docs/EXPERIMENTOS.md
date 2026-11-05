@@ -27,6 +27,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E9 | `cortes`, `e9`, `e9 viernes` | ¿Qué pasa si la semana base solo se conoce hasta el viernes? ¿Dos etapas? | El error sube 16 %; el despacho programado del lunes recupera una parte. Dos etapas no supera a Ridge. |
 | E10 | `e10` | ¿19, 14 o 12 variables? ¿Estabilidad y estrés? | Ridge 14 en operación. |
 | E5/E6 | `e5e6` | ¿SARIMAX o ensambles? | SARIMAX empata; el ensamble mejora ~2 % sin pasar el criterio. |
+| E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo mejora con significancia con la semana completa; queda como candidato para validar con pronósticos reales. |
 
 ## Registro de predicciones del motor
 
@@ -328,3 +329,52 @@ En los tres episodios el modelo erró menos que el ingenuo y la cota mantuvo cob
 - **SARIMAX no supera a Ridge 14.** La estructura ARMA del error no agrega información frente a las variables de precio que ya tiene Ridge.
 - **El ensamble de tres modelos mejora ~1 COP/kWh (2 %).** En todo 2018–2026 la mejora es apenas significativa. En el periodo de selección, que es el que decide, no lo es. Los pesos adaptativos no aportan sobre el promedio simple.
 - **Decisión:** Ridge 14 sigue en operación. La mejora del ensamble es pequeña, no pasa el criterio de selección y haría perder la explicación exacta por variable. Queda como candidato: si el registro prospectivo confirma la ventaja, puede adoptarse como nueva versión en `src/config.py`.
+
+## E11: LEAR diario y promedio de ventanas
+
+`python src/experimentos.py e11` (semana completa) y `python src/experimentos.py e11 viernes` (semana base hasta el viernes). Tablas en `results/E11_corte6_resumen.csv` y `results/E11_corte4_resumen.csv`; código en `src/lear.py`.
+
+**Calidad de datos encontrada al armar la tabla diaria.** La API entrega la demanda de los días más recientes incompleta aunque traiga las 24 horas: el 1 y 2 de noviembre de 2026 tenían 60 GWh frente a ~220 GWh generados. En 16 años, son los únicos días con demanda / generación bajo 0.8. Eso hacía que el domingo pesara de menos en el precio ponderado (528.5 frente a 509.4 COP/kWh en la semana del 26 de octubre). `data_pipeline.completar_demanda` escala esos días con la generación, `monitoreo.calidad` lo avisa y `semanal.calificar` no califica una semana hasta que su demanda esté completa. La emisión ya registrada no se reescribió.
+
+**Modelos.** LEAR (Lago et al., 2021) es un LASSO con selección por AIC sobre ~40 variables diarias: rezagos del precio, hidrología, ofertas, utilización térmica, despacho programado, época del año y día de la semana. Aprende de ~6.000 orígenes diarios en lugar de ~870 semanas.
+
+- *Bottom-up:* un modelo por cada día de la semana objetivo, agregados con la demanda de los mismos días de la última semana completa conocida.
+- *Directo:* un modelo para el promedio ponderado de la semana objetivo.
+- *Ventanas:* promedio en log de modelos con los últimos 1, 2, 4 y 8 años y toda la historia.
+
+Una fila entra al entrenamiento solo si su objetivo ya se observó al emitir (`tests/test_lear.py`).
+
+**Semana base completa (MAE, COP/kWh):**
+
+| Modelo | 2018–21 | 2022–24 | 2025–26 | 2018–26 | Dif. vs Ridge 14 en 2022–24 (IC 95 %) | Dif. vs Ridge 14 en 2018–26 (IC 95 %) |
+|---|---|---|---|---|---|---|
+| Ingenuo | 28.3 | 116.5 | 67.7 | 66.5 | | |
+| Ridge 14 | 21.8 | 92.0 | 62.1 | 54.1 | referencia | referencia |
+| **Ensamble Ridge 14 + LEAR directo** | **21.0** | **88.8** | **61.8** | **52.6** | **−3.2 (−4.7 a −0.5)** | **−1.5 (−2.7 a −0.5)** |
+| LEAR directo | 20.9 | 88.0 | 63.2 | 52.5 | −4.0 (−7.0 a 1.5) | −1.6 (−3.9 a 0.5) |
+| LEAR bottom-up | 20.8 | 88.9 | 64.3 | 53.0 | −3.0 (−6.1 a 2.4) | −1.0 (−3.4 a 1.2) |
+| LEAR directo con ventanas | 21.7 | 91.2 | 68.3 | 55.0 | −0.8 (−8.1 a 9.2) | +1.0 (−2.9 a 4.8) |
+| Ridge 14 con ventanas | 21.9 | 93.5 | 66.9 | 55.6 | +1.5 (−2.4 a 6.2) | +1.6 (−0.2 a 3.5) |
+
+**Semana base hasta el viernes (MAE):**
+
+| Modelo | 2022–24 | 2025–26 | 2018–26 |
+|---|---|---|---|
+| Ingenuo | 126.9 | 74.6 | 73.2 |
+| Ridge 14 | 105.0 | 73.5 | 62.8 |
+| **Ridge 14 + despacho programado** | **100.9** | 72.3 | **61.2** |
+| LEAR directo | 107.4 | 68.3 | 63.3 |
+| Ensamble Ridge 14 + LEAR directo | 104.9 | 68.7 | 61.9 |
+
+**Cota conformal, semana completa, 2018–2026:** Ridge 14 cubre 90 % con pinball 15.68; el ensamble cubre 90 % con pinball 15.31 y exceso de 35.5 % frente a 36.9 %. La cobertura en semanas de salto sigue en ~70 %.
+
+**Estrés, semana completa (MAE de Ridge 14 / ensamble):** El Niño 2015–16, 92.4 / 92.6; sequía 2023–24, 96.1 / 94.9; octubre de 2024, 214.9 / 205.2.
+
+Conclusiones:
+
+- **Promediar ventanas empeora.** Era una recomendación habitual y aquí falla en los dos modelos: las ventanas cortas no han visto un episodio de estrés. En 2025–2026 Ridge pasa de 62.1 a 66.9.
+- **Los datos diarios ayudan con la semana completa, no con el corte.** LEAR directo tiene el menor MAE en 2018–2026, pero sin significancia y peor que Ridge en 2025–2026. Con datos hasta el viernes, LEAR queda por debajo de Ridge + programado en selección, aunque lo supera en el periodo final.
+- **El ensamble Ridge 14 + LEAR directo es el mejor candidato.** Con la semana completa mejora con significancia en selección y en el total, no empeora en ningún periodo y mejora la cota.
+- **Cautela:** este ensamble se añadió después de ver los primeros resultados de E11, y es el mejor entre más de diez variantes. Además, el periodo de selección ya se usó muchas veces en este proyecto.
+
+**Decisión de E11:** Ridge 14 sigue en operación mientras no se valide el candidato con pronósticos reales. Si XM confirma emisión con datos hasta el viernes, el modelo sería Ridge 14 + despacho programado.

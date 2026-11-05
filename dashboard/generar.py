@@ -132,12 +132,23 @@ def alertas_datos(r):
     return out
 
 
+def nota_registro(r):
+    """Si la emisión registrada de esta semana difiere de la de hoy, se muestra sin reescribir el registro
+    (p. ej. porque XM completó la demanda o se corrigió un dato después de emitir)."""
+    reg = semanal._leer_registro()
+    fila = reg[reg.semana_base == r["semana_base"]]
+    if fila.empty or abs(fila.pronostico.iloc[0] / r["pronostico"] - 1) < 0.005:
+        return None
+    return {"fecha_emision": _fecha(fila.fecha_emision.iloc[0]), "pronostico": _f(fila.pronostico.iloc[0], 1),
+            "precio_base": _f(fila.precio_base.iloc[0], 1)}
+
+
 def main():
     r = semanal.emitir(actualizar=False, guardar=False)
     d = fe.preparar(dp.tabla_semanal(corregida=True))
     datos = {
         "generado": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
-        "actual": actual(r), "historial": historial(r, d), "registro": registro(),
+        "actual": {**actual(r), "nota_registro": nota_registro(r)}, "historial": historial(r, d), "registro": registro(),
         "hidro": hidro(d), "estres": estres(), "modelos": modelos_tabla(), "alertas": alertas_datos(r),
         "metas": {"mejora_mae": 10, "cobertura": config.NIVEL_COTA * 100, "cobertura_volatil": 85,
                   "ventana": config.VENTANA_MONITOREO},

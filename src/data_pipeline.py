@@ -48,6 +48,25 @@ def precio_ponderado(precio, demanda, horas=168):
     return sem[sem.horas == horas].drop(columns="horas")
 
 
+def completar_demanda(demanda, generacion, razon_minima=0.8):
+    """Estima la demanda de los días que la API publica incompletos.
+
+    Los días más recientes pueden traer las 24 horas con solo una parte de la demanda
+    (p. ej. 60 GWh frente a 220 GWh generados), y entonces pesan de menos en el precio
+    ponderado. Normalmente demanda / generación está entre 1.00 y 1.05, así que los días
+    bajo `razon_minima` se escalan hasta la generación total, conservando el perfil horario.
+    Devuelve la demanda corregida y las fechas estimadas.
+    """
+    total = demanda[xm.HORAS].sum(axis=1)
+    gen = demanda.fecha.map(generacion.groupby("fecha").valor.sum())
+    incompletos = total < razon_minima * gen
+    corregida = demanda.copy()
+    if incompletos.any():
+        factor = (gen[incompletos] / total[incompletos]).to_numpy()[:, None]
+        corregida.loc[incompletos, xm.HORAS] = corregida.loc[incompletos, xm.HORAS].to_numpy() * factor
+    return corregida, pd.DatetimeIndex(demanda.loc[incompletos, "fecha"])
+
+
 # --- Hidrología -------------------------------------------------------------
 
 def hidrologia(aportes, aportes_media, volumen_pct):
@@ -220,9 +239,13 @@ def tabla_semanal(recalcular=False, corregida=False):
     if archivo.exists() and not recalcular:
         return pd.read_parquet(archivo)
     datos = {n: xm.descargar(n) for n in xm.SERIES}
+    estimados = pd.DatetimeIndex([])
     if corregida:
         datos["capacidad"] = datos["capacidad"].drop_duplicates(["fecha", "codigo"], keep="last")
+        datos["demanda"], estimados = completar_demanda(datos["demanda"], datos["generacion"])
     sem, clases = construir(datos, xm.listado_recursos())
+    # Días de cada semana con demanda estimada: esas semanas aún no se pueden calificar.
+    sem["dias_demanda_estimada"] = pd.Series(1, index=estimados).groupby(estimados.to_period("W-SUN").start_time).sum().reindex(sem.index).fillna(0).astype(int)
     archivo.parent.mkdir(parents=True, exist_ok=True)
     sem.to_parquet(archivo)
     clases.to_csv(PROCESSED / "clasificacion_recursos.csv")
@@ -327,6 +350,7 @@ def tabla_semanal_corte(ultimo_dia=4, recalcular=False):
         return completa
     datos = {n: xm.descargar(n) for n in ("precio", "demanda", "oferta", "capacidad", "generacion", "combustible")}
     datos["capacidad"] = datos["capacidad"].drop_duplicates(["fecha", "codigo"], keep="last")
+    datos["demanda"], _ = completar_demanda(datos["demanda"], datos["generacion"])
     parcial = {n: df[df.fecha.dt.weekday <= ultimo_dia] for n, df in datos.items()}
     precio = precio_ponderado(parcial["precio"], parcial["demanda"], horas=24 * (ultimo_dia + 1))
     codigos = set(datos["oferta"].codigo) | set(datos["generacion"].codigo) | set(datos["capacidad"].codigo)
@@ -403,3 +427,55 @@ def tabla_e9(ultimo_dia=6, recalcular=False):
     sem = sem.join(despacho_programado(datos, clases, ultimo_dia))
     sem.to_parquet(archivo)
     return sem
+
+
+# --- E11: tabla diaria para LEAR ----------------------------------------------
+
+def tabla_diaria(recalcular=False):
+    """Una fila por día con los insumos de LEAR, sin rezagar todavía.
+
+    Precio y demanda salen de las series horarias (precio del día ponderado por demanda).
+    `prog_t` es la generación térmica programada de ese día, que se publica el día anterior.
+    """
+    archivo = PROCESSED / "diaria.parquet"
+    if archivo.exists() and not recalcular:
+        return pd.read_parquet(archivo)
+    datos = {n: xm.descargar(n) for n in ("precio", "demanda", "aportes", "aportes_media", "volumen_pct", "oferta",
+                                          "capacidad", "generacion", "gene_programada", "combustible")}
+    demanda, _ = completar_demanda(datos["demanda"], datos["generacion"])
+    p, d = xm.a_horario(datos["precio"]), xm.a_horario(demanda)
+    h = pd.DataFrame({"p": p, "d": d}).dropna()
+    h["pd"] = h.p * h.d
+    dia = h.index.normalize()
+    g = h.groupby(dia)
+    t = pd.DataFrame({"precio": g.pd.sum() / g.d.sum(), "demanda": g.d.sum(), "precio_max": g.p.max(), "precio_std": g.p.std()})
+    t = t[g.size() == 24]
+    t.index.name = "fecha"
+
+    t["aportes"] = datos["aportes"].groupby("fecha").valor.sum()
+    t["aportes_media"] = datos["aportes_media"].groupby("fecha").valor.sum()
+    t["embalse"] = datos["volumen_pct"].groupby("fecha").valor.mean()
+
+    cap = datos["capacidad"].drop_duplicates(["fecha", "codigo"], keep="last").rename(columns={"valor": "cap"})
+    codigos = set(datos["oferta"].codigo) | set(datos["generacion"].codigo) | set(cap.codigo) | set(datos["gene_programada"].codigo)
+    clases = clasificar_recursos(xm.listado_recursos(), datos["combustible"], codigos)
+    termicos = set(clases.index[clases.termico])
+
+    of = datos["oferta"].merge(cap, on=["fecha", "codigo"]).dropna(subset=["valor", "cap"])
+    of = of[of.cap > 0]
+    of["termico"] = of.codigo.isin(termicos)
+    of["pc"] = of.valor * of.cap
+    o = of.groupby(["fecha", "termico"])
+    pond = (o.pc.sum() / o.cap.sum()).unstack()
+    t["oferta_t"], t["oferta_nt"] = pond[True], pond[False]
+
+    gen = datos["generacion"]
+    t["gen_t"] = gen[gen.codigo.isin(termicos)].groupby("fecha").valor.sum()
+    t["gen_total"] = gen.groupby("fecha").valor.sum()
+    t["cap_t"] = cap[cap.codigo.isin(termicos)].groupby("fecha").cap.sum()
+    gp = datos["gene_programada"]
+    t["prog_t"] = gp[gp.codigo.isin(termicos)].groupby("fecha").valor.sum()
+    # Huecos puntuales (p. ej. sin ofertas el 2021-02-17): se usa el último valor conocido.
+    t = t.ffill()
+    t.to_parquet(archivo)
+    return t

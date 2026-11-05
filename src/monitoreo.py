@@ -33,6 +33,10 @@ def calidad(d, semana_base, fecha_emision, variables=None):
     out.append(_control("Precio válido", "ok" if np.isfinite(p) and p > 0 else "falla", f"{p:,.1f} COP/kWh"))
     emb = fila.embalse_cierre
     out.append(_control("Embalse en rango físico", "ok" if 0 <= emb <= 1 else "falla", f"{emb:.1%}"))
+    estimados = int(fila.get("dias_demanda_estimada", 0) or 0)
+    out.append(_control("Demanda completa", "aviso" if estimados else "ok",
+                        f"{estimados} {'día' if estimados == 1 else 'días'} de la semana base con demanda estimada a partir de la generación"
+                        if estimados else "Demanda publicada completa"))
     if pd.notna(fila.get("precio_ant")) and fila.precio_ant > 0:
         salto = fila.precio / fila.precio_ant
         out.append(_control("Cambio semanal plausible", "aviso" if salto > 3 or salto < 1 / 3 else "ok",

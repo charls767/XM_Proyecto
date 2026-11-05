@@ -341,6 +341,10 @@ function cabecera() {
   $("estado").className = "estado " + A.estado;
   $("estado").innerHTML = `<span class="tag" style="color:var(--${niv})"><span aria-hidden="true">${ICONO[niv]}</span>Estado: ${tit}</span>
     <div><p class="small">${desc}</p>${A.motivos.length ? `<ul>${A.motivos.map(m => `<li>${m}</li>`).join("")}</ul>` : ""}</div>`;
+  if (A.nota_registro) {
+    const n = A.nota_registro;
+    $("estado").insertAdjacentHTML("beforeend", `<p class="small" style="grid-column:1/-1">Con los datos de hoy el pronóstico cambió. El registro conserva lo emitido el ${fecha(n.fecha_emision)}: ${fmt(n.pronostico)} COP/kWh sobre un precio base de ${fmt(n.precio_base)}.</p>`);
+  }
   $("k-base").innerHTML = `${fmt(A.precio_base)}<small>COP/kWh</small>`;
   $("k-pron").innerHTML = `${fmt(A.pronostico)}<small>COP/kWh</small>`;
   $("k-pron-sub").textContent = `${signo(A.cambio_pct)} % frente a la semana base`;

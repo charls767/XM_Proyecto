@@ -183,7 +183,12 @@ def calificar(d=None):
     if reg.empty:
         return reg
     d = d if d is not None else dp.tabla_semanal(corregida=True)
-    pendientes = reg.real.isna() & reg.semana_objetivo.isin(d.index)
+    # Solo se califica con la demanda ya completa: si no, el precio real aún puede cambiar.
+    if "dias_demanda_estimada" in d:
+        firmes = d.index[d.dias_demanda_estimada == 0]
+    else:
+        firmes = d.index
+    pendientes = reg.real.isna() & reg.semana_objetivo.isin(firmes)
     if pendientes.any():
         reg["cubierto"] = reg["cubierto"].astype(object)  # vacía se lee como float; guarda sí/no
         real = d.precio.reindex(reg.loc[pendientes, "semana_objetivo"]).to_numpy()

@@ -85,3 +85,26 @@ def test_registro_no_sobrescribe_y_califica(tmp_path, monkeypatch, d):
     real = d.precio[semana + pd.Timedelta(weeks=1)]
     assert reg.real.iloc[0] == pytest.approx(real, abs=0.01)
     assert bool(reg.cubierto.iloc[0]) == (real <= 150.0)
+
+
+def test_completar_demanda_estima_solo_dias_incompletos():
+    import data_pipeline as dp
+    import xm_client as xm
+
+    fechas = pd.date_range("2026-10-30", periods=3)
+    demanda = pd.DataFrame({"fecha": fechas, "codigo": "Sistema", **{h: [10.0, 10.0, 2.5] for h in xm.HORAS}})
+    gen = pd.DataFrame({"fecha": fechas, "codigo": "X", "valor": [240.0, 240.0, 240.0]})
+    corregida, estimados = dp.completar_demanda(demanda, gen)
+    assert list(estimados) == [fechas[2]]
+    assert corregida[xm.HORAS].sum(axis=1).tolist() == pytest.approx([240.0, 240.0, 240.0])
+
+
+def test_no_califica_con_demanda_estimada(tmp_path, monkeypatch, d):
+    monkeypatch.setattr(semanal, "REGISTRO", tmp_path)
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    semana = d.index[-3]
+    semanal.registrar(_emision(semana, 90.0))
+    tabla = d.assign(dias_demanda_estimada=0)
+    tabla.loc[semana + pd.Timedelta(weeks=1), "dias_demanda_estimada"] = 1
+    assert semanal.calificar(tabla).real.isna().all()
+    assert semanal.calificar(d.assign(dias_demanda_estimada=0)).real.notna().all()

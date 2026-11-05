@@ -1,6 +1,6 @@
 """Experimentos de evaluación. Uso: python src/experimentos.py <comando> [opción]
 
-Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10,
+Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10, e11 [viernes],
 cortes, tuning y alertas [e8]. Cada uno escribe sus archivos en results/; el
 detalle de cada experimento está en docs/EXPERIMENTOS.md.
 
@@ -198,6 +198,39 @@ def resumen_e7(c, reg):
         ev.comparacion_cotas(sub, cotas, "Ridge+conformal").sort_values("dif_pinball").to_csv(
             bt.RESULTADOS / f"E7_comparacion_pinball_{nombre}.csv")
     return t
+
+
+def correr_e11(ultimo_dia=6):
+    """E11: LEAR diario agregado a la semana y promedio de ventanas, frente a Ridge 14."""
+    import lear
+
+    d = fe.preparar(dp.tabla_e9(ultimo_dia))
+    t = dp.tabla_diaria()
+    prog = fe.GRUPOS_E9["programado"]
+    m = [models.Modelo("Ingenuo"),
+         models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+         models.Modelo("Ridge14+programado", config.VARIABLES + prog, models.ridge),
+         lear.VentanasRidge("Ridge14_ventanas", config.VARIABLES, models.ridge),
+         lear.VentanasRidge("Ridge14+programado_ventanas", config.VARIABLES + prog, models.ridge),
+         lear.LEAR("LEAR_bottomup", t, ultimo_dia, "bottomup"),
+         lear.LEAR("LEAR_bottomup_ventanas", t, ultimo_dia, "bottomup", lear.VENTANAS),
+         lear.LEAR("LEAR_directo", t, ultimo_dia, "directo"),
+         lear.LEAR("LEAR_directo_ventanas", t, ultimo_dia, "directo", lear.VENTANAS)]
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True)
+    nombre = f"E11_corte{ultimo_dia}"
+    bt.guardar(r, nombre)
+    w = bt.ancho(r)
+    w = ensambles_e11(w)
+    w.to_parquet(bt.RESULTADOS / f"{nombre}_ancho.parquet")
+    return nombre, w
+
+
+def ensambles_e11(w):
+    w = w.copy()
+    w["Ens[Ridge14+LEAR_directo]"] = w[["Ridge14", "LEAR_directo"]].mean(axis=1)
+    w["Ens[Ridge14+LEAR_directo_v]"] = w[["Ridge14", "LEAR_directo_ventanas"]].mean(axis=1)
+    w["Ens[Ridge14+LEAR_bottomup_v]"] = w[["Ridge14", "LEAR_bottomup_ventanas"]].mean(axis=1)
+    return w
 
 
 def correr_alertas_e8():
@@ -421,6 +454,9 @@ if __name__ == "__main__":
     elif comando == "e9":
         nombre, w = correr_e9(4 if "viernes" in opciones else 6)
         print(resumen_comparativo(w, nombre).to_string())
+    elif comando == "e11":
+        nombre, w = correr_e11(4 if "viernes" in opciones else 6)
+        print(resumen_comparativo(w, nombre, referencia="Ridge14").to_string())
     elif comando == "e10":
         correr_e10()
         print(pd.read_csv(bt.RESULTADOS / "E10_estres.csv").to_string(index=False))
@@ -436,4 +472,4 @@ if __name__ == "__main__":
             print(t.to_string())
             print(imp.head(10).to_string())
     else:
-        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 cortes tuning alertas [e8]")
+        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 e11 [viernes] cortes tuning alertas [e8]")

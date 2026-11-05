@@ -59,7 +59,7 @@ Cada variable entra comparada con su valor típico. La tabla dice qué pasa con 
 
 ### 4. Ejemplo: el pronóstico de esta semana
 
-Semana base del 26 de octubre al 1 de noviembre de 2026: precio de **528,5 COP/kWh**. Pronóstico para la semana del 2 de noviembre: **400,6 COP/kWh (−24,2 %)**.
+Semana base del 26 de octubre al 1 de noviembre de 2026: precio de **528,5 COP/kWh**. Pronóstico registrado para la semana del 2 de noviembre: **400,6 COP/kWh (−24,2 %)**. *(Esa emisión usó la demanda incompleta que la API publicó el 1 de noviembre; con la corrección posterior, la base sería 509,4 y el pronóstico 403,5. El registro conserva lo emitido.)*
 
 | Variable | Aporte al cambio |
 |---|---|
@@ -115,6 +115,10 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 
 La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
+### 9. Qué se probó además
+
+Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), con mejora significativa en 2022–2024, pero se añadió tras ver los resultados y aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md).
+
 ---
 
 ## Cómo usarlo
@@ -152,7 +156,7 @@ Luego abre http://localhost:8000. También funciona abriendo `dashboard/index.ht
 python src/experimentos.py e10
 ```
 
-Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
+Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
 ---
 
@@ -161,7 +165,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `cortes`, `tu
 ```
 ├── README.md                 este documento
 ├── FICHA_TECNICA.md          el modelo en una página
-├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E10, con tablas y decisiones
+├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
 ├── correr_semanal.bat        emisión semanal completa
 ├── requirements.txt          dependencias fijas (Python 3.11)
 ├── src/
@@ -172,6 +176,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `cortes`, `tu
 │   ├── data_pipeline.py      tabla semanal y variantes usadas en los experimentos
 │   ├── feature_engineering.py variables del modelo
 │   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX)
+│   ├── lear.py               LEAR diario agregado a la semana (candidato, E11)
 │   ├── calibration.py        cotas conformales
 │   ├── alertas.py            alertas tempranas y su explicación
 │   ├── backtesting.py        evaluación walk-forward
