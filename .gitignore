@@ -1,9 +1,8 @@
-# Solo se versionan PAE (modelo original) y PAE-XM (proyecto v2.0).
-/*
-!/.gitignore
-!/README.md
-!/PAE/
-!/PAE-XM/
+# Carpetas locales que no son parte del proyecto
+/SEM*/
+/PAE/
+/PAE-XM/
+/.claude/
 
 # Entornos y cachés de Python
 .venv/
@@ -12,3 +11,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Bitácoras de consola de los experimentos
+results/*.txt

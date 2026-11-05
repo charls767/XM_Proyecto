@@ -1,4 +1,0 @@
-precio_tx1 6136 27 s
-precio_escasez 6148 16 s
-dispo_declarada 965337 152 s
-dispo_real 965337 131 s
