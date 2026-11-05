@@ -1,0 +1,25 @@
+{
+  "busqueda": {
+    "todo el proyecto": {
+      "mejor": "E11:LEAR_directo",
+      "mejora_MAE": 3.9906000606126044,
+      "modelos": 67,
+      "p": 0.51725
+    },
+    "solo E11": {
+      "mejor": "E11:LEAR_directo",
+      "mejora_MAE": 3.9906000606126044,
+      "modelos": 10,
+      "p": 0.249
+    },
+    "modelos que ganan a Ridge 14 en selección": 28,
+    "p del ensamble con Bonferroni, familia E11": 0.07804888921173117,
+    "p del ensamble con Bonferroni, todo el proyecto": 0.5229275577185989
+  },
+  "extras": {
+    "porcion del error en el 10 % peor de semanas": 0.4722423636597142,
+    "acierto de la direccion del cambio": 0.7282608695652174,
+    "sesgo COP/kWh": -12.503579709666255,
+    "p del sesgo": 0.0024697854066113934
+  }
+}

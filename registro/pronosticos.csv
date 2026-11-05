@@ -1,2 +1,2 @@
-fecha_emision,semana_base,semana_objetivo,version_modelo,estado,motivos,datos_precio_hasta,precio_base,pronostico,cambio_pct,cota90,cota90_vol,ingenuo,alerta_precio_alto,alerta_salto,alerta_estres_hidrico,real,error,cubierto,fecha_calificacion
-2026-11-05,2026-10-26,2026-11-02,ridge14-conformal104-v1,normal,,2026-11-02,528.46,400.59,-24.2,563.77,433.89,528.46,0.0325,0.0574,0.4426,,,,
+fecha_emision,semana_base,semana_objetivo,version_modelo,estado,motivos,datos_precio_hasta,precio_base,pronostico,cambio_pct,cota90,cota90_vol,ingenuo,alerta_precio_alto,alerta_salto,alerta_estres_hidrico,real,error,cubierto,fecha_calificacion,candidato_version,candidato_pronostico,candidato_cota90,candidato_error,candidato_cubierto,huella
+2026-11-05,2026-10-26,2026-11-02,ridge14-conformal104-v1,normal,,2026-11-02,528.46,400.59,-24.2,563.77,433.89,528.46,0.0325,0.0574,0.4426,,,,,,,,,,8af5edbe0476242ee27eaee1ceaa98cfe32b6e36e880d4cde0374b098fee03d9

@@ -28,14 +28,17 @@ Cada semana se pronosticó solo con lo que se sabía antes, reentrenando cada 4 
 
 | Métrica | Valor | Referencia |
 |---|---|---|
-| Error medio | 54.1 COP/kWh | Repetir el precio anterior: 66.6 (el modelo mejora 18.7 %) |
+| Error medio, semana base completa | 54.1 COP/kWh | Repetir el precio anterior: 66.6 (el modelo mejora 18.7 %) |
+| Error medio, datos hasta el viernes | 61–63 COP/kWh | Repetir el precio anterior: 73.2 |
 | Error típico | 15 % del precio | |
-| Sesgo | −12.5 COP/kWh | Tiende a quedarse corto |
+| Sesgo | −12.5 COP/kWh | Se queda corto, de forma significativa (p = 0.002) |
 | Cobertura de la cota | 90.2 % | Meta 90 % |
 | Exceso de la cota | 37 % | Cuánto supera la cota al precio cuando cubre |
 | Cobertura en las semanas de mayor cambio | 70 % | Meta 85 %: **no se cumple** |
 
-Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 2022–2024 (años de estrés) y 7–8 % en 2025–2026. En los tres episodios de estrés evaluados (El Niño 2015–16, sequía 2023–24 y octubre de 2024) erró menos que el ingenuo, pero se quedó corto.
+Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 2022–2024 (años de estrés) y 7–8 % en 2025–2026. En los tres episodios de estrés evaluados (El Niño 2015–16, sequía 2023–24 y octubre de 2024) erró menos que el ingenuo, pero se quedó corto. **En 2025–2026 la ventaja frente al ingenuo no es significativa (p = 0.18).**
+
+Por régimen: con el embalse bajo 45 % casi no supera al ingenuo (mejora de 3.5 %), y en las semanas en que el precio sube se queda corto 58 COP/kWh y la cota cubre 81 %. La [auditoría](docs/AUDITORIA.md) tiene el detalle.
 
 ## Cuándo no confiar en él
 
@@ -46,11 +49,11 @@ Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 202
 
 ## Limitaciones conocidas
 
-- La evaluación 2018–2026 es simulada y 2025–2026 se usó al diseñar el modelo. La evidencia independiente es el registro de pronósticos (`registro/pronosticos.csv`), que empezó el 5 de noviembre de 2026.
+- La evaluación 2018–2026 es simulada y se usó para elegir entre 67 modelos, así que sus cifras son optimistas. La evidencia independiente es el registro de pronósticos (`registro/pronosticos.csv`), que empezó el 5 de noviembre de 2026.
 - No se probaron fuentes externas a XM y NOAA, como pronósticos de aportes o mantenimientos programados.
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
-- Un ensamble de Ridge y LEAR diario erró ~3 % menos, con significancia en 2022–2024 si se conoce la semana completa. Se añadió tras ver resultados, así que se registra en paralelo cada semana. Con 26 semanas calificadas, reemplaza al oficial si erra menos y la cobertura de su cota no baja de 85 % (E11).
+- Un ensamble de Ridge y LEAR diario erró ~3 % menos con la semana completa, pero al corregir por los modelos probados no es significativo (p = 0.52). Se registra en paralelo cada semana. Con 26 semanas calificadas, reemplaza al oficial si erra menos y la cobertura de su cota no baja de 85 % (E11).
 
 ## Pendiente con XM
 

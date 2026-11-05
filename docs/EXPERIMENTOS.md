@@ -27,7 +27,8 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E9 | `cortes`, `e9`, `e9 viernes` | ¿Qué pasa si la semana base solo se conoce hasta el viernes? ¿Dos etapas? | El error sube 16 %; el despacho programado del lunes recupera una parte. Dos etapas no supera a Ridge. |
 | E10 | `e10` | ¿19, 14 o 12 variables? ¿Estabilidad y estrés? | Ridge 14 en operación. |
 | E5/E6 | `e5e6` | ¿SARIMAX o ensambles? | SARIMAX empata; el ensamble mejora ~2 % sin pasar el criterio. |
-| E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo mejora con significancia con la semana completa; queda como candidato para validar con pronósticos reales. |
+| E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo es el mejor candidato, pero no es significativo al corregir por búsqueda; se valida con pronósticos reales. |
+| Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
 
@@ -374,7 +375,25 @@ Conclusiones:
 
 - **Promediar ventanas empeora.** Era una recomendación habitual y aquí falla en los dos modelos: las ventanas cortas no han visto un episodio de estrés. En 2025–2026 Ridge pasa de 62.1 a 66.9.
 - **Los datos diarios ayudan con la semana completa, no con el corte.** LEAR directo tiene el menor MAE en 2018–2026, pero sin significancia y peor que Ridge en 2025–2026. Con datos hasta el viernes, LEAR queda por debajo de Ridge + programado en selección, aunque lo supera en el periodo final.
-- **El ensamble Ridge 14 + LEAR directo es el mejor candidato.** Con la semana completa mejora con significancia en selección y en el total, no empeora en ningún periodo y mejora la cota.
-- **Cautela:** este ensamble se añadió después de ver los primeros resultados de E11, y es el mejor entre más de diez variantes. Además, el periodo de selección ya se usó muchas veces en este proyecto.
+- **El ensamble Ridge 14 + LEAR directo es el mejor candidato.** Con la semana completa baja el error en los tres periodos y mejora la cota. Su prueba aislada da p = 0.008 en selección.
+- **Corrección de la auditoría:** ese ensamble se añadió después de ver los primeros resultados, y con Bonferroni la p sube a 0.08 dentro de E11 y a 0.52 en todo el proyecto. El reality check para el mejor de 67 modelos da p = 0.52. Es una mejora prometedora, no demostrada.
 
 **Decisión de E11:** Ridge 14 sigue en operación y el ensamble se registra en paralelo desde la siguiente emisión. Con 26 semanas calificadas, lo reemplaza si su error medio es menor y la cobertura de su cota no baja de 85 %. Si XM confirma emisión con datos hasta el viernes, el modelo sería Ridge 14 + despacho programado.
+
+## Correcciones de la auditoría a las cifras anteriores
+
+La [auditoría](AUDITORIA.md) encontró que, con la semana base cortada antes del domingo, el motor entrenaba con una fila cuyo objetivo aún no se conocía. Con el embargo de una semana (`results/cortes_resumen.csv`, `results/E9_corte4_resumen.csv` y `results/E11_corte4_resumen.csv` ya corregidos), estas son las cifras vigentes; las tablas anteriores de esta bitácora conservan los valores originales.
+
+| Datos hasta el viernes | MAE 2022–24 | MAE 2018–26 |
+|---|---|---|
+| Ingenuo | 126.9 | 73.2 |
+| Ridge E1 (19 variables) | 105.1 | 63.0 |
+| Ridge 14 | 105.0 | 62.9 |
+| Ridge E1 + programado | 100.7 | 61.4 |
+| Ridge 14 + programado | 101.2 | 61.4 |
+| Dos etapas, apilado | 99.3 | 61.0 |
+| LEAR directo | 107.4 | 63.3 |
+
+Ridge 14 + programado sigue mejorando a Ridge 14 de forma significativa (2022–24: −3.9, p = 0.016; 2018–26: −1.5, p = 0.033), pero en 2025–2026 no supera con significancia al ingenuo (p = 0.68).
+
+Desde esta corrección, Diebold-Mariano usa varianza de Newey-West. Los archivos `*_resumen.csv` que no se han vuelto a correr conservan la versión anterior en `p_DM`; las conclusiones se apoyan en los intervalos por bootstrap, que no cambian.

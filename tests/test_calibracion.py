@@ -45,3 +45,12 @@ def test_sin_fuga_de_informacion():
               lambda r: cal.conformal_adaptativo(r, pred, gamma=0.05),
               lambda r: cal.conformal_regimen(r, pred, regimen)):
         np.testing.assert_allclose(f(real), f(alterado))
+
+
+def test_rezago_no_usa_la_ultima_fila():
+    """Con rezago 2, la fila anterior aún no está calificada y no debe influir."""
+    real, pred = _serie()
+    alterado = real.copy()
+    alterado.iloc[-2] *= 10
+    np.testing.assert_allclose(cal.conformal(real, pred, rezago=2).iloc[-1], cal.conformal(alterado, pred, rezago=2).iloc[-1])
+    assert cal.conformal(real, pred, rezago=1).iloc[-1] != cal.conformal(alterado, pred, rezago=1).iloc[-1]

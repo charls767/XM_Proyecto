@@ -8,20 +8,22 @@ i solo usa puntajes de filas anteriores, cuyo precio real ya se conocía al emit
 import numpy as np
 
 
-def conformal(real, pred, nivel=0.9, ventana=104, minimo=26, escala=None):
+def conformal(real, pred, nivel=0.9, ventana=104, minimo=26, escala=None, rezago=1):
     """Cota superior: pred * exp(margen), con el margen calculado solo con puntajes previos.
 
     real, pred: series alineadas y ordenadas por semana base. El puntaje de la
     fila i es log(real_i / pred_i), dividido por `escala` si se da. Al emitir la
     fila i ya se conoce el real de la fila i-1, así que el margen usa las filas
     anteriores a i: cuantil corregido ceil((n+1)·nivel)/n de las últimas `ventana`
-    (`None` = todas).
+    (`None` = todas). `rezago` es la distancia a la última fila ya calificada: 1 con la
+    semana base completa, 2 si se corta antes del domingo.
     """
     esc = np.ones(len(pred)) if escala is None else escala.reindex(pred.index).to_numpy()
     s = np.log(real / pred).to_numpy() / esc
     margen = np.full(len(s), np.nan)
     for i in range(minimo, len(s)):
-        previos = s[0 if ventana is None else max(0, i - ventana):i]
+        fin = i - rezago + 1
+        previos = s[0 if ventana is None else max(0, fin - ventana):fin]
         previos = previos[~np.isnan(previos)]
         margen[i] = _cuantil_corregido(previos, nivel)
     return pred * np.exp(margen * esc)

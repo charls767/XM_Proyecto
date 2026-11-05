@@ -216,7 +216,7 @@ def correr_e11(ultimo_dia=6):
          lear.LEAR("LEAR_bottomup_ventanas", t, ultimo_dia, "bottomup", lear.VENTANAS),
          lear.LEAR("LEAR_directo", t, ultimo_dia, "directo"),
          lear.LEAR("LEAR_directo_ventanas", t, ultimo_dia, "directo", lear.VENTANAS)]
-    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True)
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, embargo=0 if ultimo_dia == 6 else 1)
     nombre = f"E11_corte{ultimo_dia}"
     bt.guardar(r, nombre)
     w = bt.ancho(r)
@@ -268,7 +268,8 @@ def correr_cortes():
     filas = {}
     for k, nombre in ((6, "domingo"), (5, "sabado"), (4, "viernes"), (3, "jueves")):
         d = fe.preparar(dp.tabla_semanal_corte(k))
-        r = bt.backtest(d, [models.Modelo("Ingenuo"), models.Modelo("Ridge", fe.VARIABLES, models.ridge)], inicio=INICIO)
+        r = bt.backtest(d, [models.Modelo("Ingenuo"), models.Modelo("Ridge", fe.VARIABLES, models.ridge)], inicio=INICIO,
+                        embargo=0 if k == 6 else 1)
         bt.guardar(r, f"cortes_corte{k}")
         w = bt.ancho(r)
         w = w[w.index >= INICIO_EVALUACION]
@@ -394,7 +395,7 @@ def configuraciones_e9():
 def correr_e9(ultimo_dia=6):
     """E9 con la información de la semana s hasta `ultimo_dia` (6 = domingo, 4 = viernes)."""
     d = fe.preparar(dp.tabla_e9(ultimo_dia))
-    r = bt.backtest(d, configuraciones_e9(), inicio=INICIO, cada=4, progreso=True)
+    r = bt.backtest(d, configuraciones_e9(), inicio=INICIO, cada=4, progreso=True, embargo=0 if ultimo_dia == 6 else 1)
     nombre = f"E9_corte{ultimo_dia}"
     bt.guardar(r, nombre)
     return nombre, bt.ancho(r)
@@ -434,6 +435,8 @@ if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
     comando, opciones = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else ("e1", [])
+    import trazabilidad
+    trazabilidad.registrar_corrida(comando, opciones)
     if comando == "e1":
         d, w = correr_baseline()
         for nombre, t in resumen(d, w).items():

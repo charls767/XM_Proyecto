@@ -57,13 +57,16 @@ def test_metricas_reportadas(nuevo):
     assert c.loc["Ridge_cota90", "pinball"] == pytest.approx(15.718, abs=1e-3)
 
 
-@pytest.mark.parametrize("experimento", ["E2", "E3E4", "E8", "E8_tx1", "E9_corte6", "E9_corte4"])
+@pytest.mark.parametrize("experimento", ["E2", "E3E4", "E8", "E8_tx1", "E9_corte6", "E9_corte4", "E11_corte6", "E11_corte4"])
 def test_experimento_mismas_semanas_que_e1(nuevo, experimento):
     archivo = RAIZ / "results" / f"{experimento}.parquet"
     if not archivo.exists():
         pytest.skip(f"{experimento} no se ha corrido")
     r = pd.read_parquet(archivo)
-    assert set(r.semana_base) == set(nuevo.index)
+    # Una corrida posterior puede tener semanas nuevas al final, pero no perder ninguna.
+    semanas = set(r.semana_base)
+    assert set(nuevo.index) <= semanas
+    assert all(s > nuevo.index.max() for s in semanas - set(nuevo.index))
     assert r.groupby("modelo").size().nunique() == 1
 
 

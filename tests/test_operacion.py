@@ -113,6 +113,8 @@ def test_registro_antiguo_sin_columnas_de_candidato(tmp_path, monkeypatch):
     pd.DataFrame([fila])[viejas].to_csv(semanal.ARCHIVO, index=False)
     reg = semanal._leer_registro()
     assert list(reg.columns) == semanal.COLUMNAS and reg.candidato_pronostico.isna().all()
+    reg.loc[0, "huella"] = "abc"  # una columna de texto vacía debe aceptar texto
+    reg.loc[0, "cubierto"] = True
 
 
 def test_completar_demanda_estima_solo_dias_incompletos():
@@ -136,3 +138,26 @@ def test_no_califica_con_demanda_estimada(tmp_path, monkeypatch, d):
     tabla.loc[semana + pd.Timedelta(weeks=1), "dias_demanda_estimada"] = 1
     assert semanal.calificar(tabla).real.isna().all()
     assert semanal.calificar(d.assign(dias_demanda_estimada=0)).real.notna().all()
+
+
+def test_huella_detecta_alteracion(tmp_path, monkeypatch, d):
+    monkeypatch.setattr(semanal, "REGISTRO", tmp_path)
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    semanal.registrar(_emision(d.index[-4], 90.0))
+    semanal.registrar(_emision(d.index[-3], 95.0))
+    assert semanal.verificar_registro() == []
+    semanal.calificar(d)  # calificar no altera lo emitido
+    assert semanal.verificar_registro() == []
+    reg = semanal._leer_registro()
+    reg.loc[0, "pronostico"] = 91.0
+    semanal._escribir(reg)
+    assert len(semanal.verificar_registro()) == 2  # la fila alterada y las que encadenan con ella
+
+
+def test_embalse_bajo_pide_vigilancia(d):
+    semana = d.index[-2]
+    bajo = d.copy()
+    bajo.loc[semana, "embalse_cierre"] = 0.40
+    controles = monitoreo.calidad(bajo, semana, semana + pd.Timedelta(days=8))
+    assert "Régimen de embalse bajo" in set(controles.control)
+    assert monitoreo.estado(controles, pd.DataFrame(columns=["nivel"]), {"semanas": 0})[0] == "vigilancia"

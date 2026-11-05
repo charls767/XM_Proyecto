@@ -39,7 +39,7 @@ def bloques_emision(semanas, inicio, cada):
     return [prueba[i:i + cada] for i in range(0, len(prueba), cada)]
 
 
-def backtest(d, modelos, inicio="2014-01-01", cada=4, requeridas=None, progreso=False):
+def backtest(d, modelos, inicio="2014-01-01", cada=4, requeridas=None, progreso=False, embargo=0):
     """Walk-forward con ventana expansiva, reentrenando cada `cada` semanas.
 
     `requeridas`: columnas que deben estar completas para que una semana sea de
@@ -48,6 +48,10 @@ def backtest(d, modelos, inicio="2014-01-01", cada=4, requeridas=None, progreso=
     semanas anteriores en que sus propias variables están completas, así que añadir
     a la comparación un modelo con variables de rezago largo no recorta el
     entrenamiento de los demás.
+
+    `embargo`: semanas adicionales excluidas antes de cada bloque. Con la semana base
+    cortada antes del domingo hay que usar 1: la fila s0-1 tiene como objetivo la semana
+    s0 completa, que aún no se conoce al emitir s0 (auditoría, hallazgo de fuga).
     """
     if requeridas is None:
         requeridas = sorted({v for m in modelos for v in m.variables} | {"y"})
@@ -62,7 +66,7 @@ def backtest(d, modelos, inicio="2014-01-01", cada=4, requeridas=None, progreso=
         prueba = d.loc[bloque]
         for m in modelos:
             entren = completas[m.nombre]
-            entren = entren[entren.index < bloque[0]]
+            entren = entren[entren.index < bloque[0] - pd.Timedelta(weeks=embargo)]
             filas.append(pd.DataFrame({
                 "semana_base": bloque,
                 "modelo": m.nombre,

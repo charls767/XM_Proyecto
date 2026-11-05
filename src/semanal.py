@@ -12,6 +12,7 @@ columnas de calificación (real, error, cubierto) se completan después, cuando 
 precio de la semana objetivo ya se conoce.
 """
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -43,7 +44,11 @@ COLUMNAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo",
             "datos_precio_hasta", "precio_base", "pronostico", "cambio_pct", "cota90", "cota90_vol",
             "ingenuo", "alerta_precio_alto", "alerta_salto", "alerta_estres_hidrico",
             "real", "error", "cubierto", "fecha_calificacion",
-            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto"]
+            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto", "huella"]
+# Lo emitido no cambia nunca; la huella encadena estas columnas con la fila anterior.
+COLUMNAS_SELLADAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo", "estado", "motivos",
+                     "precio_base", "pronostico", "cota90", "cota90_vol", "candidato_version",
+                     "candidato_pronostico", "candidato_cota90"]
 
 
 def actualizar_datos():
@@ -109,6 +114,8 @@ def _alertas(d):
 def emitir(fecha_emision=None, actualizar=True, guardar=True):
     """Pronóstico de la semana siguiente a la última semana completa publicada."""
     fecha_emision = pd.Timestamp(fecha_emision or pd.Timestamp.today()).normalize()
+    if guardar and (malas := verificar_registro()):
+        raise RuntimeError(f"El registro de pronósticos fue alterado en las semanas {malas}; revísalo antes de emitir.")
     fechas = actualizar_datos() if actualizar else ultimas_fechas()
     d = fe.preparar(dp.tabla_semanal(recalcular=actualizar, corregida=True))
     semana = d.index.max()
@@ -163,10 +170,37 @@ def _leer_registro():
     if not ARCHIVO.exists():
         return pd.DataFrame(columns=COLUMNAS)
     # Las filas anteriores al candidato quedan sin esas columnas: no se llenan hacia atrás.
-    return pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
+    reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
+    # Una columna de texto o sí/no vacía se lee como float y luego no acepta sus valores.
+    return reg.astype({c: object for c in ("motivos", "candidato_version", "huella", "cubierto", "candidato_cubierto")})
 
 
 FECHAS = ["fecha_emision", "semana_base", "semana_objetivo", "datos_precio_hasta", "fecha_calificacion"]
+
+
+def _texto(v):
+    if pd.isna(v):
+        return ""
+    if isinstance(v, pd.Timestamp):
+        return f"{v:%Y-%m-%d}"
+    return f"{v:.2f}" if isinstance(v, (float, np.floating)) else str(v)
+
+
+def huella(fila, anterior=""):
+    """SHA-256 de lo emitido, encadenado con la huella anterior: alterar una fila rompe la cadena."""
+    texto = anterior + "|" + "|".join(_texto(fila[c]) for c in COLUMNAS_SELLADAS)
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+def verificar_registro():
+    """Filas cuya huella no coincide (lista vacía si el registro está íntegro)."""
+    reg, anterior, malas = _leer_registro(), "", []
+    for _, fila in reg.iterrows():
+        h = huella(fila, anterior)
+        if fila.huella != h:
+            malas.append(_texto(fila.semana_base))
+        anterior = h
+    return malas
 
 
 def _escribir(reg):
@@ -195,6 +229,8 @@ def registrar(r):
     if cand:
         fila.update(candidato_version=cand["version"], candidato_pronostico=round(cand["pronostico"], 2),
                     candidato_cota90=round(cand["cota90"], 2))
+    anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
+    fila["huella"] = huella({c: fila.get(c, np.nan) for c in COLUMNAS_SELLADAS}, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
     snap = REGISTRO / "snapshots" / f"{r['semana_base']:%Y-%m-%d}.json"
     snap.parent.mkdir(exist_ok=True)
@@ -221,9 +257,6 @@ def calificar(d=None):
         firmes = d.index
     pendientes = reg.real.isna() & reg.semana_objetivo.isin(firmes)
     if pendientes.any():
-        # Vacías se leen como float; guardan sí/no.
-        reg["cubierto"] = reg["cubierto"].astype(object)
-        reg["candidato_cubierto"] = reg["candidato_cubierto"].astype(object)
         real = d.precio.reindex(reg.loc[pendientes, "semana_objetivo"]).to_numpy()
         reg.loc[pendientes, "real"] = np.round(real, 2)
         reg.loc[pendientes, "error"] = np.round(reg.loc[pendientes, "pronostico"] - real, 2)

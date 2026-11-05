@@ -96,7 +96,8 @@ def _lector():
                 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
             from pydataxm.pydataxm import ReadDB
             _LECTOR = ReadDB()
-        except Exception:
+        except Exception as e:
+            print(f"pydataxm no disponible ({e}); se usa la consulta directa a la API", flush=True)
             _LECTOR = False
     return _LECTOR
 
@@ -139,11 +140,17 @@ def _archivo(nombre, inicio_mes):
     return CACHE / nombre / f"{inicio_mes:%Y-%m}.parquet"
 
 
+# XM revisa las liquidaciones después de cerrar el mes: se vuelven a pedir los últimos 90 días.
+DIAS_REFRESCO = 90
+
+
 def _en_cache(nombre, inicio_mes):
-    """Un mes cerrado hace más de 7 días ya no cambia; los recientes se vuelven a pedir."""
+    """Un mes cerrado hace más de DIAS_REFRESCO ya es firme, salvo que su archivo esté vacío."""
     fin_mes = inicio_mes + pd.offsets.MonthEnd(0)
-    cerrado = fin_mes < pd.Timestamp.today().normalize() - pd.Timedelta(days=7)
-    return cerrado and _archivo(nombre, inicio_mes).exists()
+    firme = fin_mes < pd.Timestamp.today().normalize() - pd.Timedelta(days=DIAS_REFRESCO)
+    archivo = _archivo(nombre, inicio_mes)
+    # Un mes vacío quedó de una caída de la API: nunca debe quedar congelado como dato válido.
+    return firme and archivo.exists() and len(pd.read_parquet(archivo, columns=["fecha"])) > 0
 
 
 def _guardar(nombre, inicio_mes, df):
@@ -220,7 +227,8 @@ def a_horario(df):
 def listado_recursos():
     """Atributos actuales de los recursos (tipo, fuente, despacho)."""
     archivo = CACHE / "listado_recursos.parquet"
-    if archivo.exists():
+    # Un listado viejo clasificaría mal las plantas nuevas: se renueva cada 30 días.
+    if archivo.exists() and pd.Timestamp.now() - pd.Timestamp(archivo.stat().st_mtime, unit="s") < pd.Timedelta(days=30):
         return pd.read_parquet(archivo)
     hoy = pd.Timestamp.today().date()
     js = _post("lists", {"MetricId": "ListadoRecursos", "Entity": "Sistema",

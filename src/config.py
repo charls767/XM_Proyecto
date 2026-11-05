@@ -23,6 +23,7 @@ DECISION_CANDIDATO = 26  # semanas calificadas para decidir si reemplaza al ofic
 VENTANA_MONITOREO = 26
 RAZON_MAE_MAXIMA = 1.0     # MAE modelo / MAE ingenuo por encima de esto: el modelo no aporta
 COBERTURA_MINIMA = 0.80    # la cota al 90 % cubriendo menos que esto: subcubre
+EMBALSE_BAJO = 0.45        # bajo este nivel la mejora frente al ingenuo cae a ~4 % (auditoría)
 ATRASO_MAXIMO_DIAS = 14    # semana base más vieja que esto respecto a la emisión: datos atrasados
 
 # Nombres legibles para explicaciones y tablero.

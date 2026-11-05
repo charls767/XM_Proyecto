@@ -6,12 +6,13 @@ Cada semana el proceso descarga los datos de XM, revisa su calidad, emite el pro
 
 | En una mirada (evaluación 2018–2026) | |
 |---|---|
-| Error medio del pronóstico | 54 COP/kWh, **19 % menos** que repetir el precio de la semana anterior |
+| Error medio con la semana base completa | 54 COP/kWh, **19 % menos** que repetir el precio de la semana anterior |
+| Error medio si se emite el lunes (datos hasta el viernes) | 61–63 COP/kWh, **14–16 % menos** que el ingenuo |
 | Error típico | ~15 % del precio |
 | Cota al 90 % | El precio real quedó por debajo en **90 %** de las semanas |
 | Límite conocido | En las semanas de saltos bruscos la cota cubre solo ~70 % |
 
-> Prototipo académico; no es una publicación oficial de XM. La evaluación 2018–2026 es simulada; la evidencia independiente es el [registro de pronósticos](registro/pronosticos.csv), que empezó el 5 de noviembre de 2026.
+> Prototipo académico; no es una publicación oficial de XM. La evaluación 2018–2026 es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas: en 2025–2026 la ventaja frente al ingenuo no es significativa. La evidencia independiente es el [registro de pronósticos](registro/pronosticos.csv), que empezó el 5 de noviembre de 2026. Ver la [auditoría](docs/AUDITORIA.md). **No usarlo para fijar garantías sin esa validación y sin la regla de XM.**
 
 ---
 
@@ -109,7 +110,8 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 
 ### 8. Cuándo no confiar en él
 
-- En **saltos bruscos de precio**, que no se anticipan.
+- En **saltos bruscos de precio**, que no se anticipan. En las semanas en que el precio sube se queda corto 58 COP/kWh en promedio y la cota cubre 81 %.
+- Con el **embalse bajo 45 %**, donde casi no supera al ingenuo (mejora de 3,5 %). El tablero lo avisa.
 - En **regímenes nunca vistos**, por cambios regulatorios o condiciones fuera del rango 2010–2026.
 - Si al emitir solo se conoce la semana hasta el viernes: el error sube ~16 % (ver la [bitácora, E9](docs/EXPERIMENTOS.md)).
 
@@ -117,7 +119,7 @@ La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
 ### 9. Qué se probó además
 
-Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), con mejora significativa en 2022–2024, pero se añadió tras ver los resultados y aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md).
+Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
 
 ### Modelo candidato en paralelo
 
@@ -173,6 +175,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 ```
 ├── README.md                 este documento
 ├── FICHA_TECNICA.md          el modelo en una página
+├── docs/AUDITORIA.md         auditoría metodológica: riesgos, evidencia y correcciones
 ├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
 ├── correr_semanal.bat        emisión semanal completa
 ├── requirements.txt          dependencias fijas (Python 3.11)
@@ -190,6 +193,8 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 │   ├── backtesting.py        evaluación walk-forward
 │   ├── evaluation.py         métricas y pruebas estadísticas
 │   ├── experimentos.py       comandos de cada experimento
+│   ├── auditoria.py          regenera las cifras de la auditoría
+│   ├── trazabilidad.py       registro de corridas (commit, datos, versiones)
 │   ├── tuning.py             hiperparámetros con datos anteriores a 2018
 │   └── graficas.py           frontera de las cotas (E7)
 ├── dashboard/                plantilla, generador e index.html del tablero
