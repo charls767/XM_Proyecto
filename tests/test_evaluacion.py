@@ -1,10 +1,12 @@
 """Las pruebas estadísticas deben comportarse bien con casos conocidos."""
 
+import os
 from pathlib import Path
 import sys
 
 import numpy as np
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -58,3 +60,58 @@ def test_mes_vacio_no_cuenta_como_cache(tmp_path, monkeypatch):
     assert not xm._en_cache("x", mes)
     pd.DataFrame({"fecha": [mes], "valor": [1.0]}).to_parquet(tmp_path / "x" / "2015-03.parquet")
     assert xm._en_cache("x", mes)
+
+
+def test_mes_vacio_sin_columnas_no_falla(tmp_path, monkeypatch):
+    """La API sin datos produce un archivo sin columnas, no uno con `fecha` vacía."""
+    monkeypatch.setattr(xm, "CACHE", tmp_path)
+    (tmp_path / "x").mkdir()
+    pd.DataFrame().to_parquet(tmp_path / "x" / "2015-03.parquet", index=False)
+    assert not xm._en_cache("x", pd.Timestamp("2015-03-01"))
+    assert pd.isna(xm.ultima_fecha_en_cache("x"))
+    pd.DataFrame({"fecha": [pd.Timestamp("2015-02-10")]}).to_parquet(tmp_path / "x" / "2015-02.parquet", index=False)
+    assert xm.ultima_fecha_en_cache("x") == pd.Timestamp("2015-02-10")
+
+
+@pytest.mark.parametrize("respuesta", [
+    pd.DataFrame(),
+    pd.DataFrame({"fecha": [pd.Timestamp("2026-10-01")], "codigo": ["S"], "valor": [9.0]}),
+])
+def test_respuesta_incompleta_no_borra_la_cache(tmp_path, monkeypatch, respuesta):
+    monkeypatch.setattr(xm, "CACHE", tmp_path)
+    monkeypatch.setitem(xm.SERIES, "x", ("M", "Sistema", "daily"))
+    mes = pd.Timestamp("2026-10-01")
+    guardado = pd.DataFrame({"fecha": pd.date_range(mes, periods=2), "codigo": "S", "valor": [1.0, 2.0]})
+    (tmp_path / "x").mkdir()
+    guardado.to_parquet(xm._archivo("x", mes), index=False)
+    xm._guardar("x", mes, respuesta)
+    pd.testing.assert_frame_equal(pd.read_parquet(xm._archivo("x", mes)), guardado)
+
+
+def test_respuesta_completa_actualiza_la_cache(tmp_path, monkeypatch):
+    """Una revisión de XM con los mismos días o más sí reemplaza lo guardado."""
+    monkeypatch.setattr(xm, "CACHE", tmp_path)
+    monkeypatch.setitem(xm.SERIES, "x", ("M", "Sistema", "daily"))
+    mes = pd.Timestamp("2026-10-01")
+    (tmp_path / "x").mkdir()
+    pd.DataFrame({"fecha": [mes], "codigo": ["S"], "valor": [1.0]}).to_parquet(xm._archivo("x", mes), index=False)
+    revision = pd.DataFrame({"fecha": [mes], "codigo": ["S"], "valor": [5.0]})
+    xm._guardar("x", mes, revision)
+    assert pd.read_parquet(xm._archivo("x", mes)).valor.iloc[0] == 5.0
+
+
+def test_listado_vencido_sobrevive_a_una_caida(tmp_path, monkeypatch):
+    monkeypatch.setattr(xm, "CACHE", tmp_path)
+    archivo = tmp_path / "listado_recursos.parquet"
+    pd.DataFrame({"Code": ["A"], "Type": ["TERMICA"]}).to_parquet(archivo)
+    viejo = pd.Timestamp.now().timestamp() - 40 * 86400
+    os.utime(archivo, (viejo, viejo))
+
+    def caida(*a, **k):
+        raise OSError("API caída")
+
+    monkeypatch.setattr(xm, "_post", caida)
+    assert xm.listado_recursos().Code.tolist() == ["A"]
+    archivo.unlink()
+    with pytest.raises(OSError):
+        xm.listado_recursos()

@@ -43,3 +43,11 @@ def test_precio_parcial_usa_solo_lunes_a_viernes(precio_demanda):
     alterado.loc[alterado.fecha.dt.weekday >= 5, xm.HORAS] *= 5
     pd.testing.assert_frame_equal(parcial, dp.precio_ponderado(lv(alterado), lv(d), horas=120))
     assert len(parcial) >= 12
+
+
+def test_corte_viernes_no_usa_la_demanda_del_fin_de_semana():
+    """La demanda de sábado y domingo aún no se conoce al emitir el lunes."""
+    corte = dp.tabla_semanal_corte(4)
+    completa = dp.tabla_semanal(corregida=True).reindex(corte.index)
+    assert "demanda_gwh" in dp.COLUMNAS_CON_REZAGO
+    assert (corte.demanda_gwh < completa.demanda_gwh).all()

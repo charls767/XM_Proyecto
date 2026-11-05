@@ -38,7 +38,7 @@ Cada semana se pronosticó solo con lo que se sabía antes, reentrenando cada 4 
 
 Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 2022–2024 (años de estrés) y 7–8 % en 2025–2026. En los tres episodios de estrés evaluados (El Niño 2015–16, sequía 2023–24 y octubre de 2024) erró menos que el ingenuo, pero se quedó corto. **En 2025–2026 la ventaja frente al ingenuo no es significativa (p = 0.18).**
 
-Por régimen: con el embalse bajo 45 % casi no supera al ingenuo (mejora de 3.5 %), y en las semanas en que el precio sube se queda corto 58 COP/kWh y la cota cubre 81 %. La [auditoría](docs/AUDITORIA.md) tiene el detalle.
+Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo (mejora de 3.5 %, IC 95 % de −16 % a +21 %, 44 semanas), y en las semanas en que el precio sube se queda corto 58 COP/kWh, menos que los 69 del ingenuo, y la cota cubre 81 %. La [auditoría](docs/AUDITORIA.md) tiene el detalle.
 
 ## Cuándo no confiar en él
 

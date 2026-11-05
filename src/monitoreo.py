@@ -35,7 +35,7 @@ def calidad(d, semana_base, fecha_emision, variables=None):
     out.append(_control("Embalse en rango físico", "ok" if 0 <= emb <= 1 else "falla", f"{emb:.1%}"))
     if 0 <= emb < config.EMBALSE_BAJO:
         out.append(_control("Régimen de embalse bajo", "aviso",
-                            f"Embalse en {emb:.0%}: en este régimen el modelo casi no supera al ingenuo"))
+                            f"Embalse en {emb:.0%}: en este régimen no hay evidencia de que el modelo supere al ingenuo"))
     estimados = int(fila.get("dias_demanda_estimada", 0) or 0)
     out.append(_control("Demanda completa", "aviso" if estimados else "ok",
                         f"{estimados} {'día' if estimados == 1 else 'días'} de la semana base con demanda estimada a partir de la generación"

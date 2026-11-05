@@ -14,6 +14,7 @@ from pathlib import Path
 import time
 
 import pandas as pd
+import pyarrow.parquet as pq
 import requests
 
 URL = "https://servapibi.xm.com.co/{}"
@@ -150,15 +151,34 @@ def _en_cache(nombre, inicio_mes):
     firme = fin_mes < pd.Timestamp.today().normalize() - pd.Timedelta(days=DIAS_REFRESCO)
     archivo = _archivo(nombre, inicio_mes)
     # Un mes vacío quedó de una caída de la API: nunca debe quedar congelado como dato válido.
-    return firme and archivo.exists() and len(pd.read_parquet(archivo, columns=["fecha"])) > 0
+    return firme and archivo.exists() and _filas(archivo) > 0
+
+
+def _filas(archivo):
+    """Filas de un parquet sin leerlo; sirve también para los vacíos sin columnas."""
+    return pq.read_metadata(archivo).num_rows
 
 
 def _guardar(nombre, inicio_mes, df):
+    """Guarda un mes, salvo que la respuesta traiga menos días que lo ya guardado.
+
+    Una caída parcial de la API no debe borrar datos: los días no desaparecen en una
+    revisión de XM, así que una respuesta con menos días se descarta y se conserva el archivo.
+    """
     _, entidad, base = SERIES[nombre]
     if not df.empty and base == "hourly" and entidad == "Recurso":
         df = _resumir_recurso(df, nombre)
     archivo = _archivo(nombre, inicio_mes)
     archivo.parent.mkdir(parents=True, exist_ok=True)
+    if archivo.exists() and _filas(archivo) > 0:
+        previo = pd.read_parquet(archivo, columns=["fecha"]).fecha.nunique()
+        nuevo = 0 if df.empty else df.fecha.nunique()
+        if nuevo < previo:
+            print(f"{nombre} {inicio_mes:%Y-%m}: la API devolvió {nuevo} días y hay {previo} guardados; se conserva lo guardado",
+                  flush=True)
+            return pd.read_parquet(archivo)
+    if df.empty:
+        df = pd.DataFrame({"fecha": pd.to_datetime([])})
     df.to_parquet(archivo, index=False)
     return df
 
@@ -211,9 +231,8 @@ def ultima_fecha_en_cache(nombre):
     """Última fecha guardada de una serie, sin consultar la API."""
     archivos = sorted((CACHE / nombre).glob("*.parquet"))
     for a in reversed(archivos):
-        df = pd.read_parquet(a, columns=["fecha"])
-        if not df.empty:
-            return df.fecha.max()
+        if _filas(a) > 0:
+            return pd.read_parquet(a, columns=["fecha"]).fecha.max()
     return pd.NaT
 
 
@@ -231,11 +250,18 @@ def listado_recursos():
     if archivo.exists() and pd.Timestamp.now() - pd.Timestamp(archivo.stat().st_mtime, unit="s") < pd.Timedelta(days=30):
         return pd.read_parquet(archivo)
     hoy = pd.Timestamp.today().date()
-    js = _post("lists", {"MetricId": "ListadoRecursos", "Entity": "Sistema",
-                         "StartDate": str(hoy), "EndDate": str(hoy), "Filter": []})
-    df = pd.json_normalize(js["Items"], "ListEntities", sep="_")
-    df.columns = [c.replace("Values_", "") for c in df.columns]
-    df = df.drop_duplicates("Code")
+    try:
+        js = _post("lists", {"MetricId": "ListadoRecursos", "Entity": "Sistema",
+                             "StartDate": str(hoy), "EndDate": str(hoy), "Filter": []})
+        df = pd.json_normalize(js["Items"], "ListEntities", sep="_")
+        df.columns = [c.replace("Values_", "") for c in df.columns]
+        df = df.drop_duplicates("Code")
+    except (OSError, ValueError, KeyError) as e:
+        # Un listado vencido sirve más que detener la emisión; se reintenta en la próxima corrida.
+        if not archivo.exists():
+            raise
+        print(f"No se pudo renovar el listado de recursos ({e}); se usa el guardado", flush=True)
+        return pd.read_parquet(archivo)
     archivo.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(archivo, index=False)
     return df

@@ -110,8 +110,8 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 
 ### 8. Cuándo no confiar en él
 
-- En **saltos bruscos de precio**, que no se anticipan. En las semanas en que el precio sube se queda corto 58 COP/kWh en promedio y la cota cubre 81 %.
-- Con el **embalse bajo 45 %**, donde casi no supera al ingenuo (mejora de 3,5 %). El tablero lo avisa.
+- En **saltos bruscos de precio**, que no se anticipan. En las semanas en que el precio sube se queda corto 58 COP/kWh en promedio (el ingenuo, 69) y la cota cubre 81 %.
+- Con el **embalse bajo 45 %**, donde no hay evidencia de que supere al ingenuo (mejora de 3,5 %, con intervalo de −16 % a +21 % en 44 semanas). El tablero lo avisa.
 - En **regímenes nunca vistos**, por cambios regulatorios o condiciones fuera del rango 2010–2026.
 - Si al emitir solo se conoce la semana hasta el viernes: el error sube ~16 % (ver la [bitácora, E9](docs/EXPERIMENTOS.md)).
 

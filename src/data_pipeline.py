@@ -331,7 +331,7 @@ def tabla_semanal_tx1(recalcular=False):
 
 # Columnas de la semana s que dependen de datos con rezago de publicación de unos 3 días
 # (precio, demanda, ofertas, generación). Hidrología y ONI se publican a tiempo.
-COLUMNAS_CON_REZAGO = ["precio", "precio_max_h", "precio_ultimo_dia", "precio_std_diaria",
+COLUMNAS_CON_REZAGO = ["precio", "precio_max_h", "precio_ultimo_dia", "precio_std_diaria", "demanda_gwh",
                        "oferta_termica", "oferta_no_termica", "fut", "participacion_termica"]
 
 

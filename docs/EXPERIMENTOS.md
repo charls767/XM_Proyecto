@@ -391,8 +391,10 @@ La [auditoría](AUDITORIA.md) encontró que, con la semana base cortada antes de
 | Ridge 14 | 105.0 | 62.9 |
 | Ridge E1 + programado | 100.7 | 61.4 |
 | Ridge 14 + programado | 101.2 | 61.4 |
-| Dos etapas, apilado | 99.3 | 61.0 |
+| Dos etapas, apilado | 99.6 | 61.1 |
 | LEAR directo | 107.4 | 63.3 |
+
+Una revisión posterior encontró que el corte tampoco cubría la demanda, que usan los modelos en dos etapas. Corregirlo cambia solo esos modelos: el apilado pasa de 60.97 a 61.06. Ningún modelo Ridge ni LEAR usa esa variable.
 
 Ridge 14 + programado sigue mejorando a Ridge 14 de forma significativa (2022–24: −3.9, p = 0.016; 2018–26: −1.5, p = 0.033), pero en 2025–2026 no supera con significancia al ingenuo (p = 0.68).
 

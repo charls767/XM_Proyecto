@@ -13,7 +13,7 @@
 
 ## Veredicto
 
-**Prototipo sólido y honesto en su mecánica, pero con menos evidencia de la que sus cifras aparentan.** No se encontró fuga de información grave. La cota cumple lo que promete. Pero no hay un periodo de prueba limpio, la mejora de 2025–2026 frente al ingenuo no es significativa, y el modelo aporta poco justo cuando el embalse está bajo. **No debe usarse para fijar garantías sin validación prospectiva y sin la regla de XM.**
+**Prototipo sólido y honesto en su mecánica, pero con menos evidencia de la que sus cifras aparentan.** No se encontró fuga de información grave. La cota cumple lo que promete. Pero no hay un periodo de prueba limpio, la mejora de 2025–2026 frente al ingenuo no es significativa, y no hay evidencia de que el modelo aporte cuando el embalse está bajo. **No debe usarse para fijar garantías sin validación prospectiva y sin la regla de XM.**
 
 ---
 
@@ -61,6 +61,11 @@ El periodo más reciente es el que mejor predice el futuro, y en él no se puede
 
 El 47 % del error absoluto está en el 10 % peor de las semanas. Para una garantía esto es lo central: el modelo protege menos cuando el precio sube, que es cuando quedarse corto duele.
 
+Dos matices al leer esta tabla:
+
+- **Embalse bajo:** son 44 semanas, y el intervalo de la mejora va de −16 % a +21 %. Lo que se puede afirmar es que no hay evidencia de que el modelo supere al ingenuo, no que no lo supere.
+- **Dirección del precio:** el grupo se define con el resultado, así que parte del efecto es mecánica: en las semanas de subida cualquier pronóstico se queda corto. El ingenuo tiene −69 COP/kWh en esas semanas, frente a −58 del modelo; en las de bajada, +64 frente a +31.
+
 **5. Sesgo sistemático a quedarse corto: −12.5 COP/kWh (p = 0.002).**
 Tiene una causa matemática: Ridge ajusta el logaritmo, y exp(ŷ) estima la mediana, no la media. El factor de Duan, calculado solo con errores pasados, lleva el sesgo a +1.1, a cambio de subir el MAE de 54.05 a 54.45. **No se aplicó:** cambia el modelo oficial y su conveniencia depende de la regla de la garantía.
 
@@ -78,6 +83,10 @@ El backtest usa los valores de hoy, ya revisados. Se midió el efecto solo para 
 | 11 | **Sin integración continua ni trazabilidad de corridas** | Por diseño | Corregido |
 | 12 | **Alertas con muestras mínimas:** "4 de 4 inicios" tiene IC 95 % de 51 % a 100 %, y los umbrales se fijaron viendo toda la historia | Wilson | Documentado |
 | 13 | **LEAR con AIC sobre objetivos solapados:** el AIC supone errores independientes, lo que puede dejar variables de más | Sin medir | Pendiente |
+| 14 | **Una respuesta vacía o parcial de la API borraba meses ya guardados,** con más exposición desde el refresco de 90 días | Simulado: un mes pasó de 1 fila a 0 | Corregido: nunca se reemplaza por menos días |
+| 15 | **Un mes vacío real hacía fallar la caché:** la API vacía genera un archivo sin columnas, y la corrección 9 solo probaba uno con la columna `fecha` | Simulado: `ArrowInvalid` | Corregido, con prueba del caso real |
+| 16 | **Con el listado de recursos vencido, una caída de la API detenía la emisión** | Simulado: `OSError` | Corregido: usa el guardado y avisa |
+| 17 | **Fuga restante en el corte al viernes:** `demanda_gwh` usaba la semana completa, y la usan los modelos en dos etapas | Apilado: de 60.97 a 61.06; Ridge y LEAR no cambian | Corregido |
 
 ### Bajo
 
@@ -126,9 +135,9 @@ Las correcciones están integradas en el proyecto, con pruebas:
 | `src/backtesting.py` | `embargo` en el walk-forward | Con corte antes del domingo, la fila anterior no tiene objetivo conocido |
 | `src/calibration.py` | `rezago` en `conformal` | Lo mismo para los errores que calibran la cota |
 | `src/evaluation.py` | `dm_hac`, `reality_check`, `pruebas_cobertura`, `subgrupos` | Significancia robusta, corrección por búsqueda y régimen |
-| `src/xm_client.py` | Refresco de 90 días; mes vacío no vale como caché; listado renovado | Revisiones de XM y caídas de la API |
+| `src/xm_client.py` | Refresco de 90 días; mes vacío no vale como caché; una respuesta con menos días no reemplaza lo guardado; listado renovado, con el anterior como respaldo | Revisiones de XM y caídas de la API |
 | `src/semanal.py` | Huella encadenada; se niega a emitir si el registro fue alterado | Registro verificable |
-| `src/monitoreo.py` | Aviso de embalse bajo | Ahí el modelo casi no aporta |
+| `src/monitoreo.py` | Aviso de embalse bajo | Ahí no hay evidencia de que el modelo aporte |
 | `src/trazabilidad.py` | `results/corridas.jsonl`: commit, huella de datos, versiones | Saber con qué salió cada resultado |
 | `src/auditoria.py` | Reproduce este informe | Auditoría regenerable |
 | `.github/workflows/pruebas.yml` | Pruebas en cada push | Evitar regresiones |
