@@ -132,6 +132,23 @@ def alertas_datos(r):
     return out
 
 
+def candidato_simulado():
+    """Oficial frente al candidato en la evaluación simulada 2018–2026 (E11, semana completa)."""
+    w = pd.read_parquet(RES / "E11_corte6_ancho.parquet")
+    columnas = {"oficial": "Ridge14", "candidato": "Ens[Ridge14+LEAR_directo]"}
+    for c in columnas.values():
+        w["cota " + c] = cal.conformal(w.real, w[c], nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL)
+    w = w[w.index >= DESDE]
+    out = {}
+    for nombre, c in columnas.items():
+        e = w.real - w["cota " + c]
+        out[nombre] = {"mae": _f((w[c] - w.real).abs().mean(), 1),
+                       "sesgo": _f((w[c] - w.real).mean(), 1),
+                       "cobertura": _f((w.real <= w["cota " + c]).mean() * 100, 1),
+                       "pinball": _f(np.maximum(0.9 * e, -0.1 * e).mean(), 2)}
+    return out
+
+
 def nota_registro(r):
     """Si la emisión registrada de esta semana difiere de la de hoy, se muestra sin reescribir el registro
     (p. ej. porque XM completó la demanda o se corrigió un dato después de emitir)."""
@@ -150,6 +167,9 @@ def main():
         "generado": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
         "actual": {**actual(r), "nota_registro": nota_registro(r)}, "historial": historial(r, d), "registro": registro(),
         "hidro": hidro(d), "estres": estres(), "modelos": modelos_tabla(), "alertas": alertas_datos(r),
+        "candidato": {"actual": {k: (_f(v, 1) if k != "version" else v) for k, v in r["candidato"].items()} if r["candidato"] else None,
+                      "simulado": candidato_simulado(), "revision": config.REVISION_CANDIDATO,
+                      "decision": config.DECISION_CANDIDATO},
         "metas": {"mejora_mae": 10, "cobertura": config.NIVEL_COTA * 100, "cobertura_volatil": 85,
                   "ventana": config.VENTANA_MONITOREO},
         "nombres": {**config.NOMBRES, **{k: v for k, v in alertas_nombres().items()}},

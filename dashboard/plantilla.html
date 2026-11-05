@@ -237,7 +237,20 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
       <p class="muted small">Cada emisión se guarda sin poder modificarse y se califica cuando XM publica la semana objetivo. Es la única evidencia independiente del modelo.</p>
     </div></div>
     <p id="reg-resumen" class="small"></p>
-    <div class="table-wrap"><table id="tb-reg"><thead><tr><th>Emitido</th><th>Semana objetivo</th><th>Estado</th><th>Pronóstico</th><th>Cota 90 %</th><th>Real</th><th>Error</th><th>¿Cubrió?</th></tr></thead><tbody></tbody></table></div>
+    <div class="table-wrap"><table id="tb-reg"><thead><tr><th>Emitido</th><th>Semana objetivo</th><th>Estado</th><th>Pronóstico</th><th>Cota 90 %</th><th>Real</th><th>Error</th><th>¿Cubrió?</th><th>Candidato</th><th>Error<br>candidato</th><th>¿Cubrió?<br>candidato</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-cand">
+    <div class="panel-head"><div>
+      <h2 id="t-cand">Modelo candidato en paralelo</h2>
+      <p class="muted small">Ensamble de Ridge 14 con LEAR diario. Se emite y califica cada semana junto al oficial, pero no lo reemplaza: en la evaluación simulada erró menos, y falta comprobarlo con semanas reales.</p>
+    </div></div>
+    <div class="metricas" id="cand-tarjetas"></div>
+    <div>
+      <div class="meter-lab small"><span id="cand-avance"></span><span id="cand-meta"></span></div>
+      <div class="meter"><span class="fill" id="cand-barra" style="width:0"></span><span class="thr" id="cand-marca"></span></div>
+    </div>
+    <p class="small muted" id="cand-regla"></p>
   </section>
 
   <section class="panel" aria-labelledby="t-ctl">
@@ -445,6 +458,40 @@ function tablas() {
     `<tr class="${i === 1 ? "ref" : ""}"><td>${m.modelo}</td><td>${fmt(m.mae_desarrollo)}</td><td>${fmt(m.mae_seleccion)}</td><td>${fmt(m.mae_final)}</td><td>${i ? pct(m.mej_desarrollo, 1) : "–"}</td><td>${i ? pct(m.mej_seleccion, 1) : "–"}</td><td>${i ? pct(m.mej_final, 1) : "–"}</td></tr>`).join("");
 }
 
+const esSi = v => v === true || v === "True";
+function cubreCand(r) {
+  if (r.candidato_pronostico == null) return "–";
+  if (r.candidato_error == null) return "pendiente";
+  return esSi(r.candidato_cubierto) ? chip("good", "Sí") : chip("crit", "No");
+}
+
+function candidatoUI() {
+  const C = D.candidato, sim = C.simulado, act = C.actual;
+  const pares = D.registro.filter(r => r.candidato_error != null && r.error != null);
+  const n = pares.length;
+  const maeO = media(pares.map(r => Math.abs(r.error))), maeC = media(pares.map(r => Math.abs(r.candidato_error)));
+  const gana = pares.filter(r => Math.abs(r.candidato_error) < Math.abs(r.error)).length;
+  const cobO = media(pares.map(r => Number(esSi(r.cubierto)))) * 100, cobC = media(pares.map(r => Number(esSi(r.candidato_cubierto)))) * 100;
+  const dif = act ? (act.pronostico / A.pronostico - 1) * 100 : null;
+  const tarjetas = [
+    { lab: "Esta semana", val: act ? `${fmt(act.pronostico)}<small>COP/kWh</small>` : "–", niv: "neutral", txt: "No es oficial",
+      cmp: act ? `Oficial ${fmt(A.pronostico)} · diferencia ${signo(dif)} %` : "Sin candidato esta semana",
+      exp: act ? `Su cota al 90 % es ${fmt(act.cota90)} COP/kWh, frente a ${fmt(A.cota90)} del oficial.` : "El candidato no se calcula en estado de respaldo." },
+    { lab: "Evaluación simulada 2018–2026", val: `${fmt(sim.candidato.mae)}<small>COP/kWh</small>`, niv: sim.candidato.mae < sim.oficial.mae ? "good" : "warn", txt: sim.candidato.mae < sim.oficial.mae ? "Erró menos" : "No erró menos",
+      cmp: `Oficial ${fmt(sim.oficial.mae)} · pinball ${fmt(sim.candidato.pinball, 2)} vs ${fmt(sim.oficial.pinball, 2)}`,
+      exp: `Cobertura de su cota: ${pct(sim.candidato.cobertura, 1)}, frente a ${pct(sim.oficial.cobertura, 1)} del oficial. Se eligió mirando estos datos, por eso no basta.` },
+    { lab: "Semanas reales comparadas", val: n ? `${fmt(maeC)}<small>COP/kWh</small>` : `${n}<small>semanas</small>`, niv: n >= C.decision ? (maeC < maeO ? "good" : "crit") : "neutral", txt: n >= C.decision ? (maeC < maeO ? "Erró menos" : "No erró menos") : "En curso",
+      cmp: n ? `Oficial ${fmt(maeO)} · erró menos en ${gana} de ${n}` : "Aún sin semanas calificadas",
+      exp: n ? `Cobertura real de la cota: ${pct(cobC)} frente a ${pct(cobO)} del oficial.` : "La comparación empieza con la próxima emisión; las anteriores no se llenan hacia atrás." },
+  ];
+  $("cand-tarjetas").innerHTML = tarjetas.map(t => `<article class="metrica"><div class="top"><span class="lab">${t.lab}</span>${chip(t.niv, t.txt)}</div><div class="val">${t.val}</div><div class="cmp">${t.cmp}</div><p class="exp">${t.exp}</p></article>`).join("");
+  $("cand-avance").textContent = `${n} de ${C.decision} semanas calificadas`;
+  $("cand-meta").textContent = `Primera lectura a las ${C.revision} · decisión a las ${C.decision}`;
+  $("cand-barra").style.width = Math.min(n / C.decision, 1) * 100 + "%";
+  $("cand-marca").style.left = C.revision / C.decision * 100 + "%";
+  $("cand-regla").textContent = `Regla fijada de antemano: a las ${C.decision} semanas calificadas, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. Antes de eso los resultados son solo informativos.`;
+}
+
 function registroUI() {
   const R = D.registro;
   const cal = R.filter(r => r.real != null);
@@ -454,7 +501,7 @@ function registroUI() {
   const niv = { normal: "good", vigilancia: "warn", respaldo: "crit" };
   document.querySelector("#tb-reg tbody").innerHTML = R.slice().reverse().map(r => {
     const cub = r.real == null ? "pendiente" : (r.cubierto === true || r.cubierto === "True") ? chip("good", "Sí") : chip("crit", "No");
-    return `<tr><td>${fecha(r.fecha_emision)}</td><td>${fecha(r.semana_objetivo)}</td><td>${chip(niv[r.estado] || "neutral", r.estado)}</td><td>${fmt(r.pronostico)}</td><td>${fmt(r.cota90)}</td><td>${fmt(r.real)}</td><td>${r.error == null ? "–" : signo(r.error)}</td><td>${cub}</td></tr>`;
+    return `<tr><td>${fecha(r.fecha_emision)}</td><td>${fecha(r.semana_objetivo)}</td><td>${chip(niv[r.estado] || "neutral", r.estado)}</td><td>${fmt(r.pronostico)}</td><td>${fmt(r.cota90)}</td><td>${fmt(r.real)}</td><td>${r.error == null ? "–" : signo(r.error)}</td><td>${cub}</td><td>${fmt(r.candidato_pronostico)}</td><td>${r.candidato_error == null ? "–" : signo(r.candidato_error)}</td><td>${cubreCand(r)}</td></tr>`;
   }).join("");
 }
 
@@ -584,7 +631,7 @@ try {
   if (g) { periodo = g; document.querySelectorAll("[data-per]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.per === g))); }
 } catch (e) {}
 
-cabecera(); porque(); metricas(); tablas(); registroUI(); controlesUI(); alertasUI(); dibujar();
+cabecera(); porque(); metricas(); tablas(); registroUI(); candidatoUI(); controlesUI(); alertasUI(); dibujar();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
 new MutationObserver(dibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 </script>

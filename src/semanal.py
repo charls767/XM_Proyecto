@@ -29,6 +29,7 @@ import calibration as cal  # noqa: E402
 import config  # noqa: E402
 import data_pipeline as dp  # noqa: E402
 import feature_engineering as fe  # noqa: E402
+import lear  # noqa: E402
 import models  # noqa: E402
 import monitoreo  # noqa: E402
 import xm_client as xm  # noqa: E402
@@ -41,7 +42,8 @@ SERIES_MODELO = ["precio", "demanda", "aportes", "aportes_media", "volumen_pct",
 COLUMNAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo", "estado", "motivos",
             "datos_precio_hasta", "precio_base", "pronostico", "cambio_pct", "cota90", "cota90_vol",
             "ingenuo", "alerta_precio_alto", "alerta_salto", "alerta_estres_hidrico",
-            "real", "error", "cubierto", "fecha_calificacion"]
+            "real", "error", "cubierto", "fecha_calificacion",
+            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto"]
 
 
 def actualizar_datos():
@@ -74,6 +76,22 @@ def _cota(historial, semana, base, prediccion, escala=None):
     h = pd.concat([historial[historial.index < semana], fila])
     return float(cal.conformal(h.real, h.prediccion, nivel=config.NIVEL_COTA,
                                ventana=config.VENTANA_CONFORMAL, escala=escala).iloc[-1])
+
+
+def candidato(d, hist, semana, base, pronostico, recalcular=False):
+    """Ensamble Ridge 14 + LEAR directo (E11), con su propia cota conformal.
+
+    Se calcula en paralelo y no afecta al pronóstico oficial. El promedio es en escala
+    de precio y sus errores pasados salen de un walk-forward con los mismos bloques.
+    """
+    diaria = dp.tabla_diaria(recalcular=recalcular)
+    modelo = lear.LEAR("LEAR", diaria, 6, "directo")
+    r = bt.backtest(d, [models.Modelo("Ingenuo"), modelo], inicio=config.INICIO_BACKTEST, cada=4,
+                    requeridas=config.VARIABLES + ["y"])
+    previo = bt.ancho(r).LEAR.reindex(hist.index)
+    h = hist.assign(prediccion=(hist.prediccion + previo) / 2).dropna(subset=["prediccion"])
+    pred = (pronostico + float(modelo.ajustar_predecir(None, pd.DataFrame(index=[semana]))[0])) / 2
+    return {"version": config.VERSION_CANDIDATO, "pronostico": pred, "cota90": _cota(h, semana, base, pred)}
 
 
 def _alertas(d):
@@ -118,6 +136,14 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     cota_vol = _cota(hist_cota, semana, base, pronostico, escala=d.volatilidad_4s)
     avisos = _alertas(d)
 
+    # Un fallo del candidato nunca debe impedir la emisión oficial.
+    cand = None
+    if estado != "respaldo":
+        try:
+            cand = candidato(d, hist, semana, base, pronostico, recalcular=actualizar)
+        except Exception as e:
+            print(f"No se pudo calcular el candidato: {e}", flush=True)
+
     resultado = {
         "fecha_emision": fecha_emision, "semana_base": semana, "semana_objetivo": semana + pd.Timedelta(weeks=1),
         "version_modelo": config.VERSION_MODELO, "estado": estado, "motivos": motivos,
@@ -125,7 +151,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "cambio_pct": (pronostico / base - 1) * 100, "cota90": cota, "cota90_vol": cota_vol, "ingenuo": base,
         "intercepto": intercepto, "aportes": aportes, "controles": controles, "fuera_de_rango": rango,
         "desempeno_reciente": desempeno, "alertas": avisos, "historial": hist,
-        "variables": fila[config.VARIABLES].astype(float).to_dict(),
+        "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand,
     }
     if guardar:
         registrar(resultado)
@@ -136,7 +162,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
 def _leer_registro():
     if not ARCHIVO.exists():
         return pd.DataFrame(columns=COLUMNAS)
-    return pd.read_csv(ARCHIVO, parse_dates=FECHAS)
+    # Las filas anteriores al candidato quedan sin esas columnas: no se llenan hacia atrás.
+    return pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
 
 
 FECHAS = ["fecha_emision", "semana_base", "semana_objetivo", "datos_precio_hasta", "fecha_calificacion"]
@@ -164,6 +191,10 @@ def registrar(r):
         "cota90": round(r["cota90"], 2), "cota90_vol": round(r["cota90_vol"], 2), "ingenuo": round(r["ingenuo"], 2),
         **{f"alerta_{k}": round(v["puntaje"], 4) for k, v in r["alertas"].items()},
     }
+    cand = r.get("candidato")
+    if cand:
+        fila.update(candidato_version=cand["version"], candidato_pronostico=round(cand["pronostico"], 2),
+                    candidato_cota90=round(cand["cota90"], 2))
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
     snap = REGISTRO / "snapshots" / f"{r['semana_base']:%Y-%m-%d}.json"
     snap.parent.mkdir(exist_ok=True)
@@ -171,7 +202,7 @@ def registrar(r):
         "fecha_emision": f"{r['fecha_emision']:%Y-%m-%d}", "version_modelo": r["version_modelo"],
         "datos_hasta": {k: f"{v:%Y-%m-%d}" for k, v in r["datos_hasta"].items()},
         "variables": r["variables"], "estado": r["estado"], "motivos": r["motivos"],
-        "controles": r["controles"].to_dict("records"),
+        "controles": r["controles"].to_dict("records"), "candidato": cand,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Registrado: semana base {r['semana_base']:%Y-%m-%d}, pronóstico {r['pronostico']:,.1f} COP/kWh")
     return True
@@ -190,11 +221,17 @@ def calificar(d=None):
         firmes = d.index
     pendientes = reg.real.isna() & reg.semana_objetivo.isin(firmes)
     if pendientes.any():
-        reg["cubierto"] = reg["cubierto"].astype(object)  # vacía se lee como float; guarda sí/no
+        # Vacías se leen como float; guardan sí/no.
+        reg["cubierto"] = reg["cubierto"].astype(object)
+        reg["candidato_cubierto"] = reg["candidato_cubierto"].astype(object)
         real = d.precio.reindex(reg.loc[pendientes, "semana_objetivo"]).to_numpy()
         reg.loc[pendientes, "real"] = np.round(real, 2)
         reg.loc[pendientes, "error"] = np.round(reg.loc[pendientes, "pronostico"] - real, 2)
         reg.loc[pendientes, "cubierto"] = real <= reg.loc[pendientes, "cota90"]
+        reales = pd.Series(real, index=reg.index[pendientes])
+        con_cand = reales.index[reg.loc[reales.index, "candidato_pronostico"].notna()]
+        reg.loc[con_cand, "candidato_error"] = (reg.loc[con_cand, "candidato_pronostico"] - reales[con_cand]).round(2)
+        reg.loc[con_cand, "candidato_cubierto"] = reales[con_cand] <= reg.loc[con_cand, "candidato_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones")
@@ -206,3 +243,5 @@ if __name__ == "__main__":
     print(f"Estado: {r['estado']}" + ("".join(f"\n  - {m}" for m in r["motivos"])))
     print(f"Semana {r['semana_objetivo']:%Y-%m-%d}: {r['pronostico']:,.1f} COP/kWh "
           f"({r['cambio_pct']:+.1f} %), cota 90 % {r['cota90']:,.1f}")
+    if r["candidato"]:
+        print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, cota 90 % {r['candidato']['cota90']:,.1f}")

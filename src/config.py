@@ -14,6 +14,11 @@ VENTANA_CONFORMAL = 104  # semanas de errores fuera de muestra para el margen
 INICIO_BACKTEST = "2014-01-01"
 VERSION_MODELO = "ridge14-conformal104-v1"
 
+# Modelo candidato: se emite y califica en paralelo, sin cambiar el pronóstico oficial.
+VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
+REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura
+DECISION_CANDIDATO = 26  # semanas calificadas para decidir si reemplaza al oficial
+
 # Umbrales del monitoreo (semanas recientes ya calificadas).
 VENTANA_MONITOREO = 26
 RAZON_MAE_MAXIMA = 1.0     # MAE modelo / MAE ingenuo por encima de esto: el modelo no aporta

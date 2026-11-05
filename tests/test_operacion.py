@@ -87,6 +87,34 @@ def test_registro_no_sobrescribe_y_califica(tmp_path, monkeypatch, d):
     assert bool(reg.cubierto.iloc[0]) == (real <= 150.0)
 
 
+def test_candidato_se_registra_y_califica_aparte(tmp_path, monkeypatch, d):
+    monkeypatch.setattr(semanal, "REGISTRO", tmp_path)
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    semana = d.index[-3]
+    previa = d.index[-4]
+    # Fila anterior sin candidato, como la primera emisión real.
+    semanal.registrar(_emision(previa, 90.0))
+    conc = _emision(semana, 95.0)
+    conc["candidato"] = {"version": "prueba", "pronostico": 80.0, "cota90": 1.0}
+    semanal.registrar(conc)
+    reg = semanal.calificar(d)
+    assert reg.pronostico.tolist() == [90.0, 95.0]
+    assert pd.isna(reg.candidato_error.iloc[0]) and pd.isna(reg.candidato_cubierto.iloc[0])
+    real = d.precio[semana + pd.Timedelta(weeks=1)]
+    assert reg.candidato_error.iloc[1] == pytest.approx(80.0 - real, abs=0.01)
+    assert bool(reg.candidato_cubierto.iloc[1]) is False
+
+
+def test_registro_antiguo_sin_columnas_de_candidato(tmp_path, monkeypatch):
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    viejas = [c for c in semanal.COLUMNAS if not c.startswith("candidato")]
+    fila = {c: None for c in viejas}
+    fila.update(fecha_emision="2026-11-05", semana_base="2026-10-26", semana_objetivo="2026-11-02", pronostico=400.6)
+    pd.DataFrame([fila])[viejas].to_csv(semanal.ARCHIVO, index=False)
+    reg = semanal._leer_registro()
+    assert list(reg.columns) == semanal.COLUMNAS and reg.candidato_pronostico.isna().all()
+
+
 def test_completar_demanda_estima_solo_dias_incompletos():
     import data_pipeline as dp
     import xm_client as xm

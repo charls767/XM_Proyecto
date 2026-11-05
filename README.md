@@ -119,6 +119,12 @@ La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
 Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), con mejora significativa en 2022–2024, pero se añadió tras ver los resultados y aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md).
 
+### Modelo candidato en paralelo
+
+Desde la próxima emisión, `src/semanal.py` también calcula y registra el ensamble **Ridge 14 + LEAR directo** (`candidato_*` en `registro/pronosticos.csv`), con su propia cota. No cambia el pronóstico oficial, y una falla suya no detiene la emisión. Las filas anteriores no se llenan hacia atrás, para que la comparación sea independiente.
+
+**Regla fijada de antemano:** a las 12 semanas calificadas se hace una primera lectura, solo informativa. A las 26, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. El tablero muestra el avance.
+
 ---
 
 ## Cómo usarlo

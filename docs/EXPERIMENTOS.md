@@ -377,4 +377,4 @@ Conclusiones:
 - **El ensamble Ridge 14 + LEAR directo es el mejor candidato.** Con la semana completa mejora con significancia en selección y en el total, no empeora en ningún periodo y mejora la cota.
 - **Cautela:** este ensamble se añadió después de ver los primeros resultados de E11, y es el mejor entre más de diez variantes. Además, el periodo de selección ya se usó muchas veces en este proyecto.
 
-**Decisión de E11:** Ridge 14 sigue en operación mientras no se valide el candidato con pronósticos reales. Si XM confirma emisión con datos hasta el viernes, el modelo sería Ridge 14 + despacho programado.
+**Decisión de E11:** Ridge 14 sigue en operación y el ensamble se registra en paralelo desde la siguiente emisión. Con 26 semanas calificadas, lo reemplaza si su error medio es menor y la cobertura de su cota no baja de 85 %. Si XM confirma emisión con datos hasta el viernes, el modelo sería Ridge 14 + despacho programado.

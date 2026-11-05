@@ -50,7 +50,7 @@ Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 202
 - No se probaron fuentes externas a XM y NOAA, como pronósticos de aportes o mantenimientos programados.
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
-- Un ensamble de Ridge y LEAR diario erró ~3 % menos, con significancia en 2022–2024 si se conoce la semana completa. Se añadió tras ver resultados y falta validarlo con pronósticos reales (E11).
+- Un ensamble de Ridge y LEAR diario erró ~3 % menos, con significancia en 2022–2024 si se conoce la semana completa. Se añadió tras ver resultados, así que se registra en paralelo cada semana. Con 26 semanas calificadas, reemplaza al oficial si erra menos y la cobertura de su cota no baja de 85 % (E11).
 
 ## Pendiente con XM
 
