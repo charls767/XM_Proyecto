@@ -1,0 +1,10 @@
+{
+  "subsample": 0.6,
+  "reg_lambda": 20.0,
+  "objective": "regression",
+  "num_leaves": 4,
+  "n_estimators": 100,
+  "min_child_samples": 10,
+  "learning_rate": 0.1,
+  "colsample_bytree": 0.5
+}

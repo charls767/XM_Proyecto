@@ -1,0 +1,11 @@
+                            MAE_desarrollo  MAE_seleccion  MAE_final  mejora_%_desarrollo  mejora_%_seleccion  mejora_%_final  dif_MAE_vs_E1_sel  IC95_inf_vs_E1_sel  IC95_sup_vs_E1_sel  DM_vs_E1_sel  p_DM_vs_E1_sel
+Ingenuo                             29.116        120.590     67.515                0.000               0.000           0.000                NaN                 NaN                 NaN           NaN             NaN
+LightGBM[E1+e8,defecto]             22.468         93.153     65.947               22.831              22.752           2.323             -0.370              -7.199               6.009        -0.083           0.934
+Ridge[E1+disponibilidad]            22.782         93.476     61.466               21.755              22.485           8.960             -0.047              -0.477               0.463        -0.113           0.910
+Ridge[E1+e8]                        22.391         92.514     62.257               23.095              23.282           7.787             -1.008              -2.237               0.478        -1.000           0.317
+Ridge[E1+escasez]                   22.553         93.413     61.597               22.541              22.537           8.765             -0.110              -0.404               0.132        -0.784           0.433
+Ridge[E1+indisponibilidad]          22.429         92.692     62.030               22.967              23.135           8.125             -0.831              -2.059               0.403        -1.278           0.201
+Ridge[E1-enos-termica+e8]           21.683         93.633     61.400               25.527              22.354           9.056              0.111              -1.952               2.310         0.058           0.954
+Ridge[E1-enos-termica]              21.868         94.052     61.737               24.892              22.007           8.558              0.529              -0.818               1.833         0.422           0.673
+Ridge[E1]                           22.656         93.523     61.675               22.185              22.446           8.650                NaN                 NaN                 NaN           NaN             NaN
+Ridge[precio+e8]                    21.607        101.492     59.113               25.790              15.838          12.444              7.969               2.902              14.381         3.023           0.003

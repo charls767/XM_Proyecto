@@ -1,0 +1,7 @@
+evento,semana_base,semana_objetivo,modelo,probabilidad,umbral,alerta,principales
+precio_alto,2026-10-19,2026-10-26,Logistica,0.118,0.486,False,ultimo_dia_rel -0.63; oni_cambio_3m +0.62; brecha_oferta_nt -0.61; estado_precio_alto -0.46; log_precio +0.45
+precio_alto,2026-10-19,2026-10-26,LightGBM,0.033,0.252,False,log_oferta_no_termica +1.18; brecha_oferta_nt -0.93; aportes_pct_media +0.87; estado_precio_alto -0.71; ultimo_dia_rel -0.69
+salto,2026-10-19,2026-10-26,Logistica,0.328,0.451,False,ultimo_dia_rel -0.37; log_oferta_termica +0.20; brecha_oferta_nt -0.19; participacion_termica -0.15; fut -0.14
+salto,2026-10-19,2026-10-26,LightGBM,0.06,0.039,True,brecha_oferta_nt -0.86; aportes_pct_media +0.84; ultimo_dia_rel -0.71; max_h_rel +0.55; log_oferta_termica +0.48
+estres_hidrico,2026-10-19,2026-11-16,Logistica,0.451,0.505,False,oni +0.18; sen_semana -0.16; participacion_termica +0.13; fut +0.12; embalse_cierre -0.12
+estres_hidrico,2026-10-19,2026-11-16,LightGBM,0.0,0.005,False,sen_semana -1.39; embalse_cierre -1.25; participacion_termica +0.62; embalse_anomalia -0.46; cos_semana +0.45

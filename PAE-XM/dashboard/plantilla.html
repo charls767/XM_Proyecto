@@ -1,0 +1,494 @@
+<title>Tablero PAE-XM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: tablero de operación; resumen arriba (pronóstico y alertas), detalle abajo en rejilla de dos columnas que se apila en móvil. */
+:root {
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --ink: #0f1a22;
+  --ink-2: #47566a;
+  --ink-3: #6f7d8b;
+  --line: #dbe2e8;
+  --accent: #175a86;
+  --s-real: #0f1a22;
+  --s-pred: #2a78d6;
+  --s-band: rgba(42, 120, 214, 0.13);
+  --s-ing: #8d98a3;
+  --s-aqua: #1baf7a;
+  --pos: #d03b3b;
+  --neg: #2a78d6;
+  --good: #0ca30c;
+  --warn: #fab219;
+  --crit: #d03b3b;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e151a; --surface: #152028; --ink: #e6edf2; --ink-2: #a7b4bf; --ink-3: #7d8b97;
+    --line: #26333d; --accent: #74b4e2; --s-real: #e6edf2; --s-pred: #3987e5;
+    --s-band: rgba(57, 135, 229, 0.20); --s-ing: #6d7984; --s-aqua: #199e70;
+    --pos: #e66767; --neg: #3987e5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e151a; --surface: #152028; --ink: #e6edf2; --ink-2: #a7b4bf; --ink-3: #7d8b97;
+  --line: #26333d; --accent: #74b4e2; --s-real: #e6edf2; --s-pred: #3987e5;
+  --s-band: rgba(57, 135, 229, 0.20); --s-ing: #6d7984; --s-aqua: #199e70;
+  --pos: #e66767; --neg: #3987e5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.7rem, 3.2vw, 2.3rem); font-weight: 700; letter-spacing: 0.01em; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1.02rem; font-weight: 600; }
+.eyebrow { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; color: var(--accent); font-weight: 600; }
+.muted { color: var(--ink-2); }
+.small { font-size: 0.85rem; }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 12px; }
+header.top .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--ink-2); }
+header.top .meta b { color: var(--ink); font-weight: 600; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 980px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 440px) { .kpis { grid-template-columns: minmax(0, 1fr); } }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.kpi .lab { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.74rem; color: var(--ink-2); font-weight: 600; }
+.kpi .val { font-family: var(--font-data); font-size: 1.75rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi .val small { font-size: 0.8rem; color: var(--ink-2); font-weight: 400; margin-left: 4px; }
+.kpi .sub { font-size: 0.84rem; color: var(--ink-2); }
+.kpi.principal { border-color: var(--s-pred); box-shadow: inset 4px 0 0 var(--s-pred); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; }
+.panel-head p { margin: 4px 0 0; max-width: 70ch; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 20px; }
+.chart-box { position: relative; height: 340px; }
+.chart-box.small { height: 190px; }
+.chart-box.mini { height: 120px; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { font: inherit; font-size: 0.85rem; background: var(--surface); color: var(--ink-2); border: 0; padding: 5px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.seg button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.84rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+.sw.band { height: 10px; background: var(--s-band); border-top: 2px dashed var(--s-pred); }
+
+.alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.alert { border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.alert-top { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+.pill.on { color: var(--crit); border-color: var(--crit); }
+.pill.on .dot { background: var(--crit); }
+.pill.off { color: var(--ink-2); border-color: var(--line); }
+.pill.off .dot { background: var(--good); }
+.meter { position: relative; height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; background: var(--ink-3); border-radius: 2px; }
+.meter.on .fill { background: var(--crit); }
+.meter .thr { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
+.meter-lab { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--ink-2); }
+.contrib { display: grid; gap: 4px; font-size: 0.82rem; }
+.contrib .row { display: grid; grid-template-columns: minmax(0, 1fr) 120px 48px; gap: 8px; align-items: center; }
+.contrib .bar { position: relative; height: 8px; }
+.contrib .bar::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
+.contrib .bar i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.contrib .v { text-align: right; color: var(--ink-2); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 0.8rem; color: var(--ink-2); }
+.stats b { display: block; font-family: var(--font-data); font-size: 0.95rem; color: var(--ink); font-weight: 500; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-family: var(--font-display); font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.74rem; vertical-align: bottom; }
+td { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--font-body); }
+tr.ref td { font-weight: 600; }
+tr.ref td:first-child { box-shadow: inset 3px 0 0 var(--s-pred); padding-left: 10px; }
+.best { color: var(--good); }
+details summary { cursor: pointer; color: var(--accent); font-size: 0.88rem; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px 24px; font-size: 0.88rem; color: var(--ink-2); }
+.notes h3 { color: var(--ink); margin-bottom: 4px; }
+.notes p { margin: 0; }
+footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 520px) {
+  .chart-box { height: 280px; }
+  .contrib .row { grid-template-columns: minmax(0, 1fr) 80px 44px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Caso XM–UNAL · Mercado de Energía Mayorista</div>
+      <h1>Tablero PAE-XM</h1>
+      <div class="muted">Precio de bolsa semanal ponderado por demanda, cota de riesgo al 90 % y alertas tempranas</div>
+    </div>
+    <div class="meta">
+      <span>Semana base <b id="m-base"></b></span>
+      <span>Pronóstico para <b id="m-obj"></b></span>
+      <span>Datos hasta <b id="m-hasta"></b></span>
+    </div>
+  </header>
+
+  <section class="kpis" aria-label="Resumen del pronóstico">
+    <div class="kpi"><span class="lab">Precio semana base</span><span class="val" id="k-base"></span><span class="sub">Semana operativa lunes a domingo</span></div>
+    <div class="kpi principal"><span class="lab">Pronóstico Ridge</span><span class="val" id="k-ridge"></span><span class="sub" id="k-ridge-sub"></span></div>
+    <div class="kpi"><span class="lab">Cota superior 90 %</span><span class="val" id="k-cota"></span><span class="sub" id="k-cota-sub"></span></div>
+    <div class="kpi"><span class="lab">Condición del sistema</span><span class="val" id="k-emb"></span><span class="sub" id="k-sis"></span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-serie">
+    <div class="panel-head">
+      <div>
+        <h2 id="t-serie">Precio observado y pronóstico fuera de muestra</h2>
+        <p class="muted small">Cada punto del pronóstico se emitió con la información disponible al cierre de la semana anterior. La banda va del pronóstico a la cota conformal al 90 %.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Rango de fechas">
+        <button type="button" data-rango="52" aria-pressed="false">1 año</button>
+        <button type="button" data-rango="156" aria-pressed="true">3 años</button>
+        <button type="button" data-rango="0" aria-pressed="false">Desde 2018</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--s-real)"></i>Precio real</span>
+      <span><i class="sw" style="background:var(--s-pred)"></i>Pronóstico Ridge</span>
+      <span><i class="sw band"></i>Hasta la cota 90 %</span>
+      <span><i class="sw" style="background:var(--s-ing)"></i>Ingenuo (semana anterior)</span>
+    </div>
+    <div class="chart-box"><canvas id="c-serie" role="img" aria-label="Serie semanal del precio real, pronóstico y cota"></canvas></div>
+    <details>
+      <summary>Ver las últimas 12 semanas en tabla</summary>
+      <div class="table-wrap"><table id="tb-serie"><thead><tr><th>Semana</th><th>Real</th><th>Ridge</th><th>Cota 90 %</th><th>Cubierto</th></tr></thead><tbody></tbody></table></div>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="t-alertas">
+    <div class="panel-head">
+      <div>
+        <h2 id="t-alertas">Alertas tempranas</h2>
+        <p class="muted small">Puntaje de la regresión logística frente a su umbral (fijado con 2018–2021 para maximizar F2). Las barras muestran las variables que más mueven el puntaje de esta semana, en log-odds: hacia la derecha suben el riesgo. En la gráfica, la línea es el puntaje histórico, la punteada el umbral y los puntos rojos las semanas en que el evento ocurrió.</p>
+      </div>
+    </div>
+    <div class="alerts" id="alerts"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="t-hidro">
+      <div class="panel-head"><div>
+        <h2 id="t-hidro">Hidrología del SIN</h2>
+        <p class="muted small">Volumen útil al cierre de cada semana y aportes de 4 semanas frente a la media histórica.</p>
+      </div></div>
+      <h3 class="muted small">Embalse agregado (% del volumen útil)</h3>
+      <div class="chart-box small"><canvas id="c-emb" role="img" aria-label="Embalse agregado semanal"></canvas></div>
+      <h3 class="muted small">Aportes, 4 semanas (% de la media histórica)</h3>
+      <div class="chart-box small"><canvas id="c-apo" role="img" aria-label="Aportes de 4 semanas frente a la media"></canvas></div>
+    </section>
+
+    <section class="panel" aria-labelledby="t-front">
+      <div class="panel-head"><div>
+        <h2 id="t-front">Cotas al 90 %: protección frente a exceso</h2>
+        <p class="muted small">Periodo de selección 2022–2024. Más arriba cubre más semanas volátiles; más a la derecha inmoviliza más recursos. Ningún método alcanza la meta de 85 %.</p>
+      </div></div>
+      <div class="chart-box"><canvas id="c-front" role="img" aria-label="Frontera entre cobertura en semanas volátiles y exceso de la cota"></canvas></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="t-mod">
+    <div class="panel-head"><div>
+      <h2 id="t-mod">Comparación de modelos</h2>
+      <p class="muted small">MAE en COP/kWh y mejora frente al ingenuo por periodo del protocolo. La decisión se toma en selección (2022–2024); 2025–2026 es exploratorio porque ya influyó en el diseño.</p>
+    </div></div>
+    <div class="table-wrap"><table id="tb-mod">
+      <thead><tr><th>Modelo</th><th>MAE<br>2018–21</th><th>MAE<br>2022–24</th><th>MAE<br>2025–26</th><th>Mejora<br>2018–21</th><th>Mejora<br>2022–24</th><th>Mejora<br>2025–26</th><th>Dif. vs Ridge 19<br>IC 95 % (22–24)</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-cot">
+    <div class="panel-head"><div>
+      <h2 id="t-cot">Cotas evaluadas</h2>
+      <p class="muted small">Exceso: cuánto supera la cota al precio real cuando lo cubre. Pinball: pérdida que pondera 9 a 1 quedarse corto frente a pasarse.</p>
+    </div></div>
+    <div class="table-wrap"><table id="tb-cot">
+      <thead><tr><th>Cota</th><th>Cobertura<br>2022–24</th><th>Cob. semanas<br>volátiles</th><th>Exceso<br>medio</th><th>Pinball<br>2022–24</th><th>Cobertura<br>2018–26</th><th>Pinball<br>2018–26</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel notes" aria-label="Notas metodológicas">
+    <div><h3>Variable objetivo</h3><p>P<sub>s</sub> = Σ P<sub>h</sub>D<sub>h</sub> / Σ D<sub>h</sub> con <span class="num">PrecBolsNaci</span> y <span class="num">DemaCome</span>, solo semanas con las 168 horas. El modelo aprende log(P<sub>s+1</sub>/P<sub>s</sub>).</p></div>
+    <div><h3>Validación</h3><p>Walk-forward con ventana expansiva, reentrenando cada 4 semanas desde 2014. Hiperparámetros elegidos solo con semanas anteriores a 2018.</p></div>
+    <div><h3>Cota</h3><p>Margen conformal: cuantil 90 % de los errores log de las últimas 104 semanas ya observadas. La variante por volatilidad escala el margen con la volatilidad de 4 semanas.</p></div>
+    <div><h3>Pendiente con XM</h3><p>Regla de la garantía y costo de sobre- y subestimar, versión del precio disponible al emitir y fechas de publicación de cada serie.</p></div>
+  </section>
+
+  <footer>Prototipo académico del caso XM–UNAL, no es una publicación oficial de XM. Fuentes: API pública de XM (servapibi.xm.com.co) y ONI de NOAA CPC. Generado <span id="m-gen"></span>.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const D = /*__DATOS__*/null;
+
+const NOMBRES = {
+  ultimo_dia_rel: "Precio del domingo vs. promedio semanal", log_precio: "Nivel del precio",
+  momentum: "Cambio semanal del precio", cv_diario: "Variación diaria del precio",
+  max_h_rel: "Pico horario vs. promedio", embalse_cierre: "Embalse al cierre",
+  embalse_cambio: "Cambio semanal del embalse", aportes_pct_media: "Aportes vs. media (1 sem.)",
+  aportes_pct_media_4s: "Aportes vs. media (4 sem.)", log_oferta_termica: "Oferta térmica",
+  log_oferta_no_termica: "Oferta no térmica", brecha_oferta_nt: "Oferta no térmica vs. precio",
+  fut: "Utilización térmica (FUT)", participacion_termica: "Participación térmica",
+  oni: "ONI", oni_rezago: "ONI hace 3 meses", fase_enos: "Fase ENOS",
+  sen_semana: "Estación del año (seno)", cos_semana: "Estación del año (coseno)",
+  rezago_2_rel: "Precio hace 2 semanas", rezago_3_rel: "Precio hace 3 semanas",
+  tendencia_4s: "Tendencia 4 semanas", tendencia_8s: "Tendencia 8 semanas", tendencia_13s: "Tendencia 13 semanas",
+  volatilidad_4s: "Volatilidad 4 semanas", volatilidad_13s: "Volatilidad 13 semanas",
+  demanda_crec_anual: "Crecimiento anual de la demanda", demanda_cambio: "Cambio semanal de la demanda",
+  embalse_anomalia: "Embalse vs. misma semana histórica", oni_cambio_3m: "Cambio del ONI en 3 meses",
+  estado_precio_alto: "Ya en precio alto", estado_salto: "Ya hubo salto", estado_estres_hidrico: "Ya en estrés hídrico",
+};
+const EVENTOS = { precio_alto: "Precio alto", salto: "Salto de precio ≥ 25 %", estres_hidrico: "Estrés hídrico" };
+
+const fmt = (x, nd = 1) => x == null ? "–" : x.toLocaleString("es-CO", { minimumFractionDigits: nd, maximumFractionDigits: nd });
+const pct = (x, nd = 0) => x == null ? "–" : fmt(x, nd) + " %";
+const fecha = s => new Date(s + "T00:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+
+function resumen() {
+  const p = D.pronostico;
+  $("m-base").textContent = fecha(p.semana_base);
+  $("m-obj").textContent = fecha(p.semana_objetivo);
+  $("m-hasta").textContent = fecha(D.datos_hasta);
+  $("m-gen").textContent = D.generado;
+  $("k-base").innerHTML = `${fmt(p.precio_base)}<small>COP/kWh</small>`;
+  $("k-ridge").innerHTML = `${fmt(p.ridge)}<small>COP/kWh</small>`;
+  const cambio = (p.ridge / p.precio_base - 1) * 100;
+  $("k-ridge-sub").textContent = `${cambio >= 0 ? "+" : ""}${fmt(cambio)} % frente a la semana base`;
+  $("k-cota").innerHTML = `${fmt(p.cota90)}<small>COP/kWh</small>`;
+  $("k-cota-sub").textContent = `Variante por volatilidad: ${fmt(p.cota90_vol)}`;
+  $("k-emb").innerHTML = `${fmt(p.embalse)}<small>% embalse</small>`;
+  $("k-sis").textContent = `Aportes 4 sem. ${fmt(p.aportes_4s, 0)} % de la media · ONI ${fmt(p.oni, 2)} · FUT ${fmt(p.fut, 0)} %`;
+
+  const filas = D.serie.slice(-12).reverse().map(r => {
+    const cub = r.real <= r.cota;
+    return `<tr><td>${fecha(r.s)}</td><td>${fmt(r.real)}</td><td>${fmt(r.ridge)}</td><td>${fmt(r.cota)}</td><td>${cub ? "Sí" : "No"}</td></tr>`;
+  });
+  document.querySelector("#tb-serie tbody").innerHTML = filas.join("");
+}
+
+function alertasUI() {
+  $("alerts").innerHTML = D.alertas.map(a => {
+    const max = Math.max(...a.contrib.map(c => Math.abs(c.v)), 0.01);
+    const filas = a.contrib.map(c => {
+      const w = Math.abs(c.v) / max * 50;
+      const lado = c.v >= 0 ? `left:50%;width:${w}%;background:var(--pos)` : `right:50%;width:${w}%;background:var(--neg)`;
+      return `<div class="row"><span>${NOMBRES[c.var] || c.var}</span><span class="bar"><i style="${lado}"></i></span><span class="v num">${c.v >= 0 ? "+" : ""}${fmt(c.v, 2)}</span></div>`;
+    }).join("");
+    const m = a.metricas.Logistica, per = a.metricas.Persistencia;
+    return `<article class="alert">
+      <div class="alert-top">
+        <div><h3>${EVENTOS[a.evento]}</h3><div class="muted small">${a.descripcion}. Semana ${fecha(a.semana_objetivo)}.</div></div>
+        <span class="pill ${a.alerta ? "on" : "off"}"><span class="dot"></span>${a.alerta ? "Alerta" : "Sin alerta"}</span>
+      </div>
+      <div>
+        <div class="meter ${a.alerta ? "on" : ""}"><span class="fill" style="width:${Math.min(a.puntaje, 1) * 100}%"></span><span class="thr" style="left:${a.umbral * 100}%"></span></div>
+        <div class="meter-lab"><span>Puntaje <b class="num">${fmt(a.puntaje, 2)}</b></span><span>Umbral <b class="num">${fmt(a.umbral, 2)}</b></span></div>
+      </div>
+      <div class="contrib">${filas}</div>
+      <div class="chart-box mini"><canvas id="c-al-${a.evento}" role="img" aria-label="Puntaje histórico de ${EVENTOS[a.evento]}"></canvas></div>
+      <div class="stats">
+        <span>Recall 22–24<b>${pct(m.recall * 100)}</b></span>
+        <span>Precisión<b>${pct(m.precision * 100)}</b></span>
+        <span>Inicios anticipados<b>${Math.round(m.recall_inicios * m.inicios)} de ${m.inicios}</b></span>
+      </div>
+      <div class="muted small">Persistencia: recall ${pct(per.recall * 100)}, precisión ${pct(per.precision * 100)}. Semanas con alerta: ${pct(m["alertas_%"])}.</div>
+    </article>`;
+  }).join("");
+}
+
+function tablas() {
+  const ref = D.modelos.find(m => m.clave === "Ridge[E1]");
+  const mejorSel = Math.min(...D.modelos.filter(m => m.clave !== "Ingenuo").map(m => m.mae_seleccion));
+  document.querySelector("#tb-mod tbody").innerHTML = D.modelos.map(m => {
+    const ic = m.ic_inf == null ? (m.clave === "Ridge[E1]" ? "referencia" : "–") : `${m.ic_inf >= 0 ? "+" : ""}${fmt(m.ic_inf)} a ${m.ic_sup >= 0 ? "+" : ""}${fmt(m.ic_sup)}`;
+    const cls = m.clave === "Ridge[E1]" ? "ref" : "";
+    const sel = m.mae_seleccion === mejorSel ? ' class="best"' : "";
+    const mej = v => m.clave === "Ingenuo" ? "–" : pct(v, 1);
+    return `<tr class="${cls}"><td>${m.modelo}</td><td>${fmt(m.mae_desarrollo)}</td><td${sel}>${fmt(m.mae_seleccion)}</td><td>${fmt(m.mae_final)}</td><td>${mej(m.mej_desarrollo)}</td><td>${mej(m.mej_seleccion)}</td><td>${mej(m.mej_final)}</td><td>${ic}</td></tr>`;
+  }).join("");
+  document.querySelector("#tb-cot tbody").innerHTML = D.cotas.tabla.map((c, i) =>
+    `<tr class="${i === 0 ? "ref" : ""}"><td>${c.nombre}</td><td>${pct(c.cob, 1)}</td><td>${pct(c.cob_vol, 1)}</td><td>${pct(c.exceso)}</td><td>${fmt(c.pinball)}</td><td>${pct(c.cob_total, 1)}</td><td>${fmt(c.pinball_total)}</td></tr>`).join("");
+}
+
+let charts = [];
+let rango = 156;
+
+function base(opts = {}) {
+  const ink2 = css("--ink-2"), line = css("--line");
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: css("--ink"),
+        borderColor: line, borderWidth: 1, padding: 10, boxPadding: 4,
+        titleFont: { family: "IBM Plex Mono" }, bodyFont: { family: "Source Sans 3" },
+      },
+    },
+    scales: {
+      x: { ticks: { color: ink2, maxTicksLimit: 8, maxRotation: 0, font: { size: 11 } }, grid: { display: false }, border: { color: line } },
+      y: { ticks: { color: ink2, font: { size: 11 } }, grid: { color: line, lineWidth: 0.6 }, border: { display: false } },
+    },
+    ...opts,
+  };
+}
+
+function etiquetaMes(s) {
+  return new Date(s + "T00:00:00").toLocaleDateString("es-CO", { month: "short", year: "2-digit" });
+}
+
+function graficaSerie() {
+  const datos = rango ? D.serie.slice(-rango) : D.serie;
+  const labels = datos.map(r => r.s);
+  const o = base();
+  o.scales.x.ticks.callback = function (v) { return etiquetaMes(this.getLabelForValue(v)); };
+  o.scales.y.title = { display: true, text: "COP/kWh", color: css("--ink-2"), font: { size: 11 } };
+  o.plugins.tooltip.callbacks = {
+    title: it => "Semana del " + fecha(it[0].label),
+    label: it => ` ${it.dataset.label}: ${fmt(it.parsed.y)} COP/kWh`,
+  };
+  return new Chart($("c-serie"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Cota 90 %", data: datos.map(r => r.cota), borderColor: css("--s-pred"), borderDash: [4, 3], borderWidth: 1.2, pointRadius: 0, fill: "+1", backgroundColor: css("--s-band"), order: 3 },
+        { label: "Pronóstico Ridge", data: datos.map(r => r.ridge), borderColor: css("--s-pred"), borderWidth: 2, pointRadius: 0, order: 2 },
+        { label: "Ingenuo", data: datos.map(r => r.ing), borderColor: css("--s-ing"), borderWidth: 1, pointRadius: 0, borderDash: [2, 3], order: 4 },
+        { label: "Precio real", data: datos.map(r => r.real), borderColor: css("--s-real"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, order: 1 },
+      ],
+    },
+    options: o,
+  });
+}
+
+function graficaLinea(id, datos, campo, color, ref, refTxt) {
+  const o = base();
+  o.scales.x.ticks.callback = function (v) { return etiquetaMes(this.getLabelForValue(v)); };
+  o.scales.x.ticks.maxTicksLimit = 6;
+  o.plugins.tooltip.callbacks = { title: it => "Semana del " + fecha(it[0].label), label: it => ` ${fmt(it.parsed.y)} %` };
+  const ds = [{ data: datos.map(r => r[campo]), borderColor: color, borderWidth: 2, pointRadius: 0, fill: "origin", backgroundColor: color + "22" }];
+  if (ref != null) ds.push({ data: datos.map(() => ref), borderColor: css("--ink-3"), borderWidth: 1, borderDash: [4, 4], pointRadius: 0, label: refTxt });
+  o.plugins.tooltip.filter = it => it.datasetIndex === 0;
+  return new Chart($(id), { type: "line", data: { labels: datos.map(r => r.s), datasets: ds }, options: o });
+}
+
+function graficaFrontera() {
+  const pts = D.cotas.puntos;
+  const o = base({ interaction: { mode: "nearest", intersect: true } });
+  o.scales.x.type = "linear";
+  o.scales.x.title = { display: true, text: "Exceso medio sobre el precio real (%)", color: css("--ink-2"), font: { size: 11 } };
+  o.scales.y.title = { display: true, text: "Cobertura en semanas volátiles (%)", color: css("--ink-2"), font: { size: 11 } };
+  o.scales.y.suggestedMax = 88;
+  o.plugins.tooltip.callbacks = {
+    label: it => {
+      const p = it.raw.p;
+      return p ? [` ${p.nombre}`, ` Cobertura ${fmt(p.cob)} % · volátiles ${fmt(p.cob_vol)} %`, ` Exceso ${fmt(p.exceso)} % · pinball ${fmt(p.pinball)}`] : " Meta 85 %";
+    },
+  };
+  const xs = pts.map(p => p.exceso);
+  const meta = [{ x: Math.min(...xs) - 2, y: 85 }, { x: Math.max(...xs) + 2, y: 85 }];
+  return new Chart($("c-front"), {
+    type: "scatter",
+    data: {
+      datasets: [
+        { data: pts.filter(p => !p.destacado).map(p => ({ x: p.exceso, y: p.cob_vol, p })), backgroundColor: css("--ink-3"), pointRadius: 4, pointHoverRadius: 6 },
+        { data: pts.filter(p => p.destacado).map(p => ({ x: p.exceso, y: p.cob_vol, p })), backgroundColor: css("--s-pred"), borderColor: css("--surface"), borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 },
+        { type: "line", data: meta, borderColor: css("--crit"), borderDash: [3, 3], borderWidth: 1, pointRadius: 0 },
+      ],
+    },
+    options: o,
+  });
+}
+
+function graficaAlerta(a) {
+  const o = base();
+  o.scales.x.ticks.callback = function (v) { return new Date(this.getLabelForValue(v) + "T00:00:00").getFullYear(); };
+  o.scales.x.ticks.maxTicksLimit = 5;
+  o.scales.y.min = 0; o.scales.y.max = 1.12;
+  o.scales.y.afterBuildTicks = ax => { ax.ticks = [0, 0.5, 1].map(v => ({ value: v })); };
+  o.plugins.tooltip.callbacks = {
+    title: it => "Semana del " + fecha(it[0].label),
+    label: it => it.datasetIndex === 0 ? ` Puntaje ${fmt(it.parsed.y, 2)}` : it.datasetIndex === 2 ? " Evento ocurrido" : null,
+  };
+  o.plugins.tooltip.filter = it => it.datasetIndex !== 1;
+  const h = a.historia;
+  return new Chart($("c-al-" + a.evento), {
+    type: "line",
+    data: {
+      labels: h.map(r => r.s),
+      datasets: [
+        { data: h.map(r => r.p), borderColor: css("--ink-2"), borderWidth: 1.2, pointRadius: 0 },
+        { data: h.map(() => a.umbral), borderColor: css("--ink"), borderWidth: 1, borderDash: [3, 3], pointRadius: 0 },
+        { data: h.map(r => r.y ? 1.07 : null), showLine: false, pointRadius: 2.5, pointBackgroundColor: css("--crit"), pointBorderWidth: 0 },
+      ],
+    },
+    options: o,
+  });
+}
+
+function dibujar() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+  if (typeof Chart === "undefined") return;
+  Chart.defaults.font.family = "Source Sans 3, Segoe UI, sans-serif";
+  charts.push(graficaSerie());
+  const hid = D.hidro.slice(-260);
+  charts.push(graficaLinea("c-emb", hid, "emb", css("--s-pred"), 45, "Umbral de estrés 45 %"));
+  charts.push(graficaLinea("c-apo", hid, "apo", css("--s-aqua"), 100, "Media histórica"));
+  charts.push(graficaFrontera());
+  D.alertas.forEach(a => charts.push(graficaAlerta(a)));
+}
+
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  rango = Number(b.dataset.rango);
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  try { localStorage.setItem("pae-rango", String(rango)); } catch (e) {}
+  dibujar();
+}));
+
+try {
+  const g = localStorage.getItem("pae-rango");
+  if (g !== null) {
+    rango = Number(g);
+    document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(Number(x.dataset.rango) === rango)));
+  }
+} catch (e) {}
+
+resumen();
+alertasUI();
+tablas();
+dibujar();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
+new MutationObserver(dibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>

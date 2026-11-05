@@ -1,0 +1,14 @@
+# Solo se versionan PAE (modelo original) y PAE-XM (proyecto v2.0).
+/*
+!/.gitignore
+!/README.md
+!/PAE/
+!/PAE-XM/
+
+# Entornos y cachés de Python
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
