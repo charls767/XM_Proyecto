@@ -88,6 +88,12 @@ def _lector():
     global _LECTOR
     if _LECTOR is None:
         try:
+            import asyncio
+            import sys
+            if sys.platform == "win32":
+                # El bucle Proactor de Windows imprime ConnectionResetError al cerrar las
+                # conexiones de aiohttp; el bucle Selector no.
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
             from pydataxm.pydataxm import ReadDB
             _LECTOR = ReadDB()
         except Exception:
@@ -182,6 +188,16 @@ def descargar(nombre, inicio="2010-01-01", fin=None, hilos=4):
     partes = [pd.read_parquet(_archivo(nombre, m)) for m in meses]
     df = pd.concat([p for p in partes if not p.empty], ignore_index=True)
     return df[(df.fecha >= pd.Timestamp(inicio)) & (df.fecha <= fin)]
+
+
+def ultima_fecha_en_cache(nombre):
+    """Última fecha guardada de una serie, sin consultar la API."""
+    archivos = sorted((CACHE / nombre).glob("*.parquet"))
+    for a in reversed(archivos):
+        df = pd.read_parquet(a, columns=["fecha"])
+        if not df.empty:
+            return df.fecha.max()
+    return pd.NaT
 
 
 def a_horario(df):

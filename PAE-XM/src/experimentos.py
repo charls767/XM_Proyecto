@@ -1,4 +1,4 @@
-"""Experimentos de la sección 5. Uso: python src/experimentos.py [e2|e3e4|e7|alertas|e8 [tx1]|e9 [viernes]]
+"""Experimentos de la sección 5. Uso: python src/experimentos.py [e2|e3e4|e7|alertas|e8 [tx1]|e9 [viernes]|e5e6]
 
 E0 (ingenuo y estacional) y E1 (baseline Ridge/GBoost de PAE) se corren desde
 2014 para tener historial de calibración; las métricas se reportan desde 2018,
@@ -19,6 +19,7 @@ import pandas as pd
 
 import backtesting as bt
 import calibration as cal
+import config
 import data_pipeline as dp
 import evaluation as ev
 import feature_engineering as fe
@@ -262,10 +263,43 @@ def correr_e9(ultimo_dia=6):
     return nombre, bt.ancho(r)
 
 
+def ensambles(w, ventana=52):
+    """E6: ensambles en escala de precio, formados después del backtest con pronósticos
+    fuera de muestra. Los pesos adaptativos usan solo errores de semanas anteriores
+    (la semana s-1 ya está calificada al emitir s)."""
+    w = w.copy()
+    w["Ens[Ridge14+LightGBM]"] = w[["Ridge14", "LightGBM"]].mean(axis=1)
+    w["Ens[Ridge14+LightGBM+SARIMAX]"] = w[["Ridge14", "LightGBM", "SARIMAX"]].mean(axis=1)
+    miembros = ["Ridge14", "LightGBM", "SARIMAX"]
+    err = pd.DataFrame({m: (w[m] - w.real).abs() for m in miembros})
+    inv = 1 / err.rolling(ventana, min_periods=26).mean().shift(1)
+    pesos = inv.div(inv.sum(axis=1), axis=0)
+    w["Ens[pesos por error]"] = (w[miembros] * pesos).sum(axis=1).where(pesos.notna().all(axis=1))
+    return w
+
+
+def correr_e5e6():
+    """E5 (SARIMAX) frente al modelo principal y sus alternativas, más los ensambles de E6."""
+    d = fe.preparar(dp.tabla_semanal(corregida=True))
+    m = [models.Modelo("Ingenuo"),
+         models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+         models.Modelo("Ridge19", fe.VARIABLES, models.ridge),
+         models.Modelo("LightGBM", fe.VARIABLES, models.lightgbm()),
+         models.Sarimax("SARIMAX", config.VARIABLES)]
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True)
+    bt.guardar(r, "E5E6")
+    w = ensambles(bt.ancho(r))
+    w.to_parquet(bt.RESULTADOS / "E5E6_ancho.parquet")
+    return w
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
-    if "e9" in sys.argv[1:]:
+    if "e5e6" in sys.argv[1:]:
+        w = correr_e5e6()
+        print(resumen_comparativo(w.dropna(), "E5E6", referencia="Ridge14").to_string())
+    elif "e9" in sys.argv[1:]:
         nombre, w = correr_e9(4 if "viernes" in sys.argv[1:] else 6)
         print(resumen_comparativo(w, nombre).to_string())
     elif "e8" in sys.argv[1:]:

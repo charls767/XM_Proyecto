@@ -1,45 +1,93 @@
 # PAE-XM v2.0
 
-Continuación modular de `../PAE`. La carpeta `PAE` (baseline: `modelo.py`, `AnaliticaPAE.ipynb`) no se modifica.
+Pronóstico semanal del precio de bolsa del MEM, con cota de riesgo al 90 %, alertas tempranas, operación semanal con registro de pronósticos y tablero. Continuación modular de `../PAE`, que no se modifica.
 
 ## Estado
 
-**Etapa 1 (auditoría), Etapa 2 (backtesting), E2 (aporte de exógenas), E3/E4 (LightGBM, XGBoost), E7 (cotas), Modelo C (alertas), dashboard, E8 (datos nuevos y versión del precio) y E9 (latencia, información diaria y dos etapas) listos.** El motor nuevo reproduce el baseline exactamente, verificado por `tests/test_reproduccion.py`.
+- **Modelo en operación:** Ridge de 14 variables con cota conformal (`src/config.py`, versión `ridge14-conformal104-v1`). En 2018–2026 tiene el mismo error que el Ridge de 19 variables del baseline (MAE 54.1 frente a 54.3) y coeficientes más estables (ver E10).
+- **Operación:** `correr_semanal.bat` actualiza los datos con `pydataxm`, corre los controles de calidad, emite y registra el pronóstico, califica los anteriores y regenera el tablero. El registro empezó el 5 de noviembre de 2026.
+- **Ficha técnica:** [`FICHA_TECNICA.md`](FICHA_TECNICA.md) explica, en una página, para qué sirve el modelo, cómo se evalúa y cuándo no confiar en él.
+- **Evaluación:** experimentos E1–E10, documentados abajo. El motor reproduce exactamente el baseline de PAE (`tests/test_reproduccion.py`).
 
-| Métrica (2018–2026) | Baseline PAE | PAE-XM E1 |
-|---|---|---|
-| MAE Ridge / GBoost / Ingenuo | 54.303 / 56.706 / 66.553 | idéntico |
-| Cota Ridge calibrada: cobertura / pinball | 0.902 / 15.718 | idéntico |
+## Instalación
+
+Requiere **Python 3.11** (`.python-version`). La librería oficial `pydataxm` falla en 3.12 o superior por su dependencia `nest_asyncio`.
+
+```bash
+python3.11 -m venv .venv
+.venv\Scriptsctivate
+pip install -r requirements.txt
+python -m pytest -q tests
+```
+
+`xm_client` usa `pydataxm` cuando está instalada, y si no, hace las mismas consultas directamente a la API. Ambas rutas dan datos idénticos.
 
 ## Estructura
 
 ```
-data/raw/            caché de la API de XM (copiada de PAE/datos) y ONI de NOAA
-data/processed/      semanal.parquet, auditoria.csv, diccionario_datos.csv, clasificacion_recursos.csv
-src/xm_client.py          cliente de la API (copia de PAE/xm_datos.py)
-src/data_pipeline.py      tabla semanal (copia de PAE/variables.py) + diccionario + auditoría
-src/feature_engineering.py variables del baseline + referencia estacional + volatilidad ex ante
-src/models.py             catálogo de modelos: E0 (ingenuo, estacional), E1 (Ridge, GBoost, GBoost q90)
+data/raw/                 caché de la API de XM (un archivo por serie y mes) y ONI de NOAA
+data/processed/           tablas semanales, auditoría, diccionario de datos, clasificación de recursos
+registro/                 pronosticos.csv (registro inmutable) y snapshots/ (variables y datos usados en cada emisión)
+results/                  predicciones y resúmenes de cada experimento
+src/config.py             modelo en operación, ventana de la cota y umbrales del monitoreo
+src/semanal.py            emisión semanal: datos, controles, pronóstico, explicación, registro y calificación
+src/monitoreo.py          controles de calidad, variables fuera de rango, desempeño reciente y estado
+src/xm_client.py          cliente de XM con pydataxm (o consulta directa) y caché mensual
+src/data_pipeline.py      tabla semanal, diccionario, auditoría y variantes (E8, TX1, cortes de información, E9)
+src/feature_engineering.py variables del modelo y grupos de candidatas
+src/models.py             Ridge, ElasticNet, árboles, cuantílicos, modelo en dos etapas y SARIMAX
 src/backtesting.py        walk-forward con registro por emisión y periodos del protocolo
-src/calibration.py        conformal con ventana móvil, escala de volatilidad, por régimen (Mondrian) y adaptativo (ACI)
+src/calibration.py        conformal con ventana móvil, escala de volatilidad, por régimen y adaptativo
 src/evaluation.py         MAE, RMSE, MASE, WAPE, sesgo, DM, IC bootstrap, métricas de cota
 src/tuning.py             búsqueda de hiperparámetros con validación temporal antes de 2018
-src/experimentos.py       corre E0+E1, E2, E3/E4 y E7 y escribe results/
-src/graficas.py           frontera de compromiso de E7
+src/experimentos.py       corre cada experimento y escribe results/
 src/alertas.py            Modelo C: eventos críticos, backtest de clasificación, SHAP y alerta actual
-dashboard/generar.py      arma dashboard/index.html con los resultados y el pronóstico vigente
-dashboard/plantilla.html  diseño del tablero (el generador inserta los datos)
-tests/                    reproducción del baseline, calibración y alertas (incluidas pruebas de no fuga)
+src/graficas.py           frontera de compromiso de E7
+dashboard/generar.py      arma dashboard/index.html con el pronóstico vigente, métricas y registro
+dashboard/plantilla.html  diseño del tablero
+correr_semanal.bat        proceso semanal completo (para el Programador de tareas de Windows)
+tests/                    reproducción, no fuga de información, calibración, alertas, cortes y operación
 ```
 
-## Uso
+## Operación semanal
 
 ```bash
-python src/experimentos.py
-python -m pytest -q tests
+correr_semanal.bat
 ```
 
-`data_pipeline.tabla_semanal(recalcular=True)` reconstruye la tabla desde la caché; `xm_client.descargar_todo()` actualiza la caché desde la API.
+o, paso a paso:
+
+```bash
+python src/semanal.py
+python dashboard/generar.py
+```
+
+1. **Datos:** actualiza la caché con `pydataxm`; los meses de las últimas semanas se vuelven a pedir.
+2. **Controles** (`monitoreo.calidad`): variables completas, datos al día, precio y embalse en rango físico, cambio semanal plausible.
+3. **Rango** (`monitoreo.fuera_de_rango`): marca las variables fuera de todo lo visto (extrapolación) o en el 1 % extremo.
+4. **Desempeño reciente** (`monitoreo.desempeno_reciente`): error frente al ingenuo y cobertura de la cota en las últimas 26 semanas.
+5. **Estado:**
+   - *normal*: datos completos y el modelo funcionando como en su evaluación.
+   - *vigilancia*: hay datos atrasados, extrapolación, el modelo no le gana al ingenuo o la cota cubre menos de 80 %.
+   - *respaldo*: falta un dato del modelo; se emite el ingenuo con una cota calibrada sobre sus propios errores.
+6. **Pronóstico y explicación:** Ridge es lineal, así que el cambio pronosticado se descompone exactamente en el aporte de cada variable (`semanal.contribuciones`).
+7. **Registro:** agrega una fila a `registro/pronosticos.csv` si la semana base no estaba, nunca la reescribe, y guarda en `registro/snapshots/` las variables y la última fecha publicada de cada serie. `calificar()` completa el precio real, el error y si la cota cubrió cuando XM publica la semana objetivo.
+
+Para programarlo cada lunes: Programador de tareas de Windows → Crear tarea básica → Semanal, lunes → Iniciar un programa → `correr_semanal.bat`.
+
+## Uso de los experimentos
+
+```bash
+python src/experimentos.py            # E0 + E1 (reproducción del baseline)
+python src/experimentos.py e2         # aporte de exógenas
+python src/experimentos.py e3e4       # LightGBM y XGBoost
+python src/experimentos.py e7         # cotas
+python src/experimentos.py alertas    # Modelo C
+python src/experimentos.py e8 [tx1]   # datos nuevos y versión del precio
+python src/experimentos.py e9 [viernes]  # latencia, información diaria y dos etapas
+python src/experimentos.py e5e6       # SARIMAX y ensambles
+python -m pytest -q tests
+```
 
 ## Registro de predicciones
 
@@ -199,24 +247,16 @@ Conclusiones:
 
 ## Dashboard
 
-`python dashboard/generar.py` produce `dashboard/index.html`, un archivo autocontenido (solo carga Chart.js y las fuentes desde CDN) con:
+`python dashboard/generar.py` produce `dashboard/index.html`, un archivo autocontenido (solo carga Chart.js y las fuentes desde CDN), ordenado para leerse de arriba abajo:
 
-- pronóstico Ridge de la semana siguiente, cota al 90 % (y su variante por volatilidad) y condición del sistema;
-- precio real frente al pronóstico fuera de muestra con la banda hasta la cota, con rangos de 1 año, 3 años o desde 2018 y una tabla de las últimas 12 semanas;
-- las tres alertas con su puntaje, umbral, variables que más pesan esta semana, historial y desempeño frente a la persistencia;
-- hidrología (embalse y aportes de 4 semanas), frontera de las cotas de E7 y tablas de comparación de modelos y cotas.
+1. **Estado del modelo** (normal, vigilancia o respaldo) con sus motivos, y el pronóstico de la semana con su cota.
+2. **¿Por qué este pronóstico?** El aporte de cada variable en %, y los tres principales en una frase cada uno.
+3. **Panel de métricas.** Seis métricas con meta, semáforo con texto y una frase que las explica: mejora frente al ingenuo, error típico, sesgo, cobertura de la cota, exceso de la cota y cobertura en semanas de salto. Se pueden ver en cuatro periodos: últimas 26 semanas, último año, estrés 2022–2024 y desde 2018. Incluye la evolución móvil del error y de la cobertura, una tabla por año y otra por episodio de estrés.
+4. **Registro de pronósticos reales**, con las emisiones y su calificación.
+5. **Controles antes de emitir** y variables fuera de rango.
+6. Precio frente a pronóstico, alertas, hidrología y detalle técnico (comparación de modelos y método).
 
-Para actualizarlo cada semana:
-
-```bash
-python -c "import sys; sys.path.insert(0,'src'); import xm_client as x; x.descargar_todo()"
-python -c "import sys; sys.path.insert(0,'src'); import data_pipeline as dp; dp.tabla_semanal(recalcular=True, corregida=True)"
-python src/experimentos.py e7
-python src/experimentos.py alertas
-python dashboard/generar.py
-```
-
-El pronóstico vigente se reentrena con toda la historia en cada generación; las tablas de evaluación salen de `results/`.
+Las métricas del panel son simuladas: cada semana desde 2018 se pronostica solo con lo que se sabía antes. La evidencia independiente es el registro.
 
 ## E8: datos nuevos y versión del precio
 
@@ -317,3 +357,48 @@ Conclusiones:
 - **Si la regla de la garantía castiga más subestimar:** conviene evaluar la versión `media` de dos etapas por su sesgo casi nulo.
 
 El dashboard sigue mostrando el escenario de semana completa hasta que se confirme la latencia con XM.
+
+## E10: modelo principal, estabilidad y estrés
+
+Tres versiones de Ridge con las mismas semanas: 19 variables (E1), 14 (sin ENOS ni térmica) y 12 (sin las dos variables cuyo signo cambia). Resultados en `results/E10_parsimonia_ancho.parquet`, `results/estabilidad_coef_*.csv` y `results/E10_estres.csv`.
+
+| | Ridge 19 | **Ridge 14** | Ridge 12 |
+|---|---|---|---|
+| MAE 2018–2026 | 54.3 | **54.1** | 54.3 |
+| MAE 2022–2024 | 91.6 | 92.0 | 92.2 |
+| Cobertura de la cota / pinball | 90 % / 15.74 | 90 % / **15.66** | 90 % / 15.71 |
+| Coeficientes con signo estable en 13 reentrenamientos anuales | 15 de 19 | **12 de 14** | 12 de 12 |
+
+Las diferencias de error no son significativas. Ridge 14 tiene el menor pinball, coeficientes estables y una lectura física directa para cada variable; las dos que cambian de signo (pico horario y aportes de 1 semana) tienen coeficientes casi nulos. **Se adopta Ridge 14 como modelo en operación.**
+
+**Pruebas de estrés** (Ridge 14 frente al ingenuo, MAE en COP/kWh):
+
+| Episodio | Semanas | Ridge 14 | Ingenuo | Sesgo | Cobertura de la cota |
+|---|---|---|---|---|---|
+| El Niño 2015–16 | 44 | 92.4 | 105.4 | −65 | 91 % |
+| Sequía 2023–24 | 43 | 96.1 | 120.6 | −19 | 88 % |
+| Estrés de octubre de 2024 | 22 | 214.9 | 230.1 | −55 | 86 % |
+
+En los tres episodios el modelo erró menos que el ingenuo y la cota mantuvo cobertura cercana a 90 %, pero el pronóstico se quedó corto (sesgo negativo).
+
+## E5/E6: SARIMAX y ensambles
+
+`python src/experimentos.py e5e6` (~25 min por SARIMAX). Mismas semanas y bloques que E1, sobre la tabla corregida.
+
+- **E5, SARIMAX:** regresión con errores ARMA(1,1) sobre las 14 variables del modelo principal. Dentro de cada bloque se pronostica a un paso, filtrando con las semanas ya conocidas al emitir.
+- **E6, ensambles:** promedios en escala de precio de los pronósticos fuera de muestra. El ensamble con pesos usa el inverso del error de las 52 semanas anteriores, desplazado una semana para no usar información futura.
+
+| Modelo | MAE 2018–21 | MAE 2022–24 | MAE 2025–26 | MAE 2018–26 | Dif. vs Ridge 14, 2018–26 (IC 95 %) | Dif. vs Ridge 14, 2022–24 (IC 95 %) |
+|---|---|---|---|---|---|---|
+| Ingenuo | 28.3 | 116.5 | 67.5 | 66.5 | | |
+| **Ridge 14 (operación)** | 21.8 | 92.0 | 62.3 | 54.1 | referencia | referencia |
+| Ridge 19 | 22.6 | 91.6 | 62.1 | 54.3 | +0.2 (−0.5 a 0.9) | −0.3 (−1.8 a 1.4) |
+| SARIMAX | 21.6 | 91.7 | 61.4 | 53.7 | −0.4 (−1.2 a 0.5) | −0.3 (−2.1 a 2.3) |
+| LightGBM | 22.2 | 93.7 | 66.1 | 55.7 | +1.6 (−0.8 a 4.4) | +1.7 (−4.4 a 9.2) |
+| Ensamble Ridge 14 + LightGBM | 21.3 | 90.8 | 62.1 | 53.4 | −0.7 (−1.9 a 0.7) | −1.2 (−4.0 a 2.1) |
+| Ensamble Ridge 14 + LightGBM + SARIMAX | 21.2 | 90.2 | 61.4 | 53.1 | −1.0 (−1.9 a −0.03) | −1.7 (−3.6 a 0.7) |
+| Ensamble con pesos por error | 21.2 | 90.2 | 61.4 | 53.1 | −1.0 (−2.0 a −0.06) | −1.8 (−3.6 a 0.7) |
+
+- **SARIMAX no supera a Ridge 14.** La estructura ARMA del error no agrega información frente a las variables de precio que ya tiene Ridge.
+- **El ensamble de tres modelos mejora ~1 COP/kWh (2 %).** En todo 2018–2026 la mejora es apenas significativa. En el periodo de selección, que es el que decide, no lo es. Los pesos adaptativos no aportan sobre el promedio simple.
+- **Decisión:** Ridge 14 sigue en operación. La mejora del ensamble es pequeña, no pasa el criterio de selección y haría perder la explicación exacta por variable. Queda como candidato: si el registro prospectivo confirma la ventaja, puede adoptarse como nueva versión en `src/config.py`.

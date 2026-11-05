@@ -1,0 +1,61 @@
+{
+  "fecha_emision": "2026-11-05",
+  "version_modelo": "ridge14-conformal104-v1",
+  "datos_hasta": {
+    "precio": "2026-11-02",
+    "demanda": "2026-11-02",
+    "aportes": "2026-11-04",
+    "aportes_media": "2026-11-04",
+    "volumen_pct": "2026-11-04",
+    "volumen_kwh": "2026-11-04",
+    "capacidad": "2026-11-03",
+    "oferta": "2026-10-31",
+    "generacion": "2026-11-02",
+    "combustible": "2026-11-02"
+  },
+  "variables": {
+    "log_precio": 6.2699655921191,
+    "momentum": -0.07537580632297297,
+    "cv_diario": 0.19233409185239445,
+    "ultimo_dia_rel": -0.4979020863479008,
+    "max_h_rel": 1.0468337296041796,
+    "embalse_cierre": 0.7759,
+    "embalse_cambio": 0.008940000000000059,
+    "aportes_pct_media": 0.6099735111469597,
+    "aportes_pct_media_4s": 0.6115735599457472,
+    "log_oferta_termica": 6.772083219422865,
+    "log_oferta_no_termica": 5.595547666140779,
+    "brecha_oferta_nt": -0.6744179259783216,
+    "sen_semana": -0.833263145893403,
+    "cos_semana": 0.5528765953590633
+  },
+  "estado": "normal",
+  "motivos": [],
+  "controles": [
+    {
+      "control": "Variables completas",
+      "estado": "ok",
+      "detalle": "14 variables con dato"
+    },
+    {
+      "control": "Datos al día",
+      "estado": "ok",
+      "detalle": "La semana base cerró hace 4 días"
+    },
+    {
+      "control": "Precio válido",
+      "estado": "ok",
+      "detalle": "528.5 COP/kWh"
+    },
+    {
+      "control": "Embalse en rango físico",
+      "estado": "ok",
+      "detalle": "77.6%"
+    },
+    {
+      "control": "Cambio semanal plausible",
+      "estado": "ok",
+      "detalle": "-7% frente a la semana anterior"
+    }
+  ]
+}

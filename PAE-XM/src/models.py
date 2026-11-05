@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.linear_model import ElasticNetCV, QuantileRegressor, RidgeCV
 from sklearn.model_selection import TimeSeriesSplit
@@ -159,3 +160,33 @@ class DosEtapas:
         else:
             yhat = np.log((p * np.exp(yk)).sum(axis=1))
         return prueba.precio.to_numpy() * np.exp(yhat)
+
+
+class Sarimax:
+    """E5: regresión con errores ARMA(1,1) (SARIMAX sin parte estacional; la época del
+    año entra por las variables seno y coseno).
+
+    Los parámetros se estiman con el entrenamiento del bloque. Dentro del bloque, cada
+    semana se pronostica a un paso filtrando con las observaciones ya conocidas al
+    emitirla: el cambio de la semana anterior del bloque se conoce justo al cierre
+    de la semana base actual.
+    """
+
+    def __init__(self, nombre, variables, orden=(1, 0, 1)):
+        self.nombre, self.variables, self.orden = nombre, list(variables), orden
+
+    def ajustar_predecir(self, entren, prueba):
+        import warnings
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        mu, sd = entren[self.variables].mean(), entren[self.variables].std().replace(0, 1)
+        z = lambda df: ((df[self.variables] - mu) / sd).to_numpy()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = SARIMAX(entren.y.to_numpy(), exog=z(entren), order=self.orden, trend="c").fit(disp=False)
+            yhat = []
+            for i in range(len(prueba)):
+                conocidas = pd.concat([entren, prueba.iloc[:i]])
+                r = res.apply(conocidas.y.to_numpy(), exog=z(conocidas))
+                yhat.append(float(r.forecast(1, exog=z(prueba.iloc[[i]]))[0]))
+        return prueba.precio.to_numpy() * np.exp(np.array(yhat))

@@ -6,7 +6,7 @@ La pregunta de trabajo: con la información disponible al cierre de una semana, 
 
 | Carpeta | Contenido |
 |---|---|
-| [`PAE-XM/`](PAE-XM/README.md) | Proyecto v2.0: datos, motor de backtesting, modelos, cotas, alertas, pruebas y dashboard. **Empieza aquí.** |
+| [`PAE-XM/`](PAE-XM/README.md) | Proyecto v2.0: datos, motor de backtesting, modelos, cotas, alertas, operación semanal con registro, pruebas y dashboard. **Empieza aquí** y lee la [ficha técnica](PAE-XM/FICHA_TECNICA.md). |
 | [`PAE/`](PAE/README.md) | Modelo original (Ridge + conformal) y su notebook `AnaliticaPAE.ipynb`, que PAE-XM reproduce exactamente. |
 
 ## Instalación
