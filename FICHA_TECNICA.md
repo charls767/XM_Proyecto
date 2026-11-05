@@ -61,6 +61,6 @@ Por periodo, la mejora frente al ingenuo fue de 23 % en 2018–2021, 21 % en 202
 
 ## Mantenimiento
 
-- **Cada lunes:** `correr_semanal.bat`.
+- **Cada miércoles en la tarde** (por el rezago de publicación del precio): `correr_semanal.bat`.
 - **Revisar:** si el estado sale en vigilancia dos semanas seguidas, o si la cobertura de las últimas 26 semanas baja de 80 %.
 - **Cambiar de modelo:** solo con evidencia del registro y una nueva versión en `src/config.py`, sin borrar las filas registradas con la anterior.

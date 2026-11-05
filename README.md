@@ -2,7 +2,7 @@
 
 Modelo para anticipar, con una semana de antelación, el **precio de bolsa promedio del Mercado de Energía Mayorista (MEM) colombiano**, junto con una **cota superior de riesgo** y **alertas tempranas**. Es un insumo para estimar la garantía de los intercambios de energía con Ecuador (caso XM–UNAL).
 
-Cada lunes el proceso descarga los datos de XM, revisa su calidad, emite el pronóstico con su explicación, lo guarda en un registro que no se puede modificar y actualiza un tablero.
+Cada semana el proceso descarga los datos de XM, revisa su calidad, emite el pronóstico con su explicación, lo guarda en un registro que no se puede modificar y actualiza un tablero.
 
 | En una mirada (evaluación 2018–2026) | |
 |---|---|
@@ -140,13 +140,15 @@ pip install -r requirements.txt
 python -m pytest -q tests
 ```
 
-### Emisión semanal (cada lunes)
+### Emisión semanal (cada miércoles)
 
 ```bash
 correr_semanal.bat
 ```
 
-El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, lunes → Iniciar un programa → `correr_semanal.bat`.
+El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
+
+**Por qué el miércoles:** la API publica el precio con unos 3 días de rezago, así que el domingo queda disponible hacia el miércoles. Si se corre antes, la semana no está completa y no se emite nada nuevo. Por eso, hoy el pronóstico sale cuando la semana objetivo ya empezó, aunque no usa ningún dato de ella. Si XM confirma una emisión más temprana, el modelo adecuado es Ridge 14 + despacho programado (ver [E9](docs/EXPERIMENTOS.md)).
 
 ### Ver el tablero
 
