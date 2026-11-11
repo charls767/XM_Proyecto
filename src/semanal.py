@@ -99,6 +99,50 @@ def candidato(d, hist, semana, base, pronostico, recalcular=False):
     return {"version": config.VERSION_CANDIDATO, "pronostico": pred, "cota90": _cota(h, semana, base, pred)}
 
 
+def _huella_tabla(t):
+    """SHA-256 del contenido de una tabla (índice y valores), independiente del archivo."""
+    return hashlib.sha256(pd.util.hash_pandas_object(t, index=True).to_numpy().tobytes()).hexdigest()
+
+
+def datos_reproduccion(modelo, completas, hist_cota, semana, pronostico, cota, cota_vol):
+    """Lo necesario para reconstruir la emisión aunque XM revise los datos después.
+
+    Con los coeficientes, el escalador y las variables del snapshot, el pronóstico se recalcula
+    sin datos; las huellas dicen si la tabla de entrenamiento o los errores que calibran la cota
+    siguen siendo los mismos.
+    """
+    import sklearn
+
+    previos = hist_cota[hist_cota.index < semana].dropna(subset=["real", "prediccion"])
+    out = {
+        "n_entrenamiento": int(len(completas)),
+        "entrenamiento_desde": f"{completas.index.min():%Y-%m-%d}" if len(completas) else None,
+        "entrenamiento_hasta": f"{completas.index.max():%Y-%m-%d}" if len(completas) else None,
+        "huella_entrenamiento": _huella_tabla(completas[config.VARIABLES + ["y"]]),
+        "margen_log": float(np.log(cota / pronostico)),
+        "margen_vol_log": float(np.log(cota_vol / pronostico)),
+        "errores_cota": int(min(len(previos), config.VENTANA_CONFORMAL)),
+        "huella_errores_cota": _huella_tabla(previos[["real", "prediccion"]].tail(config.VENTANA_CONFORMAL)),
+        "versiones": {"numpy": np.__version__, "pandas": pd.__version__, "scikit-learn": sklearn.__version__},
+    }
+    if modelo is not None:
+        esc, reg = modelo[0], modelo[-1]
+        out["modelo"] = {"variables": list(config.VARIABLES), "intercepto": float(reg.intercept_),
+                         "coeficientes": [float(c) for c in reg.coef_], "alpha": float(reg.alpha_),
+                         "media": [float(m) for m in esc.mean_], "escala": [float(s) for s in esc.scale_]}
+    return out
+
+
+def reproducir(snapshot, precio_base):
+    """Pronóstico y cotas a partir de un snapshot, sin datos ni reentrenar."""
+    m = snapshot["reproduccion"]["modelo"]
+    x = np.array([snapshot["variables"][v] for v in m["variables"]])
+    z = (x - np.array(m["media"])) / np.array(m["escala"])
+    pronostico = precio_base * float(np.exp(m["intercepto"] + z @ np.array(m["coeficientes"])))
+    r = snapshot["reproduccion"]
+    return pronostico, pronostico * np.exp(r["margen_log"]), pronostico * np.exp(r["margen_vol_log"])
+
+
 def _alertas(d):
     umbrales = pd.read_csv(RAIZ / "results" / "alertas_resumen.csv").query("modelo == 'Logistica'")
     out = {}
@@ -121,7 +165,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     semana = d.index.max()
     fila = d.loc[semana]
 
-    controles = monitoreo.calidad(d, semana, fecha_emision)
+    controles = monitoreo.calidad(d, semana, fecha_emision, datos_hasta=fechas)
     rango = monitoreo.fuera_de_rango(d, semana)
     hist = historial_fuera_de_muestra(d)
     hist["cota"] = cal.conformal(hist.real, hist.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL)
@@ -131,6 +175,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     base = float(fila.precio)
     completas = d.dropna(subset=config.VARIABLES + ["y"])
     completas = completas[completas.index < semana]
+    modelo = None
     if estado == "respaldo":
         pronostico, intercepto, aportes = base, 0.0, pd.Series(dtype=float)
         hist_cota = hist.assign(prediccion=hist.ingenuo)
@@ -141,6 +186,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         hist_cota = hist
     cota = _cota(hist_cota, semana, base, pronostico)
     cota_vol = _cota(hist_cota, semana, base, pronostico, escala=d.volatilidad_4s)
+    reproduccion = datos_reproduccion(modelo, completas, hist_cota, semana, pronostico, cota, cota_vol)
     avisos = _alertas(d)
 
     # Un fallo del candidato nunca debe impedir la emisión oficial.
@@ -159,6 +205,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "intercepto": intercepto, "aportes": aportes, "controles": controles, "fuera_de_rango": rango,
         "desempeno_reciente": desempeno, "alertas": avisos, "historial": hist,
         "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand,
+        "reproduccion": reproduccion,
     }
     if guardar:
         registrar(resultado)
@@ -210,6 +257,17 @@ def _escribir(reg):
     reg[COLUMNAS].to_csv(ARCHIVO, index=False)
 
 
+def _json(v):
+    """Tipos de numpy y pandas que json no serializa solo."""
+    if isinstance(v, (np.integer, np.floating)):
+        return None if isinstance(v, np.floating) and not np.isfinite(v) else v.item()
+    if isinstance(v, np.bool_):
+        return bool(v)
+    if isinstance(v, pd.Timestamp):
+        return f"{v:%Y-%m-%d}"
+    raise TypeError(f"No serializable: {type(v)}")
+
+
 def registrar(r):
     """Agrega la emisión si su semana base no estaba registrada; nunca reescribe una existente."""
     REGISTRO.mkdir(exist_ok=True)
@@ -239,7 +297,9 @@ def registrar(r):
         "datos_hasta": {k: f"{v:%Y-%m-%d}" for k, v in r["datos_hasta"].items()},
         "variables": r["variables"], "estado": r["estado"], "motivos": r["motivos"],
         "controles": r["controles"].to_dict("records"), "candidato": cand,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+        "precio_base": r["precio_base"], "pronostico": r["pronostico"], "cota90": r["cota90"], "cota90_vol": r["cota90_vol"],
+        "desempeno_reciente": r.get("desempeno_reciente"), "reproduccion": r.get("reproduccion"),
+    }, ensure_ascii=False, indent=2, default=_json), encoding="utf-8")
     print(f"Registrado: semana base {r['semana_base']:%Y-%m-%d}, pronóstico {r['pronostico']:,.1f} COP/kWh")
     return True
 

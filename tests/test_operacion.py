@@ -61,7 +61,63 @@ def test_desempeno_bajo_pide_vigilancia():
     des = monitoreo.desempeno_reciente(h)
     assert des["razon_mae"] > 1 and des["cobertura"] == 0
     estado, motivos = monitoreo.estado(pd.DataFrame(columns=["control", "estado", "detalle"]), pd.DataFrame(columns=["nivel"]), des)
-    assert estado == "vigilancia" and len(motivos) == 2
+    assert estado == "vigilancia" and len(motivos) == 3  # MAE, cobertura y sesgo (+20 %)
+    assert any("se pasó" in m for m in motivos)
+
+
+def _historial(errores, real=500.0):
+    idx = pd.date_range("2025-01-06", periods=len(errores), freq="W-MON")
+    e = np.asarray(errores, dtype=float)
+    return pd.DataFrame({"real": real, "ingenuo": real + 80 * np.sign(np.sin(np.arange(len(e)) + 0.5)),
+                         "prediccion": real + e, "cota": real + 200}, index=idx)
+
+
+def test_sesgo_significativo_pide_vigilancia():
+    rng = np.random.default_rng(0)
+    des = monitoreo.desempeno_reciente(_historial(-55 + rng.normal(0, 40, 26)))  # ≈ −11 % del precio
+    assert des["p_sesgo"] < 0.05 and monitoreo.sesgo_significativo(des)
+    estado, motivos = monitoreo.estado(pd.DataFrame(columns=["control", "estado", "detalle"]),
+                                       pd.DataFrame(columns=["nivel"]), des)
+    assert estado == "vigilancia" and any("se quedó corto" in m for m in motivos)
+
+
+def test_sesgo_pequeno_o_ruidoso_no_alarma():
+    rng = np.random.default_rng(1)
+    pequeno = monitoreo.desempeno_reciente(_historial(-10 + rng.normal(0, 5, 26)))  # 2 %, significativo
+    ruidoso = monitoreo.desempeno_reciente(_historial(-30 + rng.normal(0, 200, 26)))  # 6 %, no significativo
+    assert pequeno["p_sesgo"] < 0.05 and not monitoreo.sesgo_significativo(pequeno)
+    assert ruidoso["p_sesgo"] > 0.05 and not monitoreo.sesgo_significativo(ruidoso)
+
+
+@pytest.mark.parametrize("dias_oferta, esperado", [(0, "ok"), (1, "nota"), (2, "aviso")])
+def test_series_deben_cubrir_la_semana_base(d, dias_oferta, esperado):
+    semana = d.index[-2]
+    domingo = semana + pd.Timedelta(days=6)
+    fechas = {s: domingo + pd.Timedelta(days=2) for s in config.SERIES_SEMANA_BASE}
+    fechas["oferta"] = domingo - pd.Timedelta(days=dias_oferta)
+    controles = monitoreo.calidad(d, semana, semana + pd.Timedelta(days=9), datos_hasta=fechas)
+    fila = controles.set_index("control").loc["Series al día"]
+    assert fila.estado == esperado
+    if dias_oferta:
+        assert "oferta" in fila.detalle
+    estado, motivos = monitoreo.estado(controles, pd.DataFrame(columns=["nivel"]), {"semanas": 0})
+    assert any("Series al día" in m for m in motivos) == (esperado == "aviso")
+
+
+def test_emision_se_reconstruye_desde_el_snapshot():
+    """Prueba de humo de punta a punta (sin API ni registro) y reproducción sin datos."""
+    import json
+
+    r = semanal.emitir(actualizar=False, guardar=False)
+    assert r["estado"] in ("normal", "vigilancia", "respaldo")
+    assert "Series al día" in set(r["controles"].control)
+    if r["estado"] == "respaldo":
+        pytest.skip("en respaldo no hay modelo que reconstruir")
+    snap = json.loads(json.dumps({"variables": r["variables"], "reproduccion": r["reproduccion"]}, default=semanal._json))
+    pron, cota, cota_vol = semanal.reproducir(snap, r["precio_base"])
+    assert pron == pytest.approx(r["pronostico"], rel=1e-10)
+    assert cota == pytest.approx(r["cota90"], rel=1e-10) and cota_vol == pytest.approx(r["cota90_vol"], rel=1e-10)
+    assert len(r["reproduccion"]["huella_entrenamiento"]) == 64
 
 
 def _emision(semana, pronostico):

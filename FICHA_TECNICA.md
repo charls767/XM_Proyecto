@@ -65,5 +65,6 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 ## Mantenimiento
 
 - **Cada miércoles en la tarde** (por el rezago de publicación del precio): `correr_semanal.bat`.
-- **Revisar:** si el estado sale en vigilancia dos semanas seguidas, o si la cobertura de las últimas 26 semanas baja de 80 %.
+- **Revisar:** si el estado sale en vigilancia dos semanas seguidas, si la cobertura de las últimas 26 semanas baja de 80 % o si el sesgo de esas semanas pasa de 5 % del precio con significancia (hoy: −7.6 %, p = 0.04).
+- **Anclaje:** el `.bat` hace commit y tag `registro-AAAA-MM-DD` de cada emisión; revisar la bitácora en `registro/logs/` si falla.
 - **Cambiar de modelo:** solo con evidencia del registro y una nueva versión en `src/config.py`, sin borrar las filas registradas con la anterior.

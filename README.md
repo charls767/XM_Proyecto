@@ -105,7 +105,7 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 | Estado | Cuándo | Qué hacer |
 |---|---|---|
 | **Normal** | Datos completos y el modelo rinde como en su evaluación | Usar el pronóstico y la cota |
-| **Vigilancia** | Datos atrasados, variables fuera de todo lo visto, el modelo no le gana al ingenuo en las últimas 26 semanas o la cota cubre menos de 80 % | Usarlo con cautela; considerar la cota por volatilidad |
+| **Vigilancia** | Datos atrasados, a una serie le faltan 2 o más días de la semana base, variables fuera de todo lo visto, o en las últimas 26 semanas el modelo no le gana al ingenuo, la cota cubre menos de 80 % o el sesgo pasa de 5 % del precio con significancia (p < 0,05) | Usarlo con cautela; considerar la cota por volatilidad |
 | **Respaldo** | Falta un dato del modelo | Se emite el ingenuo con una cota calibrada sobre sus propios errores |
 
 ### 8. Cuándo no confiar en él
@@ -148,7 +148,7 @@ python -m pytest -q tests
 correr_semanal.bat
 ```
 
-El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
+El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Al final hace un commit del registro, los snapshots y el tablero, con el tag `registro-AAAA-MM-DD`: así la huella encadenada queda anclada fuera del CSV. El commit va a la rama activa y no se empuja. La salida completa queda en `registro/logs/AAAA-MM-DD.log`, fuera de git. Cada snapshot guarda los coeficientes, el escalador, los márgenes de la cota y huellas de los datos de entrenamiento, así que `semanal.reproducir` reconstruye el pronóstico aunque XM revise los datos. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
 
 **Por qué el miércoles:** la API publica el precio con unos 3 días de rezago, así que el domingo queda disponible hacia el miércoles. Si se corre antes, la semana no está completa y no se emite nada nuevo. Por eso, hoy el pronóstico sale cuando la semana objetivo ya empezó, aunque no usa ningún dato de ella. Si XM confirma una emisión más temprana, el modelo adecuado es Ridge 14 + despacho programado (ver [E9](docs/EXPERIMENTOS.md)).
 
@@ -176,6 +176,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 ├── README.md                 este documento
 ├── FICHA_TECNICA.md          el modelo en una página
 ├── docs/AUDITORIA.md         auditoría metodológica: riesgos, evidencia y correcciones
+├── docs/AUDITORIA_2026-11-10.md  segunda auditoría: desempeño reciente, hora de emisión y operación
 ├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
 ├── correr_semanal.bat        emisión semanal completa
 ├── requirements.txt          dependencias fijas (Python 3.11)

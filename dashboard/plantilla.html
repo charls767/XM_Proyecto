@@ -754,7 +754,7 @@ function registroUI() {
 }
 
 function controlesUI() {
-  const mapa = { ok: "good", aviso: "warn", falla: "crit" };
+  const mapa = { ok: "good", nota: "neutral", aviso: "warn", falla: "crit" };
   $("controles").innerHTML = A.controles.map(c => `<div class="control">${chip(mapa[c.estado], c.estado === "ok" ? "OK" : c.estado)}<span>${c.control}</span><span class="d">${c.detalle}</span></div>`).join("");
   const fr = A.fuera_de_rango;
   $("rango").textContent = fr.length
