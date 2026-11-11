@@ -106,6 +106,8 @@ Guía para la reunión con XM. Las preguntas van en orden de impacto: las primer
 **28. ¿Hay datos que anticipen saltos de precio?** Pronóstico de aportes, mantenimientos programados, indisponibilidades previstas o planeamiento operativo: ¿existen, son públicos y tienen historial?
 *Por qué:* nuestra auditoría sugiere que el límite está en la información. La cota cubre solo ~70 % en las semanas de salto.
 
+**32. ¿Cuándo se publica el costo marginal del despacho programado (`CostMargDesp`) y se revisa después?** En nuestra prueba (E12) es la variable que más mejora el pronóstico si se emite con la semana ya empezada. El martes 10 de noviembre de 2026 a las 21:19 todavía no estaba el del miércoles. ¿A qué hora queda publicado cada día? ¿Lo que muestra la API para días pasados es lo publicado entonces? ¿Por qué el precio de bolsa se separó más de él desde 2024?
+
 ## H. Validación y siguiente paso
 
 **29. ¿Qué evidencia necesitarían para confiar en el modelo?** Tenemos pronósticos congelados desde el 5 de noviembre de 2026. ¿Cuántas semanas pedirían?

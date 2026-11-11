@@ -40,6 +40,8 @@ SERIES = {
     "precio_escasez": ("PrecEsca", "Sistema", "daily"),
     # E9: despacho programado (publicado el día anterior)
     "gene_programada": ("GeneProgDesp", "Recurso", "hourly"),
+    # E12: costo marginal del despacho programado (publicado el día anterior)
+    "costo_marginal": ("CostMargDesp", "Sistema", "hourly"),
 }
 
 

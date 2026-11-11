@@ -28,6 +28,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E10 | `e10` | ¿19, 14 o 12 variables? ¿Estabilidad y estrés? | Ridge 14 en operación. |
 | E5/E6 | `e5e6` | ¿SARIMAX o ensambles? | SARIMAX empata; el ensamble mejora ~2 % sin pasar el criterio. |
 | E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo es el mejor candidato, pero no es significativo al corregir por búsqueda; se valida con pronósticos reales. |
+| E12 | `e12` | ¿Ayuda el costo marginal del despacho programado de los primeros días de la semana objetivo? | Sí: con lunes a miércoles el error baja 38 % frente a Ridge 14, significativo tras corregir por búsqueda. Falta confirmar con XM la hora de publicación y si la garantía se fija con la semana ya empezada. |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -379,6 +380,60 @@ Conclusiones:
 - **Corrección de la auditoría:** ese ensamble se añadió después de ver los primeros resultados, y con Bonferroni la p sube a 0.08 dentro de E11 y a 0.52 en todo el proyecto. El reality check para el mejor de 67 modelos da p = 0.52. Es una mejora prometedora, no demostrada.
 
 **Decisión de E11:** Ridge 14 sigue en operación y el ensamble se registra en paralelo desde la siguiente emisión. Con 26 semanas calificadas, lo reemplaza si su error medio es menor y la cobertura de su cota no baja de 85 %. Si XM confirma emisión con datos hasta el viernes, el modelo sería Ridge 14 + despacho programado.
+
+## E12: costo marginal del despacho programado
+
+`python src/experimentos.py e12`. Resultados en `results/E12.parquet`, `E12_ancho.parquet`, `E12_resumen.csv`, `E12_cotas.csv` y `E12_reality_check.csv`.
+
+**Idea.** La emisión es el miércoles de la semana objetivo s+1, porque el precio llega con ~3 días de rezago. Para entonces el precio de bolsa de esa semana aún no se conoce, pero el costo marginal del despacho programado (`CostMargDesp`, Sistema, horario) sí: XM lo publica antes de que empiece cada día. Es el precio que resulta de despachar las ofertas contra la demanda prevista.
+
+**Variables** (`data_pipeline.costo_marginal`, tabla `data/processed/semanal_e12.parquet`):
+- `cmg_{k}d_rel`: log(costo marginal medio de los primeros k días de s+1 / costo marginal medio de s), con k = 1 a 4.
+- `cmg_brecha`: log(costo marginal medio de s / precio de bolsa de s). El costo marginal queda por debajo del precio de bolsa, y la brecha creció de −0.04 en 2014–2015 a −0.28 en 2025–2026.
+- `Regla_cmg{k}d`: precio de s × exp(`cmg_{k}d_rel`), sin parámetros ajustados.
+
+Historial completo desde 2010. Semana base completa y walk-forward desde 2014, sin embargo adicional, como E9 con corte el domingo. Una prueba (`tests/test_e12.py`) verifica que cada variable usa solo sus k días.
+
+**Cuándo se conoce cada día.** El martes 10 de noviembre de 2026 a las 21:19, la API tenía el costo marginal del martes y no el del miércoles. Así que con una emisión el miércoles, k = 2 es seguro, k = 3 depende de que el del miércoles esté publicado a la hora de correr, y k = 4 no es posible. `results/E12_cmg_publicado_2026-11-10.csv` guarda lo publicado ese día, para comprobar más adelante si XM revisa la serie hacia atrás.
+
+### Resultados (MAE, COP/kWh, semana base completa)
+
+| Modelo | 2018–26 | Desarrollo | Selección 2022–24 | Final 2025–26 | Sesgo | Dif. vs Ridge 14, 2018–26 (IC 95 %) |
+|---|---|---|---|---|---|---|
+| Ingenuo | 66.7 | 28.5 | 116.5 | 67.1 | −1.2 | +12.7 (8.0 a 17.6) |
+| Ridge 14 | 54.0 | 21.9 | 91.9 | 60.9 | −12.9 | referencia |
+| Regla, lunes | 53.5 | 21.2 | 95.3 | 54.6 | +1.1 | −0.4 (−8.0 a 7.7) |
+| Regla, lunes y martes | 42.5 | 19.7 | 71.6 | 44.0 | +4.2 | −11.4 (−18.8 a −6.1) |
+| Regla, lunes a miércoles | 36.0 | 16.7 | 60.0 | 38.3 | +6.4 | −17.9 (−26.7 a −11.7) |
+| Ridge 14 + costo marginal, lunes | 47.1 | 18.0 | 83.1 | 50.8 | −10.1 | −6.8 (−10.3 a −4.3) |
+| **Ridge 14 + costo marginal, lunes y martes** | **39.3** | 16.4 | 68.2 | 41.1 | −9.4 | **−14.7 (−21.2 a −10.0)** |
+| **Ridge 14 + costo marginal, lunes a miércoles** | **33.4** | 14.3 | 58.6 | 33.4 | −9.1 | **−20.5 (−29.1 a −14.8)** |
+| Solo costo marginal y brecha, lunes a miércoles | 33.2 | 14.9 | 57.5 | 32.6 | −4.5 | −20.8 (−30.4 a −14.2) |
+| Ridge 14 + costo marginal, lunes a jueves (no viable) | 28.4 | 12.7 | 48.2 | 29.6 | −8.4 | −25.6 (−36.1 a −18.8) |
+
+**Cota conformal al 90 %, 2018–2026:**
+
+| Cota | Cobertura | En semanas de salto | Exceso medio | Pinball |
+|---|---|---|---|---|
+| Ridge 14 | 90.1 % | 69.6 % | 37.0 % | 15.5 |
+| Ridge 14 + costo marginal, lunes y martes | 91.0 % | 75.0 % | 28.2 % | 11.7 |
+| Ridge 14 + costo marginal, lunes a miércoles | 91.2 % | 76.1 % | 22.6 % | 9.4 |
+
+Conclusiones:
+
+- **Es la primera información que mejora con claridad a Ridge 14.** Con lunes y martes el MAE baja 27 % y con lunes a miércoles 38 %, en los tres periodos y con p < 0.003 en selección y en el periodo final. El reality check sobre los 9 modelos de E12 da p < 0.001. A diferencia de E11, la mejora no depende de un modelo elegido después de ver los resultados: la regla sin parámetros ya supera a Ridge 14.
+- **La ventaja viene de usar datos de la propia semana objetivo.** No es un pronóstico a una semana completa sino a lo que queda de ella, con 2 o 3 de los 7 días ya despachados. Sirve solo si la garantía se fija cuando la semana ya empezó, que es lo que pasa hoy con la emisión del miércoles.
+- **La cota mejora a la vez en cobertura y en ancho.** Cubre más en semanas de salto (76 % frente a 70 %) inmovilizando menos: el exceso medio baja de 37 % a 23 %.
+- **Las 14 variables casi no aportan cuando está el costo marginal.** El modelo con solo el costo marginal y la brecha tiene el mismo error y menos sesgo (−4.5 frente a −9.1).
+- **Coeficientes estables.** En 13 reentrenamientos anuales, el del costo marginal de lunes a miércoles va de 0.125 a 0.173 (variables estandarizadas) y 13 de 16 signos no cambian.
+- **La brecha creciente es una alerta.** Que el precio de bolsa se separe del costo marginal programado desde 2024 puede venir de cambios en la formación del precio. Hay que preguntarle a XM.
+
+**Decisión de E12:** es el mejor candidato del proyecto, pero no reemplaza todavía a Ridge 14. Antes hay que confirmar con XM (preguntas 17, 19 y 32 de [PREGUNTAS_XM.md](PREGUNTAS_XM.md)):
+1. A qué hora se publica el costo marginal programado de cada día, para saber si la emisión del miércoles puede usar el del miércoles.
+2. Que la serie histórica es la publicada en su momento y no una revisión posterior. La copia del 10 de noviembre de 2026 sirve para comprobarlo.
+3. Que la garantía se puede fijar con la semana objetivo ya empezada.
+
+Si se confirma, el paso siguiente es registrar Ridge 14 + costo marginal en paralelo, como el candidato de E11, y decidir con las semanas calificadas.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
