@@ -229,6 +229,12 @@ def descargar(nombre, inicio="2010-01-01", fin=None, hilos=4):
     return df[(df.fecha >= pd.Timestamp(inicio)) & (df.fecha <= fin)]
 
 
+def leer_cache(nombre):
+    """Serie completa desde la caché local, sin consultar la API (corridas en seco y pruebas)."""
+    partes = [pd.read_parquet(a) for a in sorted((CACHE / nombre).glob("*.parquet")) if _filas(a) > 0]
+    return pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
+
+
 def ultima_fecha_en_cache(nombre):
     """Última fecha guardada de una serie, sin consultar la API."""
     archivos = sorted((CACHE / nombre).glob("*.parquet"))

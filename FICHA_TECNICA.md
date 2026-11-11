@@ -54,6 +54,7 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
 - Un ensamble de Ridge y LEAR diario erró ~3 % menos con la semana completa, pero al corregir por los modelos probados no es significativo (p = 0.52). Se registra en paralelo cada semana. Con 26 semanas calificadas, reemplaza al oficial si erra menos y la cobertura de su cota no baja de 85 % (E11).
+- Desde el 10 de noviembre de 2026 se registra en paralelo un segundo candidato: Ridge 14 más el costo marginal programado del lunes y el martes de la semana objetivo. Erró 39.3 frente a 53.9 COP/kWh en la evaluación simulada (E12), con significancia tras corregir por búsqueda. Sigue la misma regla y, además, solo puede adoptarse si XM confirma que la garantía se fija con la semana objetivo ya iniciada.
 
 ## Pendiente con XM
 

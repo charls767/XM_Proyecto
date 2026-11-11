@@ -161,6 +161,52 @@ def test_candidato_se_registra_y_califica_aparte(tmp_path, monkeypatch, d):
     assert bool(reg.candidato_cubierto.iloc[1]) is False
 
 
+def test_candidato_cmg_se_registra_sella_y_califica(tmp_path, monkeypatch, d):
+    monkeypatch.setattr(semanal, "REGISTRO", tmp_path)
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    semana = d.index[-3]
+    semanal.registrar(_emision(d.index[-4], 90.0))  # fila anterior sin el candidato nuevo
+    conc = _emision(semana, 95.0)
+    conc["candidato_cmg"] = {"version": "cmg-prueba", "pronostico": 85.0, "cota90": 1e6}
+    semanal.registrar(conc)
+    reg = semanal.calificar(d)
+    real = d.precio[semana + pd.Timedelta(weeks=1)]
+    assert pd.isna(reg.candidato_cmg_error.iloc[0])
+    assert reg.candidato_cmg_error.iloc[1] == pytest.approx(85.0 - real, abs=0.01)
+    assert bool(reg.candidato_cmg_cubierto.iloc[1]) is True
+    assert semanal.verificar_registro() == []
+    reg.loc[1, "candidato_cmg_pronostico"] = 86.0  # lo emitido por el candidato también está sellado
+    semanal._escribir(reg)
+    assert semanal.verificar_registro() == [f"{semana:%Y-%m-%d}"]
+
+
+def test_columnas_nuevas_no_cambian_las_huellas_del_registro_real():
+    """Las filas emitidas antes del candidato con costo marginal deben seguir verificando."""
+    if not semanal.ARCHIVO.exists():
+        pytest.skip("sin registro")
+    assert semanal.verificar_registro() == []
+
+
+def test_candidato_cmg_solo_usa_dias_publicados(d):
+    import xm_client as xm
+
+    cmg = xm.leer_cache("costo_marginal")
+    if cmg.empty:
+        pytest.skip("sin caché de costo marginal")
+    semana = d.index[-3]
+    lunes = semana + pd.Timedelta(weeks=1)
+    con = semanal.candidato_cmg(d, semana, float(d.precio[semana]), actualizar=False)
+    assert sorted(con["cmg_publicado"]) == [f"{lunes:%Y-%m-%d}", f"{lunes + pd.Timedelta(days=1):%Y-%m-%d}"]
+    # Alterar el miércoles en adelante de la semana objetivo no cambia nada.
+    otro = cmg.copy()
+    tarde = otro.fecha >= lunes + pd.Timedelta(days=2)
+    otro.loc[tarde, xm.HORAS] = otro.loc[tarde, xm.HORAS] * 5
+    pd.testing.assert_frame_equal(semanal.tabla_cmg(d, cmg).loc[[semana]], semanal.tabla_cmg(d, otro).loc[[semana]])
+    # Sin el martes publicado, no hay candidato.
+    sin_martes = cmg[cmg.fecha != lunes + pd.Timedelta(days=1)]
+    assert pd.isna(semanal.tabla_cmg(d, sin_martes).at[semana, "cmg_2d_rel"])
+
+
 def test_registro_antiguo_sin_columnas_de_candidato(tmp_path, monkeypatch):
     monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
     viejas = [c for c in semanal.COLUMNAS if not c.startswith("candidato")]

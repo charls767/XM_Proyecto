@@ -16,6 +16,13 @@ VERSION_MODELO = "ridge14-conformal104-v1"
 
 # Modelo candidato: se emite y califica en paralelo, sin cambiar el pronóstico oficial.
 VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
+# Segundo candidato (E12): Ridge 14 + costo marginal del despacho programado del lunes y el
+# martes de la semana objetivo, publicado antes de cada día. Con la emisión del miércoles se
+# conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
+# Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
+VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
+DIAS_CMG_CANDIDATO = 2
+VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura
 DECISION_CANDIDATO = 26  # semanas calificadas para decidir si reemplaza al oficial
 

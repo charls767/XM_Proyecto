@@ -44,11 +44,17 @@ COLUMNAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo",
             "datos_precio_hasta", "precio_base", "pronostico", "cambio_pct", "cota90", "cota90_vol",
             "ingenuo", "alerta_precio_alto", "alerta_salto", "alerta_estres_hidrico",
             "real", "error", "cubierto", "fecha_calificacion",
-            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto", "huella"]
+            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto",
+            "candidato_cmg_version", "candidato_cmg_pronostico", "candidato_cmg_cota90", "candidato_cmg_error",
+            "candidato_cmg_cubierto", "huella"]
 # Lo emitido no cambia nunca; la huella encadena estas columnas con la fila anterior.
 COLUMNAS_SELLADAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo", "estado", "motivos",
                      "precio_base", "pronostico", "cota90", "cota90_vol", "candidato_version",
                      "candidato_pronostico", "candidato_cota90"]
+# Columnas añadidas después: se sellan solo en las filas que las tienen, para que las huellas
+# de las filas anteriores no cambien.
+SELLADAS_DESDE_CMG = ["candidato_cmg_version", "candidato_cmg_pronostico", "candidato_cmg_cota90"]
+CANDIDATOS = ("candidato", "candidato_cmg")
 
 
 def actualizar_datos():
@@ -97,6 +103,42 @@ def candidato(d, hist, semana, base, pronostico, recalcular=False):
     h = hist.assign(prediccion=(hist.prediccion + previo) / 2).dropna(subset=["prediccion"])
     pred = (pronostico + float(modelo.ajustar_predecir(None, pd.DataFrame(index=[semana]))[0])) / 2
     return {"version": config.VERSION_CANDIDATO, "pronostico": pred, "cota90": _cota(h, semana, base, pred)}
+
+
+def tabla_cmg(d, cmg):
+    """Tabla semanal con el costo marginal programado de los primeros días de la semana objetivo."""
+    dc = d.join(dp.costo_marginal(cmg, dias=(config.DIAS_CMG_CANDIDATO,)))
+    dc["cmg_brecha"] = np.log(dc.cmg_semana / dc.precio)
+    return dc
+
+
+def candidato_cmg(d, semana, base, actualizar=True):
+    """Ridge 14 + costo marginal programado del lunes y el martes de la semana objetivo (E12).
+
+    Se calcula en paralelo y no afecta al pronóstico oficial. Guarda los valores horarios del
+    costo marginal tal como estaban publicados al emitir: así se puede verificar después que la
+    historia de la API es la versión ex ante y no una revisada.
+    """
+    cmg = xm.descargar("costo_marginal") if actualizar else xm.leer_cache("costo_marginal")
+    dc = tabla_cmg(d, cmg)
+    variables = config.VARIABLES_CANDIDATO_CMG
+    faltan = [v for v in variables if pd.isna(dc.at[semana, v])]
+    if faltan:
+        raise ValueError(f"costo marginal de la semana objetivo aún no publicado ({', '.join(faltan)})")
+    r = bt.backtest(dc, [models.Modelo("Ingenuo"), models.Modelo("CMG", variables, models.ridge)],
+                    inicio=config.INICIO_BACKTEST, cada=4, requeridas=variables + ["y"])
+    w = bt.ancho(r)
+    h = pd.DataFrame({"real": w.real, "ingenuo": w.base, "prediccion": w.CMG})
+    completas = dc.dropna(subset=variables + ["y"])
+    completas = completas[completas.index < semana]
+    m = models.ridge().fit(completas[variables], completas.y)
+    pred = base * float(np.exp(m.predict(dc.loc[[semana], variables])[0]))
+    dias = pd.date_range(semana + pd.Timedelta(weeks=1), periods=config.DIAS_CMG_CANDIDATO)
+    horario = cmg[cmg.fecha.isin(dias)].set_index("fecha")[xm.HORAS]
+    return {"version": config.VERSION_CANDIDATO_CMG, "pronostico": pred, "cota90": _cota(h, semana, base, pred),
+            "cmg_hasta": f"{cmg.fecha.max():%Y-%m-%d}",
+            "cmg_publicado": {f"{f:%Y-%m-%d}": [float(x) for x in fila] for f, fila in horario.iterrows()},
+            "variables": {v: float(dc.at[semana, v]) for v in variables[-2:]}}
 
 
 def _huella_tabla(t):
@@ -196,6 +238,12 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
             cand = candidato(d, hist, semana, base, pronostico, recalcular=actualizar)
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
+    cand_cmg = None
+    if estado != "respaldo":
+        try:
+            cand_cmg = candidato_cmg(d, semana, base, actualizar=actualizar)
+        except Exception as e:
+            print(f"No se pudo calcular el candidato con costo marginal: {e}", flush=True)
 
     resultado = {
         "fecha_emision": fecha_emision, "semana_base": semana, "semana_objetivo": semana + pd.Timedelta(weeks=1),
@@ -204,7 +252,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "cambio_pct": (pronostico / base - 1) * 100, "cota90": cota, "cota90_vol": cota_vol, "ingenuo": base,
         "intercepto": intercepto, "aportes": aportes, "controles": controles, "fuera_de_rango": rango,
         "desempeno_reciente": desempeno, "alertas": avisos, "historial": hist,
-        "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand,
+        "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand, "candidato_cmg": cand_cmg,
         "reproduccion": reproduccion,
     }
     if guardar:
@@ -219,7 +267,8 @@ def _leer_registro():
     # Las filas anteriores al candidato quedan sin esas columnas: no se llenan hacia atrás.
     reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
     # Una columna de texto o sí/no vacía se lee como float y luego no acepta sus valores.
-    return reg.astype({c: object for c in ("motivos", "candidato_version", "huella", "cubierto", "candidato_cubierto")})
+    return reg.astype({c: object for c in ("motivos", "candidato_version", "huella", "cubierto", "candidato_cubierto",
+                                           "candidato_cmg_version", "candidato_cmg_cubierto")})
 
 
 FECHAS = ["fecha_emision", "semana_base", "semana_objetivo", "datos_precio_hasta", "fecha_calificacion"]
@@ -235,7 +284,8 @@ def _texto(v):
 
 def huella(fila, anterior=""):
     """SHA-256 de lo emitido, encadenado con la huella anterior: alterar una fila rompe la cadena."""
-    texto = anterior + "|" + "|".join(_texto(fila[c]) for c in COLUMNAS_SELLADAS)
+    columnas = COLUMNAS_SELLADAS + (SELLADAS_DESDE_CMG if _texto(fila.get("candidato_cmg_version")) else [])
+    texto = anterior + "|" + "|".join(_texto(fila.get(c)) for c in columnas)
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()
 
 
@@ -283,12 +333,12 @@ def registrar(r):
         "cota90": round(r["cota90"], 2), "cota90_vol": round(r["cota90_vol"], 2), "ingenuo": round(r["ingenuo"], 2),
         **{f"alerta_{k}": round(v["puntaje"], 4) for k, v in r["alertas"].items()},
     }
-    cand = r.get("candidato")
-    if cand:
-        fila.update(candidato_version=cand["version"], candidato_pronostico=round(cand["pronostico"], 2),
-                    candidato_cota90=round(cand["cota90"], 2))
+    for prefijo in CANDIDATOS:
+        if cand := r.get(prefijo):
+            fila.update({f"{prefijo}_version": cand["version"], f"{prefijo}_pronostico": round(cand["pronostico"], 2),
+                         f"{prefijo}_cota90": round(cand["cota90"], 2)})
     anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
-    fila["huella"] = huella({c: fila.get(c, np.nan) for c in COLUMNAS_SELLADAS}, anterior)
+    fila["huella"] = huella({c: fila.get(c, np.nan) for c in COLUMNAS_SELLADAS + SELLADAS_DESDE_CMG}, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
     snap = REGISTRO / "snapshots" / f"{r['semana_base']:%Y-%m-%d}.json"
     snap.parent.mkdir(exist_ok=True)
@@ -296,7 +346,8 @@ def registrar(r):
         "fecha_emision": f"{r['fecha_emision']:%Y-%m-%d}", "version_modelo": r["version_modelo"],
         "datos_hasta": {k: f"{v:%Y-%m-%d}" for k, v in r["datos_hasta"].items()},
         "variables": r["variables"], "estado": r["estado"], "motivos": r["motivos"],
-        "controles": r["controles"].to_dict("records"), "candidato": cand,
+        "controles": r["controles"].to_dict("records"), "candidato": r.get("candidato"),
+        "candidato_cmg": r.get("candidato_cmg"),
         "precio_base": r["precio_base"], "pronostico": r["pronostico"], "cota90": r["cota90"], "cota90_vol": r["cota90_vol"],
         "desempeno_reciente": r.get("desempeno_reciente"), "reproduccion": r.get("reproduccion"),
     }, ensure_ascii=False, indent=2, default=_json), encoding="utf-8")
@@ -322,9 +373,10 @@ def calificar(d=None):
         reg.loc[pendientes, "error"] = np.round(reg.loc[pendientes, "pronostico"] - real, 2)
         reg.loc[pendientes, "cubierto"] = real <= reg.loc[pendientes, "cota90"]
         reales = pd.Series(real, index=reg.index[pendientes])
-        con_cand = reales.index[reg.loc[reales.index, "candidato_pronostico"].notna()]
-        reg.loc[con_cand, "candidato_error"] = (reg.loc[con_cand, "candidato_pronostico"] - reales[con_cand]).round(2)
-        reg.loc[con_cand, "candidato_cubierto"] = reales[con_cand] <= reg.loc[con_cand, "candidato_cota90"]
+        for p in CANDIDATOS:
+            con = reales.index[reg.loc[reales.index, f"{p}_pronostico"].notna()]
+            reg.loc[con, f"{p}_error"] = (reg.loc[con, f"{p}_pronostico"] - reales[con]).round(2)
+            reg.loc[con, f"{p}_cubierto"] = reales[con] <= reg.loc[con, f"{p}_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones")
@@ -338,3 +390,6 @@ if __name__ == "__main__":
           f"({r['cambio_pct']:+.1f} %), cota 90 % {r['cota90']:,.1f}")
     if r["candidato"]:
         print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, cota 90 % {r['candidato']['cota90']:,.1f}")
+    if r["candidato_cmg"]:
+        print(f"Candidato con costo marginal: {r['candidato_cmg']['pronostico']:,.1f} COP/kWh, "
+              f"cota 90 % {r['candidato_cmg']['cota90']:,.1f}")

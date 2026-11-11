@@ -128,7 +128,7 @@ Las tres variantes exploratorias suman 3 modelos a la búsqueda del proyecto. Ni
 | Prioridad | Acción | Esfuerzo | Estado |
 |---|---|---|---|
 | 1 | Control de sesgo en `monitoreo.estado` (A1) | Bajo | **Hecho** |
-| 2 | Decidir con XM la hora de emisión y, con ella, el modelo: programado si es el lunes, CMg si es el miércoles (A2) | Reunión | Pendiente |
+| 2 | Decidir con XM la hora de emisión y, con ella, el modelo: programado si es el lunes, CMg si es el miércoles (A2) | Reunión | Pendiente con XM; **Ridge 14 + CMg de 2 días ya se registra en paralelo**, guardando el CMg tal como se publicó |
 | 3 | Control de cobertura por serie (M1) y ofertas con el rezago real en el backtest | Bajo | **Control hecho**; el backtest con rezago, pendiente |
 | 4 | Snapshot reproducible y commit y tag del registro en el `.bat` (M6, B4) | Bajo | **Hecho**; el aviso por correo, pendiente |
 | 5 | Calificación preliminar y firme; monitoreo con el registro (M2, M3) | Medio | Pendiente |

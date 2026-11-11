@@ -436,6 +436,8 @@ Conclusiones:
 
 Si se confirma, el paso siguiente es registrar Ridge 14 + costo marginal en paralelo, como el candidato de E11, y decidir con las semanas calificadas.
 
+**Actualización, 10 de noviembre de 2026:** se registra en paralelo desde ya, sin esperar la confirmación, para que acumule evidencia real. Se eligió la versión de 2 días (`Ridge14+cmg2d`, MAE 39.3) y no la de 3, porque el martes a las 21:19 aún no estaba publicado el costo marginal del miércoles. Columnas `candidato_cmg_*` del registro; el snapshot guarda el costo marginal horario tal como se publicó. La adopción sigue condicionada a la respuesta de XM (ver el README).
+
 ## E13: ARIMA y variables en el dominio de la frecuencia
 
 `python src/experimentos.py e13` (~1 min). Resultados en `results/E13.parquet`, `E13_ancho.parquet`, `E13_resumen.csv`, `E13_reality_check.csv`, `E13_ordenes_arima.csv` y `E13_diagnostico.csv`. Mismas semanas y bloques que E5/E6 (460 semanas desde 2018, tabla corregida); el Ridge 14 de esta corrida es idéntico al de E5/E6.

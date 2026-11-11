@@ -127,6 +127,10 @@ Desde la próxima emisión, `src/semanal.py` también calcula y registra el ensa
 
 **Regla fijada de antemano:** a las 12 semanas calificadas se hace una primera lectura, solo informativa. A las 26, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. El tablero muestra el avance.
 
+**Segundo candidato, desde el 10 de noviembre de 2026:** Ridge 14 más el costo marginal del despacho programado (`CostMargDesp`) del lunes y el martes de la semana objetivo (`candidato_cmg_*`, versión `ridge14-cmg2d-conformal104-v1`). XM lo publica antes de cada día, así que con la emisión del miércoles esos dos días ya se conocen. En la evaluación simulada erró 39,3 COP/kWh frente a 53,9 de Ridge 14 (E12). Cada snapshot guarda los valores horarios tal como estaban publicados al emitir, para verificar después que la historia de la API no se revisó. Si el costo marginal no está publicado, no se emite el candidato y la emisión oficial sigue.
+
+Se decide con la misma regla y el mismo calendario, más una condición: **solo puede reemplazar al oficial si XM confirma que la garantía puede fijarse con la semana objetivo ya iniciada** y que los dos días están publicados a la hora de emisión. Si no, su resultado solo cuantifica cuánto vale esperar a esa información.
+
 ---
 
 ## Cómo usarlo
