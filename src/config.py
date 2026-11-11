@@ -16,6 +16,13 @@ VERSION_MODELO = "ridge14-conformal104-v1"
 
 # Modelo candidato: se emite y califica en paralelo, sin cambiar el pronóstico oficial.
 VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
+# Segundo candidato (E12): Ridge 14 + costo marginal del despacho programado del lunes y el
+# martes de la semana objetivo, publicado antes de cada día. Con la emisión del miércoles se
+# conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
+# Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
+VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
+DIAS_CMG_CANDIDATO = 2
+VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura
 DECISION_CANDIDATO = 26  # semanas calificadas para decidir si reemplaza al oficial
 
@@ -25,6 +32,14 @@ RAZON_MAE_MAXIMA = 1.0     # MAE modelo / MAE ingenuo por encima de esto: el mod
 COBERTURA_MINIMA = 0.80    # la cota al 90 % cubriendo menos que esto: subcubre
 EMBALSE_BAJO = 0.45        # bajo este nivel la mejora frente al ingenuo es 3.5 %, IC 95 % de −16 % a +21 % (44 semanas)
 ATRASO_MAXIMO_DIAS = 14    # semana base más vieja que esto respecto a la emisión: datos atrasados
+# Sesgo reciente: vigilancia si |sesgo| supera esta fracción del precio medio y es significativo
+# (HAC, p < SESGO_P). Hasta oct-2026: −52.9 COP/kWh en 26 semanas (−7.6 % del precio, p = 0.04).
+SESGO_MAXIMO = 0.05
+SESGO_P = 0.05
+# Series que alimentan las 14 variables: deben llegar al domingo de la semana base.
+# Faltar 1 día de ofertas cambia la predicción 0.15 % en promedio (p95 0.44 %); 2 días, 0.30 % (p95 0.88 %).
+SERIES_SEMANA_BASE = ["precio", "demanda", "aportes", "aportes_media", "volumen_pct", "capacidad", "oferta"]
+DIAS_FALTANTES_AVISO = 2   # desde aquí la falta pide vigilancia; con menos queda como nota
 
 # Nombres legibles para explicaciones y tablero.
 NOMBRES = {

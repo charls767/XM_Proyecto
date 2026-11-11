@@ -14,3 +14,6 @@ __pycache__/
 
 # Bitácoras de consola de los experimentos
 results/*.txt
+
+# Bitácoras de la emisión semanal
+registro/logs/

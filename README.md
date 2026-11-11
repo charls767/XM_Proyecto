@@ -105,7 +105,7 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 | Estado | Cuándo | Qué hacer |
 |---|---|---|
 | **Normal** | Datos completos y el modelo rinde como en su evaluación | Usar el pronóstico y la cota |
-| **Vigilancia** | Datos atrasados, variables fuera de todo lo visto, el modelo no le gana al ingenuo en las últimas 26 semanas o la cota cubre menos de 80 % | Usarlo con cautela; considerar la cota por volatilidad |
+| **Vigilancia** | Datos atrasados, a una serie le faltan 2 o más días de la semana base, variables fuera de todo lo visto, o en las últimas 26 semanas el modelo no le gana al ingenuo, la cota cubre menos de 80 % o el sesgo pasa de 5 % del precio con significancia (p < 0,05) | Usarlo con cautela; considerar la cota por volatilidad |
 | **Respaldo** | Falta un dato del modelo | Se emite el ingenuo con una cota calibrada sobre sus propios errores |
 
 ### 8. Cuándo no confiar en él
@@ -119,13 +119,17 @@ La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
 ### 9. Qué se probó además
 
-Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
+Se compararon LightGBM, XGBoost, SARIMAX, ARIMA, ElasticNet, un modelo en dos etapas, LEAR diario y variables en frecuencia (STFT y armónicos). El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
 
 ### Modelo candidato en paralelo
 
 Desde la próxima emisión, `src/semanal.py` también calcula y registra el ensamble **Ridge 14 + LEAR directo** (`candidato_*` en `registro/pronosticos.csv`), con su propia cota. No cambia el pronóstico oficial, y una falla suya no detiene la emisión. Las filas anteriores no se llenan hacia atrás, para que la comparación sea independiente.
 
 **Regla fijada de antemano:** a las 12 semanas calificadas se hace una primera lectura, solo informativa. A las 26, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. El tablero muestra el avance.
+
+**Segundo candidato, desde el 10 de noviembre de 2026:** Ridge 14 más el costo marginal del despacho programado (`CostMargDesp`) del lunes y el martes de la semana objetivo (`candidato_cmg_*`, versión `ridge14-cmg2d-conformal104-v1`). XM lo publica antes de cada día, así que con la emisión del miércoles esos dos días ya se conocen. En la evaluación simulada erró 39,3 COP/kWh frente a 53,9 de Ridge 14 (E12). Cada snapshot guarda los valores horarios tal como estaban publicados al emitir, para verificar después que la historia de la API no se revisó. Si el costo marginal no está publicado, no se emite el candidato y la emisión oficial sigue.
+
+Se decide con la misma regla y el mismo calendario, más una condición: **solo puede reemplazar al oficial si XM confirma que la garantía puede fijarse con la semana objetivo ya iniciada** y que los dos días están publicados a la hora de emisión. Si no, su resultado solo cuantifica cuánto vale esperar a esa información.
 
 ---
 
@@ -148,7 +152,7 @@ python -m pytest -q tests
 correr_semanal.bat
 ```
 
-El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
+El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Al final hace un commit del registro, los snapshots y el tablero, con el tag `registro-AAAA-MM-DD`: así la huella encadenada queda anclada fuera del CSV. El commit va a la rama activa y no se empuja. La salida completa queda en `registro/logs/AAAA-MM-DD.log`, fuera de git. Cada snapshot guarda los coeficientes, el escalador, los márgenes de la cota y huellas de los datos de entrenamiento, así que `semanal.reproducir` reconstruye el pronóstico aunque XM revise los datos. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
 
 **Por qué el miércoles:** la API publica el precio con unos 3 días de rezago, así que el domingo queda disponible hacia el miércoles. Si se corre antes, la semana no está completa y no se emite nada nuevo. Por eso, hoy el pronóstico sale cuando la semana objetivo ya empezó, aunque no usa ningún dato de ella. Si XM confirma una emisión más temprana, el modelo adecuado es Ridge 14 + despacho programado (ver [E9](docs/EXPERIMENTOS.md)).
 
@@ -166,7 +170,7 @@ Luego abre http://localhost:8000. También funciona abriendo `dashboard/index.ht
 python src/experimentos.py e10
 ```
 
-Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
+Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
 ---
 
@@ -176,6 +180,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 ├── README.md                 este documento
 ├── FICHA_TECNICA.md          el modelo en una página
 ├── docs/AUDITORIA.md         auditoría metodológica: riesgos, evidencia y correcciones
+├── docs/AUDITORIA_2026-11-10.md  segunda auditoría: desempeño reciente, hora de emisión y operación
 ├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
 ├── correr_semanal.bat        emisión semanal completa
 ├── requirements.txt          dependencias fijas (Python 3.11)
@@ -186,7 +191,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 │   ├── xm_client.py          descarga desde XM con pydataxm (o consulta directa) y caché mensual
 │   ├── data_pipeline.py      tabla semanal y variantes usadas en los experimentos
 │   ├── feature_engineering.py variables del modelo
-│   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX)
+│   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX, ARIMA)
 │   ├── lear.py               LEAR diario agregado a la semana (candidato, E11)
 │   ├── calibration.py        cotas conformales
 │   ├── alertas.py            alertas tempranas y su explicación

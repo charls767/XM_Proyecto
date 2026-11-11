@@ -57,7 +57,7 @@ header.top { display: flex; flex-wrap: wrap; justify-content: space-between; ali
 header.top .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--ink-2); }
 header.top .meta b { color: var(--ink); font-weight: 600; }
 
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 8px 16px; }
 .panel-head p { margin-top: 4px; max-width: 75ch; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 20px; }
@@ -150,6 +150,61 @@ details[open] > summary { margin-bottom: 10px; }
 .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px 24px; font-size: 0.88rem; color: var(--ink-2); }
 .notes h3 { color: var(--ink); margin-bottom: 4px; }
 footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* Índice y ayudas de lectura */
+nav.indice { display: flex; flex-wrap: wrap; gap: 6px 8px; font-size: 0.84rem; }
+nav.indice a { color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: var(--surface); }
+nav.indice a:hover, nav.indice a:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+section[id] { scroll-margin-top: 12px; }
+details.ayuda { border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 6px 6px 0; padding: 8px 12px; font-size: 0.88rem; }
+details.ayuda > summary { font-size: 0.86rem; }
+details.ayuda[open] > summary { margin-bottom: 6px; }
+details.ayuda ul, details.ayuda ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+details.ayuda p + p, details.ayuda p + ul, details.ayuda ul + p { margin-top: 6px; }
+.que { font-size: 0.84rem; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 6px; }
+.que b { color: var(--ink); font-weight: 600; }
+
+/* Cómo funciona: pasos y recta de precios */
+.pasos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: paso; }
+@media (max-width: 980px) { .pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .pasos { grid-template-columns: minmax(0, 1fr); } }
+.paso { border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; position: relative; }
+.paso::before { counter-increment: paso; content: counter(paso); font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; color: var(--surface); background: var(--accent); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; }
+.paso h3 { font-size: 0.98rem; }
+.paso .cifra { font-family: var(--font-data); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.paso .cifra small { font-size: 0.75rem; color: var(--ink-2); margin-left: 3px; }
+.paso p { font-size: 0.86rem; color: var(--ink-2); }
+.recta { position: relative; height: 74px; margin: 4px 8px 0; }
+.recta .eje { position: absolute; left: 0; right: 0; top: 36px; height: 2px; background: var(--line); }
+.recta .tramo { position: absolute; top: 31px; height: 12px; background: var(--s-band); border: 1px dashed var(--s-pred); border-radius: 3px; }
+.recta .marca { position: absolute; transform: translateX(-50%); display: grid; justify-items: center; font-size: 0.78rem; line-height: 1.2; white-space: nowrap; }
+.recta .marca i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); }
+.recta .marca.arriba { top: 0; } .recta .marca.arriba i { order: 2; margin-top: 4px; }
+.recta .marca.abajo { top: 31px; }
+.recta .marca b { font-weight: 600; } .recta .marca span { font-family: var(--font-data); color: var(--ink-2); }
+
+/* Explicación por variable */
+.sentido { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--ink-2); padding: 0 66px 0 0; }
+.sentido span:first-child { color: var(--neg); } .sentido span:last-child { color: var(--pos); }
+.why ol li .por { display: block; color: var(--ink-2); }
+table.texto td, table.texto th { white-space: normal; text-align: left; vertical-align: top; }
+table.texto td { font-family: var(--font-body); }
+table.texto td.n { font-family: var(--font-data); text-align: right; white-space: nowrap; }
+
+/* Glosario y límites */
+.glosario { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px 24px; margin: 0; }
+.glosario div { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.glosario dt { font-family: var(--font-display); font-weight: 600; }
+.glosario dd { margin: 2px 0 0; font-size: 0.88rem; color: var(--ink-2); }
+.limites { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.limite { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 12px 14px; display: grid; gap: 4px; align-content: start; font-size: 0.88rem; }
+.limite h3 { font-size: 0.98rem; }
+.estados3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 760px) { .estados3 { grid-template-columns: minmax(0, 1fr); } }
+.estados3 div { border-radius: 6px; padding: 8px 10px; border: 1px solid; font-size: 0.85rem; }
+.estados3 .normal { border-color: var(--good); background: var(--good-bg); }
+.estados3 .vigilancia { border-color: var(--warn); background: var(--warn-bg); }
+.estados3 .respaldo { border-color: var(--crit); background: var(--crit-bg); }
 @media (max-width: 520px) { .chart-box { height: 280px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -169,31 +224,62 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
     </div>
   </header>
 
+  <nav class="indice" aria-label="Secciones del tablero">
+    <a href="#como">Cómo funciona</a><a href="#porque">¿Por qué?</a><a href="#metricas-sec">¿Qué tan bueno es?</a>
+    <a href="#registro">Registro real</a><a href="#candidato">Candidato</a><a href="#controles-sec">Controles</a>
+    <a href="#serie">Serie</a><a href="#alertas-sec">Alertas</a><a href="#hidro">Hidrología</a>
+    <a href="#limites">Cuándo no confiar</a><a href="#glosario">Glosario</a>
+  </nav>
+
   <section id="estado" class="estado" aria-live="polite"></section>
 
-  <section class="kpis" aria-label="Pronóstico de la semana">
-    <div class="kpi"><span class="lab">Precio semana base</span><span class="val" id="k-base"></span><span class="sub">Promedio ponderado por demanda, lunes a domingo</span></div>
-    <div class="kpi principal"><span class="lab">Pronóstico</span><span class="val" id="k-pron"></span><span class="sub" id="k-pron-sub"></span></div>
-    <div class="kpi"><span class="lab">Cota superior 90 %</span><span class="val" id="k-cota"></span><span class="sub" id="k-cota-sub"></span></div>
-    <div class="kpi"><span class="lab">Cota por volatilidad</span><span class="val" id="k-vol"></span><span class="sub">Alternativa más amplia cuando el precio viene agitado</span></div>
+  <section class="panel" id="como" aria-labelledby="t-como">
+    <div class="panel-head"><div>
+      <h2 id="t-como">Cómo se llegó a este pronóstico, en 4 pasos</h2>
+      <p class="muted small">Qué precio de bolsa promedio se espera para la próxima semana y hasta dónde podría subir razonablemente. El precio de bolsa es lo que se paga por la energía en el mercado mayorista; se mide en pesos por kilovatio hora (COP/kWh).</p>
+    </div></div>
+    <div class="pasos" id="pasos"></div>
+    <div class="recta" id="recta" aria-hidden="true"></div>
+    <p class="small muted" id="recta-txt"></p>
   </section>
 
-  <section class="panel" aria-labelledby="t-why">
+  <section class="kpis" aria-label="Pronóstico de la semana">
+    <div class="kpi"><span class="lab">Precio semana base</span><span class="val" id="k-base"></span><span class="sub">Lo que costó en promedio la última semana completa (lunes a domingo). Las horas de más consumo pesan más.</span></div>
+    <div class="kpi principal"><span class="lab">Pronóstico</span><span class="val" id="k-pron"></span><span class="sub" id="k-pron-sub"></span></div>
+    <div class="kpi"><span class="lab">Cota superior 90 %</span><span class="val" id="k-cota"></span><span class="sub" id="k-cota-sub"></span></div>
+    <div class="kpi"><span class="lab">Cota por volatilidad</span><span class="val" id="k-vol"></span><span class="sub">Otra forma de calcular el techo: se agranda cuando el precio viene muy agitado. Protege mejor en los saltos, pero inmoviliza más recursos.</span></div>
+  </section>
+
+  <section class="panel" id="porque" aria-labelledby="t-why">
     <div class="panel-head"><div>
       <h2 id="t-why">¿Por qué este pronóstico?</h2>
-      <p class="muted small">El modelo es lineal, así que el pronóstico se descompone exactamente en el aporte de cada variable frente a una semana promedio. Hacia la derecha empujan el precio al alza; hacia la izquierda, a la baja.</p>
+      <p class="muted small">El modelo suma el efecto de 14 variables, así que se puede ver exactamente cuánto aportó cada una. Cada aporte se mide frente a una semana típica: una variable en su valor normal aporta cero.</p>
     </div></div>
     <div class="why">
       <div><h3 class="small muted" style="margin-bottom:6px">En palabras</h3><ol id="why-text" class="small"></ol></div>
-      <div class="contrib" id="why-bars"></div>
+      <div class="contrib"><div class="sentido" aria-hidden="true"><span>◀ Empuja a la baja</span><span>Empuja al alza ▶</span></div><div class="contrib" id="why-bars"></div></div>
     </div>
+    <details class="ayuda">
+      <summary>Cómo leer las barras</summary>
+      <ul>
+        <li>Cada barra es el aporte de una variable al cambio de precio esperado. <b style="color:var(--pos)">Rojo, a la derecha</b>: empuja el precio hacia arriba. <b style="color:var(--neg)">Azul, a la izquierda</b>: lo empuja hacia abajo.</li>
+        <li>Cuanto más larga la barra, más pesó esa variable esta semana. Se muestran las 8 que más pesaron; la tabla de abajo trae las 14.</li>
+        <li>Los aportes se combinan multiplicando, (1 + a)(1 + b)…, por eso no suman exactamente el cambio total.</li>
+        <li>Son efectos <i>parciales</i>: lo que aporta cada variable con las demás en su valor. Muestran cómo razona el modelo, no relaciones de causa y efecto.</li>
+      </ul>
+    </details>
+    <details class="ayuda">
+      <summary>Las 14 variables del modelo, una por una (la época del año agrupa dos)</summary>
+      <div class="table-wrap"><table class="texto" id="tb-var"><thead><tr><th>Variable</th><th>Qué mide</th><th>Si está por encima de lo normal, el pronóstico…</th><th>Esta semana</th><th>Aporte</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted small" style="margin-top:6px">«Esta semana» compara el valor de la semana base con todas las semanas desde 2010 con las que se entrenó el modelo. La dirección de cada variable se mantuvo en 13 reentrenamientos anuales.</p>
+    </details>
   </section>
 
-  <section class="panel" aria-labelledby="t-met">
+  <section class="panel" id="metricas-sec" aria-labelledby="t-met">
     <div class="panel-head">
       <div>
-        <h2 id="t-met">Panel de métricas</h2>
-        <p class="muted small">Desempeño del modelo pronosticando cada semana solo con lo que se sabía antes (evaluación histórica simulada). Cada métrica tiene su meta y un semáforo; elige el periodo para ver cómo cambia.</p>
+        <h2 id="t-met">¿Qué tan bueno es? Panel de métricas</h2>
+        <p class="muted small">Se simuló el modelo semana a semana desde 2018, usando en cada una solo lo que se sabía hasta ese momento, y se comparó con lo que de verdad pasó. Cada métrica tiene una meta y un semáforo. Elige el periodo para ver cómo cambia.</p>
       </div>
       <div class="seg" role="group" aria-label="Periodo de evaluación">
         <button type="button" data-per="26" aria-pressed="false">Últimas 26 semanas</button>
@@ -204,46 +290,66 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
     </div>
     <div class="metricas" id="metricas"></div>
     <p class="muted small" id="met-nota"></p>
+    <details class="ayuda">
+      <summary>Cómo leer el semáforo y por qué tomar estas cifras con cautela</summary>
+      <ul>
+        <li><span class="chip good"><span aria-hidden="true">✓</span>Cumple</span> alcanza la meta. <span class="chip warn"><span aria-hidden="true">!</span>Vigilar</span> cerca, pero no llega. <span class="chip crit"><span aria-hidden="true">✕</span>No cumple</span> lejos de la meta. <span class="chip neutral"><span aria-hidden="true">·</span>Referencia</span> sin meta, sirve para dimensionar.</li>
+        <li>La referencia es siempre el <b>pronóstico ingenuo</b>, repetir el precio de la semana anterior. Es difícil de superar, porque el precio cambia poco de una semana a otra. Un modelo que no le gana no aporta.</li>
+        <li>Estas cifras son <b>optimistas</b>: la misma historia se usó para elegir el modelo. En 2025–2026 la ventaja frente al ingenuo no es estadísticamente significativa. La evidencia independiente es el <a href="#registro">registro de pronósticos reales</a>.</li>
+      </ul>
+    </details>
     <div class="grid2">
       <div>
         <h3>¿Le gana al ingenuo? <span class="muted small">(26 semanas móviles)</span></h3>
         <div class="legend small"><span><i class="sw" style="background:var(--s-pred)"></i>Error del modelo ÷ error de repetir el precio anterior</span><span><i class="sw dash"></i>1 = igual al ingenuo</span></div>
         <div class="chart-box mid"><canvas id="c-razon" role="img" aria-label="Razón de error del modelo frente al ingenuo en 26 semanas móviles"></canvas></div>
-        <p class="muted small">Por debajo de 1 el modelo aporta; por debajo de 0,9 cumple la meta de mejorar al menos 10 %.</p>
+        <p class="muted small">Cada punto resume las 26 semanas anteriores. Por debajo de 1 el modelo se equivoca menos que el ingenuo; por debajo de 0,9 cumple la meta de mejorar al menos 10 %. Por encima de 1, en ese tramo convenía más repetir el precio.</p>
       </div>
       <div>
         <h3>¿La cota protege lo que promete? <span class="muted small">(26 semanas móviles)</span></h3>
         <div class="legend small"><span><i class="sw" style="background:var(--s-aqua)"></i>% de semanas con el precio bajo la cota</span><span><i class="sw dash"></i>Meta 90 %</span></div>
         <div class="chart-box mid"><canvas id="c-cob" role="img" aria-label="Cobertura de la cota en 26 semanas móviles"></canvas></div>
-        <p class="muted small">Caídas fuertes coinciden con saltos de precio que el modelo no anticipa.</p>
+        <p class="muted small">Si la cota cumple lo que promete, la línea se mueve alrededor de 90 %. Las caídas fuertes coinciden con saltos de precio que el modelo no anticipa.</p>
       </div>
     </div>
     <div class="grid2">
       <div>
         <h3>Por año</h3>
+        <p class="muted small" style="margin-bottom:6px">Error en COP/kWh. Mejora: cuánto menos erró que el ingenuo. Sesgo negativo: se quedó corto.</p>
         <div class="table-wrap"><table id="tb-anio"><thead><tr><th>Año</th><th>Semanas</th><th>Error<br>modelo</th><th>Error<br>ingenuo</th><th>Mejora</th><th>Cobertura</th><th>Sesgo</th></tr></thead><tbody></tbody></table></div>
       </div>
       <div>
         <h3>Episodios de estrés</h3>
+        <p class="muted small" style="margin-bottom:6px">Periodos difíciles: sequía, precios altos o cambios bruscos.</p>
         <div class="table-wrap"><table id="tb-estres"><thead><tr><th>Episodio</th><th>Semanas</th><th>Error<br>modelo</th><th>Error<br>ingenuo</th><th>Sesgo</th><th>Cobertura</th></tr></thead><tbody></tbody></table></div>
         <p class="muted small" style="margin-top:6px">En todos los episodios el modelo erró menos que el ingenuo, pero se quedó corto: el sesgo negativo indica precios reales por encima del pronóstico.</p>
       </div>
     </div>
   </section>
 
-  <section class="panel" aria-labelledby="t-reg">
+  <section class="panel" id="registro" aria-labelledby="t-reg">
     <div class="panel-head"><div>
       <h2 id="t-reg">Registro de pronósticos reales</h2>
-      <p class="muted small">Cada emisión se guarda sin poder modificarse y se califica cuando XM publica la semana objetivo. Es la única evidencia independiente del modelo.</p>
+      <p class="muted small">Cada miércoles se guarda el pronóstico emitido, sin poder modificarse después. Cuando XM publica los precios de esa semana, se compara con lo que de verdad pasó. A diferencia de la evaluación simulada, aquí el modelo no conocía el resultado: es la única evidencia independiente.</p>
     </div></div>
     <p id="reg-resumen" class="small"></p>
+    <details class="ayuda">
+      <summary>Qué significa cada columna</summary>
+      <ul>
+        <li><b>Emitido</b>: día en que se hizo el pronóstico. <b>Semana objetivo</b>: lunes de la semana pronosticada.</li>
+        <li><b>Estado</b>: normal, vigilancia o respaldo al momento de emitir (ver el recuadro de estado arriba).</li>
+        <li><b>Real</b>: precio que publicó XM. <b>Error</b>: pronóstico menos real; negativo significa que se quedó corto.</li>
+        <li><b>¿Cubrió?</b>: «Sí» si el precio real quedó por debajo de la cota. «Pendiente» mientras XM no publique la semana completa.</li>
+        <li><b>Candidato</b>: lo mismo para el modelo en prueba (ver la sección siguiente).</li>
+      </ul>
+    </details>
     <div class="table-wrap"><table id="tb-reg"><thead><tr><th>Emitido</th><th>Semana objetivo</th><th>Estado</th><th>Pronóstico</th><th>Cota 90 %</th><th>Real</th><th>Error</th><th>¿Cubrió?</th><th>Candidato</th><th>Error<br>candidato</th><th>¿Cubrió?<br>candidato</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <section class="panel" aria-labelledby="t-cand">
+  <section class="panel" id="candidato" aria-labelledby="t-cand">
     <div class="panel-head"><div>
       <h2 id="t-cand">Modelo candidato en paralelo</h2>
-      <p class="muted small">Ensamble de Ridge 14 con LEAR diario. Se emite y califica cada semana junto al oficial, pero no lo reemplaza: en la evaluación simulada erró menos, y falta comprobarlo con semanas reales.</p>
+      <p class="muted small">Un posible reemplazo en prueba. Promedia el modelo oficial con LEAR, un segundo modelo que pronostica día por día y luego arma la semana. Se emite y califica cada semana junto al oficial, pero no lo reemplaza: en la evaluación simulada erró menos, y falta comprobarlo con semanas reales.</p>
     </div></div>
     <div class="metricas" id="cand-tarjetas"></div>
     <div>
@@ -251,22 +357,26 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
       <div class="meter"><span class="fill" id="cand-barra" style="width:0"></span><span class="thr" id="cand-marca"></span></div>
     </div>
     <p class="small muted" id="cand-regla"></p>
+    <details class="ayuda">
+      <summary>Por qué no se cambia ya, si erró menos</summary>
+      <p>Se probaron 67 modelos sobre la misma historia. Entre tantos, alguno sale mejor por azar. Al corregir por eso, la mejora del candidato (3 % menos error) deja de ser significativa. La regla de cambio se fijó antes de ver los resultados reales, para que la decisión no dependa de mirar los datos hasta encontrar lo que se busca.</p>
+    </details>
   </section>
 
-  <section class="panel" aria-labelledby="t-ctl">
+  <section class="panel" id="controles-sec" aria-labelledby="t-ctl">
     <div class="panel-head"><div>
       <h2 id="t-ctl">Controles antes de emitir</h2>
-      <p class="muted small">Si falta un dato del modelo, el tablero pasa a respaldo y muestra el pronóstico ingenuo con una cota calibrada sobre sus propios errores.</p>
+      <p class="muted small">Antes de confiar en el pronóstico se revisa que los datos de XM estén completos y al día, y que ninguna variable tome un valor nunca visto. Si falta un dato del modelo, el tablero pasa a respaldo y muestra el pronóstico ingenuo con una cota calibrada sobre sus propios errores.</p>
     </div></div>
     <div class="controles" id="controles"></div>
     <p class="small muted" id="rango"></p>
   </section>
 
-  <section class="panel" aria-labelledby="t-serie">
+  <section class="panel" id="serie" aria-labelledby="t-serie">
     <div class="panel-head">
       <div>
         <h2 id="t-serie">Precio observado y pronóstico</h2>
-        <p class="muted small">Pronósticos emitidos cada semana con la información de la semana anterior. El último punto es el pronóstico vigente.</p>
+        <p class="muted small">Qué pronosticó el modelo cada semana, usando solo la información de la semana anterior, frente a lo que de verdad pasó. El punto azul al final es el pronóstico vigente. Pasa el cursor sobre la gráfica para ver las cifras de cada semana.</p>
       </div>
       <div class="seg" role="group" aria-label="Rango de fechas">
         <button type="button" data-rango="52" aria-pressed="false">1 año</button>
@@ -281,25 +391,82 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
       <span><i class="sw" style="background:var(--s-ing)"></i>Ingenuo (semana anterior)</span>
     </div>
     <div class="chart-box"><canvas id="c-serie" role="img" aria-label="Serie semanal del precio real, pronóstico y cota"></canvas></div>
+    <details class="ayuda">
+      <summary>Qué buscar en esta gráfica</summary>
+      <ul>
+        <li>Si la línea negra (real) queda dentro de la franja azul, la cota cubrió esa semana. Si la supera, fue una de las semanas en que se quedó corta.</li>
+        <li>La línea gris es el ingenuo: la línea negra desplazada una semana. El modelo aporta cuando la azul se acerca más a la negra que la gris.</li>
+        <li>En los saltos bruscos la azul llega tarde, igual que el ingenuo. Es el límite principal del modelo.</li>
+      </ul>
+    </details>
   </section>
 
-  <section class="panel" aria-labelledby="t-alertas">
+  <section class="panel" id="alertas-sec" aria-labelledby="t-alertas">
     <div class="panel-head"><div>
       <h2 id="t-alertas">Alertas tempranas</h2>
-      <p class="muted small">Puntaje frente al umbral de cada alerta. Los puntos rojos marcan las semanas en que el evento ocurrió.</p>
+      <p class="muted small">Tres avisos independientes del pronóstico, que estiman la probabilidad de un evento de riesgo la próxima semana. Si el puntaje supera el umbral (la raya negra), se enciende la alerta.</p>
     </div></div>
     <div class="alerts" id="alerts"></div>
+    <details class="ayuda">
+      <summary>Cómo leer cada alerta</summary>
+      <ul>
+        <li><b>Puntaje</b>: de 0 a 1, qué tan probable ve el modelo de alertas el evento. <b>Umbral</b>: el punto a partir del cual se avisa. Se eligió para equilibrar no perderse eventos con no dar falsas alarmas.</li>
+        <li>En la mini gráfica, la línea es el puntaje semana a semana y los <b style="color:var(--crit)">puntos rojos</b> son las semanas en que el evento de verdad ocurrió. Una buena alerta sube antes o justo en los puntos rojos.</li>
+        <li><b>Detectó</b>: de los eventos que ocurrieron, cuántos avisó. <b>Acertó</b>: de las veces que avisó, cuántas el evento sí ocurrió.</li>
+      </ul>
+    </details>
   </section>
 
-  <section class="panel" aria-labelledby="t-hidro">
+  <section class="panel" id="hidro" aria-labelledby="t-hidro">
     <div class="panel-head"><div>
       <h2 id="t-hidro">Hidrología del SIN</h2>
-      <p class="muted small">Embalse agregado al cierre de cada semana y aportes de 4 semanas frente a la media histórica.</p>
+      <p class="muted small">En Colombia la mayor parte de la energía es hidráulica, así que el agua disponible mueve el precio: con embalses llenos y ríos caudalosos la energía es barata; en sequía entran las térmicas, más caras.</p>
     </div></div>
     <div class="grid2">
-      <div><h3 class="small muted">Embalse (% del volumen útil)</h3><div class="chart-box small"><canvas id="c-emb" role="img" aria-label="Embalse agregado semanal"></canvas></div></div>
-      <div><h3 class="small muted">Aportes 4 semanas (% de la media)</h3><div class="chart-box small"><canvas id="c-apo" role="img" aria-label="Aportes de 4 semanas frente a la media"></canvas></div></div>
+      <div><h3 class="small muted">Embalse (% del volumen útil)</h3><div class="chart-box small"><canvas id="c-emb" role="img" aria-label="Embalse agregado semanal"></canvas></div>
+        <p class="muted small">Cuánta agua hay guardada en todos los embalses del país al cierre de cada semana. La línea punteada marca 45 %: por debajo, el modelo no ha mostrado ventaja sobre el ingenuo.</p></div>
+      <div><h3 class="small muted">Aportes 4 semanas (% de la media)</h3><div class="chart-box small"><canvas id="c-apo" role="img" aria-label="Aportes de 4 semanas frente a la media"></canvas></div>
+        <p class="muted small">Cuánta agua llegó a los ríos en las últimas 4 semanas frente a lo normal para esa época. 100 % es un año típico; por debajo, más seco de lo normal.</p></div>
     </div>
+  </section>
+
+  <section class="panel" id="limites" aria-labelledby="t-lim">
+    <div class="panel-head"><div>
+      <h2 id="t-lim">Cuándo no confiar en el pronóstico</h2>
+      <p class="muted small">Situaciones en las que la evaluación muestra que el modelo falla o no hay evidencia suficiente. En ellas conviene apoyarse más en la cota, o en la cota por volatilidad.</p>
+    </div></div>
+    <div class="limites" id="limites-lista"></div>
+  </section>
+
+  <section class="panel" id="glosario" aria-labelledby="t-glo">
+    <div class="panel-head"><div>
+      <h2 id="t-glo">Glosario</h2>
+      <p class="muted small">Los términos del tablero en palabras sencillas.</p>
+    </div></div>
+    <dl class="glosario">
+      <div><dt>Precio de bolsa</dt><dd>Precio al que se transa cada hora la energía en el mercado mayorista colombiano. Lo publica XM.</dd></div>
+      <div><dt>Ponderado por demanda</dt><dd>Promedio en el que las horas de más consumo pesan más. Refleja mejor lo que se paga de verdad que un promedio simple.</dd></div>
+      <div><dt>COP/kWh</dt><dd>Pesos colombianos por kilovatio hora, la unidad del precio.</dd></div>
+      <div><dt>Semana base y semana objetivo</dt><dd>La base es la última semana completa con datos (lunes a domingo). La objetivo es la siguiente, la que se pronostica.</dd></div>
+      <div><dt>Pronóstico ingenuo</dt><dd>Suponer que la próxima semana costará lo mismo que esta. Es la referencia que el modelo debe superar.</dd></div>
+      <div><dt>Cota superior al 90 %</dt><dd>Un techo razonable: en 9 de cada 10 semanas de la evaluación el precio real quedó por debajo. Sirve para dimensionar la garantía.</dd></div>
+      <div><dt>Cobertura</dt><dd>Porcentaje de semanas en que el precio real quedó por debajo de la cota. Lo ideal es cerca de 90 %.</dd></div>
+      <div><dt>Exceso de la cota</dt><dd>Cuánto sobró la cota por encima del precio real cuando cubrió. Más exceso es más dinero inmovilizado de más.</dd></div>
+      <div><dt>Error medio</dt><dd>Distancia promedio entre pronóstico y precio real, en COP/kWh, sin importar si fue por encima o por debajo.</dd></div>
+      <div><dt>Error típico (%)</dt><dd>El mismo error, expresado como porcentaje del precio real.</dd></div>
+      <div><dt>Sesgo</dt><dd>Si el modelo tiende a quedarse corto (negativo) o a pasarse (positivo). Lo ideal es cerca de cero.</dd></div>
+      <div><dt>Mejora frente al ingenuo</dt><dd>Cuánto menos se equivoca el modelo que repetir el precio anterior. 20 % significa que su error es 20 % menor.</dd></div>
+      <div><dt>Semanas de salto</dt><dd>El 20 % de las semanas con los cambios de precio más grandes. Es donde el modelo más sufre.</dd></div>
+      <div><dt>Evaluación simulada</dt><dd>Recrear el pasado semana a semana: entrenar solo con lo conocido hasta esa fecha, pronosticar y comparar. También se llama walk-forward.</dd></div>
+      <div><dt>Calibración conformal</dt><dd>Forma de calcular la cota a partir de los errores reales del modelo en las últimas 104 semanas, sin suponer una distribución.</dd></div>
+      <div><dt>Ridge</dt><dd>Regresión lineal con una penalización que evita que el modelo se ajuste de más a la historia. Es el modelo oficial.</dd></div>
+      <div><dt>LEAR y ensamble</dt><dd>LEAR es un modelo que pronostica cada día por separado. Un ensamble promedia dos modelos; el candidato promedia Ridge y LEAR.</dd></div>
+      <div><dt>Embalse (volumen útil)</dt><dd>Agua guardada en los embalses que puede usarse para generar, como porcentaje de su capacidad.</dd></div>
+      <div><dt>Aportes hídricos</dt><dd>Agua que llega a los ríos que alimentan las centrales, frente a la media histórica de esa época.</dd></div>
+      <div><dt>Oferta térmica y no térmica</dt><dd>Precios a los que ofrecen su energía las plantas de gas, carbón y líquidos (térmicas) y las hidráulicas y demás (no térmicas).</dd></div>
+      <div><dt>SIN y MEM</dt><dd>Sistema Interconectado Nacional (la red eléctrica del país) y Mercado de Energía Mayorista, donde se transa la energía.</dd></div>
+      <div><dt>Estrés hídrico</dt><dd>Periodo de poca agua, con embalses bajos o aportes muy por debajo de lo normal. Suele venir con precios altos.</dd></div>
+    </dl>
   </section>
 
   <section class="panel">
@@ -313,6 +480,7 @@ footer { font-size: 0.8rem; color: var(--ink-3); border-top: 1px solid var(--lin
         <div><h3>Variable objetivo</h3><p>P<sub>s</sub> = Σ P<sub>h</sub>D<sub>h</sub> / Σ D<sub>h</sub> con <span class="num">PrecBolsNaci</span> y <span class="num">DemaCome</span>. El modelo aprende log(P<sub>s+1</sub>/P<sub>s</sub>).</p></div>
         <div><h3>Evaluación</h3><p>Walk-forward con ventana expansiva, reentrenando cada 4 semanas desde 2014. 2025–2026 es exploratorio porque ya influyó en el diseño.</p></div>
         <div><h3>Cota</h3><p>Margen conformal: cuantil 90 % de los errores de las últimas 104 semanas ya observadas.</p></div>
+        <div><h3>Cómo leer la tabla</h3><p>Error medio en COP/kWh en tres periodos: desarrollo (2018–21), selección (2022–24) y final (2025–26). Mejora: cuánto menos erró que el ingenuo. La fila resaltada es el modelo oficial.</p></div>
         <div><h3>Pendiente con XM</h3><p>Hora de emisión, rezago real de publicación y regla de la garantía (costo de quedarse corto frente a pasarse).</p></div>
       </div>
     </details>
@@ -327,6 +495,37 @@ const D = /*__DATOS__*/null;
 const A = D.actual, H = D.historial, M = D.metas;
 const EVENTOS = { precio_alto: "Precio alto", salto: "Salto de precio ≥ 25 %", estres_hidrico: "Estrés hídrico (4 semanas)" };
 const NOMBRE = v => D.nombres[v] || v;
+// Qué mide cada variable, qué hace con el pronóstico si está por encima de lo normal y por qué (README, sección 3).
+const VAR = {
+  ultimo_dia_rel: { grupo: "Precio", que: "Cómo cerró la semana: precio del domingo frente al promedio de la semana.", efecto: "sube", peso: "alto", por: "la tendencia de los últimos días suele continuar" },
+  momentum: { grupo: "Precio", que: "Cuánto cambió el precio de la semana base frente a la anterior.", efecto: "baja", peso: "medio", por: "tras una subida fuerte el precio tiende a devolverse" },
+  cv_diario: { grupo: "Precio", que: "Qué tanto saltó el precio de un día a otro durante la semana.", efecto: "sube", peso: "medio", por: "una semana agitada suele anticipar precios más altos" },
+  log_precio: { grupo: "Precio", que: "Qué tan caro está el precio frente a su historia.", efecto: "baja", peso: "medio", por: "los precios muy altos tienden a bajar y los muy bajos a subir" },
+  max_h_rel: { grupo: "Precio", que: "Cuánto supera la hora más cara al promedio de la semana.", efecto: "casi no cambia", peso: "bajo", por: "su efecto suele ser pequeño" },
+  embalse_cambio: { grupo: "Agua", que: "Si los embalses se llenaron o se vaciaron durante la semana.", efecto: "baja", peso: "alto", por: "si se están llenando, hay más agua barata disponible" },
+  embalse_cierre: { grupo: "Agua", que: "Porcentaje del volumen útil de los embalses al cierre de la semana.", efecto: "baja", peso: "medio", por: "con más agua guardada se genera más con hidráulicas, que son más baratas" },
+  aportes_pct_media_4s: { grupo: "Agua", que: "Agua que llegó a los ríos en las últimas 4 semanas, frente a lo normal para la época.", efecto: "sube", peso: "medio", por: "es un efecto parcial: lo que el agua tiene de bajista ya lo recogen el nivel y el cambio del embalse" },
+  aportes_pct_media: { grupo: "Agua", que: "Agua que llegó a los ríos en la semana, frente a lo normal para la época.", efecto: "casi no cambia", peso: "bajo", por: "su efecto suele ser pequeño" },
+  log_oferta_termica: { grupo: "Ofertas", que: "Precio al que ofrecen su energía las plantas térmicas (gas, carbón, líquidos).", efecto: "sube", peso: "medio", por: "la generación de respaldo es más cara" },
+  brecha_oferta_nt: { grupo: "Ofertas", que: "Si las hidráulicas y demás no térmicas ofertan por encima o por debajo del precio actual.", efecto: "sube", peso: "medio", por: "si ofertan por encima del precio, este tiende a subir hacia ellas" },
+  log_oferta_no_termica: { grupo: "Ofertas", que: "Precio promedio de oferta de las hidráulicas y demás no térmicas.", efecto: "baja levemente", peso: "bajo", por: "es un efecto pequeño y parcial" },
+  epoca: { grupo: "Calendario", que: "La semana del año; recoge el ciclo de lluvias y sequía.", efecto: "sube de junio a noviembre (más en septiembre) y baja de enero a mayo (más en marzo)", peso: "alto", por: "el precio sigue el ciclo de lluvias del año" },
+};
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+// Dirección real del coeficiente: el aporte es coeficiente × valor estandarizado, así que su signo sale de pct y z.
+function efecto(e) {
+  const v = VAR[e.var] || {};
+  if (e.var === "epoca" || e.z == null || Math.abs(e.z) < 0.05 || !e.pct) return v.efecto || "";
+  return (e.pct * e.z > 0 ? "sube" : "baja") + (v.peso === "bajo" ? " levemente" : "");
+}
+// Posición de la variable frente a la historia, en palabras.
+function donde(e) {
+  if (e.var === "epoca") return `Semana de ${MESES[new Date(A.semana_base + "T00:00:00").getMonth()]}`;
+  if (e.z == null) return "–";
+  const lado = Math.abs(e.z) < 0.25 ? "Cerca de lo normal" : e.z > 0 ? "Por encima de lo normal" : "Por debajo de lo normal";
+  return e.percentil >= 50 ? `${lado} · más alto que en el ${fmt(e.percentil, 0)} % de las semanas`
+    : `${lado} · más bajo que en el ${fmt(100 - e.percentil, 0)} % de las semanas`;
+}
 
 const fmt = (x, nd = 1) => x == null || !isFinite(x) ? "–" : x.toLocaleString("es-CO", { minimumFractionDigits: nd, maximumFractionDigits: nd });
 const pct = (x, nd = 0) => x == null || !isFinite(x) ? "–" : fmt(x, nd) + " %";
@@ -351,25 +550,66 @@ function cabecera() {
     vigilancia: "El pronóstico se emite, pero hay condiciones que piden cautela:",
     respaldo: "Falta información para el modelo; se muestra el pronóstico ingenuo con su cota:",
   }[A.estado];
+  const hacer = {
+    normal: "Usar el pronóstico y la cota al 90 %.",
+    vigilancia: "Usarlo con cautela y considerar la cota por volatilidad, que es más amplia.",
+    respaldo: "Tomar el precio de la semana base como pronóstico y su cota como techo hasta que se completen los datos.",
+  }[A.estado];
   $("estado").className = "estado " + A.estado;
   $("estado").innerHTML = `<span class="tag" style="color:var(--${niv})"><span aria-hidden="true">${ICONO[niv]}</span>Estado: ${tit}</span>
-    <div><p class="small">${desc}</p>${A.motivos.length ? `<ul>${A.motivos.map(m => `<li>${m}</li>`).join("")}</ul>` : ""}</div>`;
+    <div><p class="small">${desc}</p>${A.motivos.length ? `<ul>${A.motivos.map(m => `<li>${m}</li>`).join("")}</ul>` : ""}<p class="small" style="margin-top:4px"><b>Qué hacer:</b> ${hacer}</p></div>
+    <details class="ayuda" style="grid-column:1/-1;background:transparent"><summary>¿Qué significan los tres estados?</summary>
+      <div class="estados3">
+        <div class="normal"><b>Normal</b>: datos completos y el modelo rinde como en su evaluación. Se usan el pronóstico y la cota.</div>
+        <div class="vigilancia"><b>Vigilancia</b>: datos atrasados, variables fuera de lo visto, el modelo no le gana al ingenuo en las últimas 26 semanas o la cota cubre menos de 80 %. Se usa con cautela.</div>
+        <div class="respaldo"><b>Respaldo</b>: falta un dato del modelo. Se emite el ingenuo con una cota calibrada sobre sus propios errores.</div>
+      </div></details>`;
   if (A.nota_registro) {
     const n = A.nota_registro;
     $("estado").insertAdjacentHTML("beforeend", `<p class="small" style="grid-column:1/-1">Con los datos de hoy el pronóstico cambió. El registro conserva lo emitido el ${fecha(n.fecha_emision)}: ${fmt(n.pronostico)} COP/kWh sobre un precio base de ${fmt(n.precio_base)}.</p>`);
   }
   $("k-base").innerHTML = `${fmt(A.precio_base)}<small>COP/kWh</small>`;
   $("k-pron").innerHTML = `${fmt(A.pronostico)}<small>COP/kWh</small>`;
-  $("k-pron-sub").textContent = `${signo(A.cambio_pct)} % frente a la semana base`;
+  $("k-pron-sub").textContent = `Precio promedio esperado para la semana del ${fecha(A.semana_objetivo)}: ${signo(A.cambio_pct)} % frente a la semana base.`;
   $("k-cota").innerHTML = `${fmt(A.cota90)}<small>COP/kWh</small>`;
-  $("k-cota-sub").textContent = "En 9 de cada 10 semanas de la evaluación el precio quedó por debajo";
+  $("k-cota-sub").textContent = "Un techo razonable: en 9 de cada 10 semanas de la evaluación el precio real quedó por debajo.";
   $("k-vol").innerHTML = `${fmt(A.cota90_vol)}<small>COP/kWh</small>`;
+}
+
+function comoFunciona() {
+  const resp = A.estado === "respaldo";
+  const margen = (A.cota90 / A.pronostico - 1) * 100;
+  const pasos = [
+    { t: "Punto de partida", c: `${fmt(A.precio_base)}<small>COP/kWh</small>`,
+      p: `Precio de la semana del ${fecha(A.semana_base)}. Repetirlo tal cual es el pronóstico «ingenuo», la referencia que el modelo debe superar.` },
+    { t: "Cambio estimado", c: resp ? "0 %" : `${signo(A.cambio_pct)} %`,
+      p: resp ? "En respaldo no se estima cambio: falta un dato del modelo." : `El modelo estima cuánto se moverá el precio a partir de 14 variables de precio, agua, ofertas y calendario. Abajo se ve qué aportó cada una.` },
+    { t: "Pronóstico", c: `${fmt(A.pronostico)}<small>COP/kWh</small>`,
+      p: `Punto de partida × (1 ${A.cambio_pct < 0 ? "−" : "+"} ${fmt(Math.abs(A.cambio_pct))} %). Es el precio promedio más probable para la semana del ${fecha(A.semana_objetivo)}.` },
+    { t: "Cota al 90 %", c: `${fmt(A.cota90)}<small>COP/kWh</small>`,
+      p: `Pronóstico + ${fmt(margen, 0)} % de margen. El margen es el error que el modelo solo superó en 1 de cada 10 de las últimas 104 semanas; se recalcula cada semana.` },
+  ];
+  $("pasos").innerHTML = pasos.map(s => `<article class="paso"><h3>${s.t}</h3><div class="cifra">${s.c}</div><p>${s.p}</p></article>`).join("");
+  // Recta: ubica base, pronóstico y cota en la misma escala.
+  const vals = [A.precio_base, A.pronostico, A.cota90];
+  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.12 || 1;
+  const x = v => ((v - (lo - pad)) / (hi - lo + 2 * pad)) * 100;
+  const marca = (v, nombre, color, pos) => `<span class="marca ${pos}" style="left:${x(v)}%"><i style="background:${color}"></i><b>${nombre}</b><span>${fmt(v)}</span></span>`;
+  $("recta").innerHTML = `<div class="eje"></div><div class="tramo" style="left:${x(A.pronostico)}%;width:${x(A.cota90) - x(A.pronostico)}%"></div>`
+    + marca(A.precio_base, "Semana base", "var(--s-ing)", "arriba") + marca(A.pronostico, "Pronóstico", "var(--s-pred)", "abajo") + marca(A.cota90, "Cota 90 %", "var(--s-pred)", "arriba");
+  $("recta-txt").textContent = `La franja va del pronóstico a la cota, el margen de seguridad. El precio real puede quedar por encima o por debajo del pronóstico, pero en 9 de cada 10 semanas de la evaluación no superó la cota. `
+    + (A.cambio_pct < 0 ? `Esta semana se espera una baja: el pronóstico queda ${fmt(A.precio_base - A.pronostico)} COP/kWh por debajo del precio base.`
+      : `Esta semana se espera una subida de ${fmt(A.pronostico - A.precio_base)} COP/kWh sobre el precio base.`);
 }
 
 function porque() {
   const ex = A.explicacion;
   const top = ex.filter(e => Math.abs(e.pct) >= 0.5).slice(0, 3);
-  const frases = top.map(e => `<li><b>${e.nombre}</b> ${e.pct < 0 ? "baja" : "sube"} el pronóstico ${fmt(Math.abs(e.pct))} %.</li>`);
+  const frases = top.map(e => {
+    const v = VAR[e.var], pos = donde(e);
+    return `<li><b>${e.nombre}</b> ${e.pct < 0 ? "baja" : "sube"} el pronóstico ${fmt(Math.abs(e.pct))} %.`
+      + `<span class="por">${pos}${v ? `; ${v.por}.` : "."}</span></li>`;
+  });
   const resto = ex.slice(3).reduce((s, e) => s + e.log, 0);
   frases.push(`<li>Las demás variables suman ${signo((Math.exp(resto) - 1) * 100)} %, y la tendencia promedio del precio ${signo(A.intercepto_pct)} %.</li>`);
   frases.push(`<li>Resultado: <b>${signo(A.cambio_pct)} %</b>, de ${fmt(A.precio_base)} a ${fmt(A.pronostico)} COP/kWh.</li>`);
@@ -383,6 +623,13 @@ function porque() {
   });
   barras.push(`<div class="row total"><span>Cambio total pronosticado</span><span></span><span class="v">${signo(A.cambio_pct)} %</span></div>`);
   $("why-bars").innerHTML = barras.join("");
+  const filas = (ex.length ? ex : Object.keys(VAR).map(k => ({ var: k, nombre: NOMBRE(k) }))).map(e => {
+    const v = VAR[e.var] || {};
+    return `<tr><td><b>${e.nombre}</b><br><span class="muted small">${v.grupo || ""} · peso ${v.peso || "–"}</span></td><td>${v.que || ""}</td>`
+      + `<td><b>${efecto(e)}</b>${v.por ? `: ${v.por}` : ""}</td><td>${e.pct == null ? "–" : donde(e)}</td>`
+      + `<td class="n" style="color:${e.pct > 0 ? "var(--pos)" : e.pct < 0 ? "var(--neg)" : "inherit"}">${e.pct == null ? "–" : signo(e.pct) + " %"}</td></tr>`;
+  });
+  document.querySelector("#tb-var tbody").innerHTML = filas.join("");
 }
 
 let periodo = "todo";
@@ -419,27 +666,28 @@ function metricas() {
   const m = calcular(filtrar(periodo));
   const sesgoAbs = Math.abs(m.sesgoPct);
   const tarjetas = [
-    { lab: "Mejora frente al ingenuo", val: pct(m.mejora, 1), niv: nivel(m.mejora, M.mejora_mae, 0),
+    { lab: "Mejora frente al ingenuo", que: "¿Erra menos que repetir el precio anterior?", val: pct(m.mejora, 1), niv: nivel(m.mejora, M.mejora_mae, 0),
       cmp: `Error medio ${fmt(m.mae)} vs ${fmt(m.maeI)} COP/kWh · meta ≥ ${M.mejora_mae} %`,
       exp: m.mejora >= 0 ? `El modelo se equivoca ${fmt(m.mejora, 0)} % menos que repetir el precio de la semana anterior.` : "El modelo se equivoca más que repetir el precio de la semana anterior." },
-    { lab: "Error típico", val: pct(m.mape, 1), niv: "neutral",
+    { lab: "Error típico", que: "¿Qué tan lejos queda el pronóstico, en %?", val: pct(m.mape, 1), niv: "neutral",
       cmp: `${fmt(m.mae)} COP/kWh en promedio`,
       exp: `En una semana típica el pronóstico se aleja del precio real alrededor de ${fmt(m.mape, 0)} %.` },
-    { lab: "Sesgo", val: `${signo(m.sesgo)}<small>COP/kWh</small>`, niv: nivel(sesgoAbs, 5, 10, false),
+    { lab: "Sesgo", que: "¿Tiende a quedarse corto o a pasarse?", val: `${signo(m.sesgo)}<small>COP/kWh</small>`, niv: nivel(sesgoAbs, 5, 10, false),
       cmp: `${signo(m.sesgoPct)} % del precio medio · meta |sesgo| ≤ 5 %`,
       exp: m.sesgo < 0 ? `Tiende a quedarse corto: el precio real suele estar ${fmt(Math.abs(m.sesgo), 0)} COP/kWh por encima.` : `Tiende a pasarse por ${fmt(m.sesgo, 0)} COP/kWh.` },
-    { lab: "Cobertura de la cota", val: pct(m.cob, 1), niv: nivel(m.cob, 88, 80),
+    { lab: "Cobertura de la cota", que: "¿El techo protege lo que promete?", val: pct(m.cob, 1), niv: nivel(m.cob, 88, 80),
       cmp: `Meta ${M.cobertura} % · ${m.n} semanas`,
       exp: `En ${fmt(m.cob / 10, 1)} de cada 10 semanas el precio real quedó por debajo de la cota.` },
-    { lab: "Exceso de la cota", val: pct(m.exceso, 0), niv: nivel(m.exceso, 40, 60, false),
+    { lab: "Exceso de la cota", que: "¿Cuánto sobra el techo? (dinero inmovilizado de más)", val: pct(m.exceso, 0), niv: nivel(m.exceso, 40, 60, false),
       cmp: "Meta ≤ 40 % (costo de inmovilizar recursos)",
       exp: `Cuando cubre, la cota queda en promedio ${fmt(m.exceso, 0)} % por encima del precio real.` },
-    { lab: "Cobertura en semanas de salto", val: pct(m.cobVol, 0), niv: nivel(m.cobVol, M.cobertura_volatil, 70),
+    { lab: "Cobertura en semanas de salto", que: "¿Protege cuando el precio cambia de golpe?", val: pct(m.cobVol, 0), niv: nivel(m.cobVol, M.cobertura_volatil, 70),
       cmp: `Meta ${M.cobertura_volatil} % · ${m.nVol} semanas de mayor variación`,
       exp: "En las semanas con los cambios de precio más grandes, la cota protege menos. Es el límite conocido del modelo." },
   ];
   $("metricas").innerHTML = tarjetas.map(t => `<article class="metrica">
     <div class="top"><span class="lab">${t.lab}</span>${chip(t.niv, TXT[t.niv])}</div>
+    <div class="muted small">${t.que}</div>
     <div class="val">${t.val}</div><div class="cmp">${t.cmp}</div><p class="exp">${t.exp}</p></article>`).join("");
   const rows = filtrar(periodo);
   $("met-nota").textContent = `Periodo: ${rows.length} semanas, del ${fecha(rows[0].s)} al ${fecha(rows[rows.length - 1].s)}. Semanas de salto: el 20 % con el mayor cambio de precio en toda la evaluación.`;
@@ -506,7 +754,7 @@ function registroUI() {
 }
 
 function controlesUI() {
-  const mapa = { ok: "good", aviso: "warn", falla: "crit" };
+  const mapa = { ok: "good", nota: "neutral", aviso: "warn", falla: "crit" };
   $("controles").innerHTML = A.controles.map(c => `<div class="control">${chip(mapa[c.estado], c.estado === "ok" ? "OK" : c.estado)}<span>${c.control}</span><span class="d">${c.detalle}</span></div>`).join("");
   const fr = A.fuera_de_rango;
   $("rango").textContent = fr.length
@@ -522,8 +770,24 @@ function alertasUI() {
     <div class="meter-lab"><span>Puntaje <b class="num">${fmt(a.puntaje, 2)}</b></span><span>Umbral <b class="num">${fmt(a.umbral, 2)}</b></span></div></div>
     <p class="small muted">Más influyente esta semana: ${a.principales.slice(0, 2).map(p => NOMBRE(p.var)).join(" y ")}.</p>
     <div class="chart-box mini"><canvas id="c-al-${a.evento}" role="img" aria-label="Puntaje histórico de ${EVENTOS[a.evento]}"></canvas></div>
-    <p class="small muted">En 2022–2024 detectó ${pct(a.recall)} de los eventos con ${pct(a.precision)} de precisión y anticipó ${a.inicios_ok} de ${a.inicios} inicios de episodio.</p>
+    <p class="small muted">Historial 2022–2024: detectó ${pct(a.recall)} de los eventos que ocurrieron; cuando avisó, acertó ${pct(a.precision)} de las veces. Anticipó ${a.inicios_ok} de ${a.inicios} comienzos de episodio.</p>
   </article>`).join("");
+}
+
+function limitesUI() {
+  const emb = D.hidro.length ? D.hidro[D.hidro.length - 1].emb : null;
+  const salto = D.alertas.find(a => a.evento === "salto");
+  const lista = [
+    { t: "Saltos bruscos de precio", aplica: salto && salto.alerta,
+      d: "No se anticipan. En las semanas en que el precio sube, el modelo se queda corto 58 COP/kWh en promedio (el ingenuo, 69) y la cota cubre 81 %. En el 20 % de semanas de mayor cambio cubre solo ~70 %." },
+    { t: "Embalse por debajo de 45 %", aplica: emb != null && emb < 45,
+      d: `No hay evidencia de que supere al ingenuo: mejora de 3,5 %, con intervalo de −16 % a +21 % en 44 semanas.${emb != null ? ` Embalse actual: ${fmt(emb)} %.` : ""}` },
+    { t: "Condiciones nunca vistas", aplica: A.fuera_de_rango.length > 0,
+      d: "Cambios regulatorios o valores fuera del rango histórico 2010–2026. La sección de controles avisa cuando una variable está en un extremo." },
+    { t: "Semana base incompleta", aplica: false,
+      d: "Si al emitir solo se conocen los datos hasta el viernes, el error sube cerca de 16 %. Por eso la emisión es el miércoles, cuando XM ya publicó el domingo." },
+  ];
+  $("limites-lista").innerHTML = lista.map(l => `<article class="limite"><h3>${l.t}</h3>${l.aplica ? chip("crit", "Aplica esta semana") : ""}<p>${l.d}</p></article>`).join("");
 }
 
 let charts = [], rango = 156;
@@ -631,7 +895,7 @@ try {
   if (g) { periodo = g; document.querySelectorAll("[data-per]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.per === g))); }
 } catch (e) {}
 
-cabecera(); porque(); metricas(); tablas(); registroUI(); candidatoUI(); controlesUI(); alertasUI(); dibujar();
+cabecera(); comoFunciona(); porque(); metricas(); tablas(); registroUI(); candidatoUI(); controlesUI(); alertasUI(); limitesUI(); dibujar();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
 new MutationObserver(dibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 </script>

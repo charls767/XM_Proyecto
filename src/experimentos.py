@@ -1,6 +1,6 @@
 """Experimentos de evaluación. Uso: python src/experimentos.py <comando> [opción]
 
-Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10, e11 [viernes],
+Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10, e11 [viernes], e12, e13,
 cortes, tuning y alertas [e8]. Cada uno escribe sus archivos en results/; el
 detalle de cada experimento está en docs/EXPERIMENTOS.md.
 
@@ -401,6 +401,60 @@ def correr_e9(ultimo_dia=6):
     return nombre, bt.ancho(r)
 
 
+def configuraciones_e12():
+    """Ridge 14 con el costo marginal programado de los primeros k días de la semana objetivo,
+    y la regla sin parámetros «ingenuo × cambio del costo marginal»."""
+    m = [models.Modelo("Ingenuo"), models.Modelo("Ridge14", config.VARIABLES, models.ridge)]
+    for k in dp.DIAS_CMG:
+        m.append(models.Modelo(f"Regla_cmg{k}d", columna_referencia=f"regla_cmg{k}d"))
+    for k in dp.DIAS_CMG:
+        m.append(models.Modelo(f"Ridge14+cmg{k}d", config.VARIABLES + [f"cmg_{k}d_rel", "cmg_brecha"], models.ridge))
+    m.append(models.Modelo("Ridge_solo_cmg3d", ["cmg_3d_rel", "cmg_brecha"], models.ridge))
+    return m
+
+
+def correr_e12():
+    """E12: costo marginal del despacho programado (`CostMargDesp`) de la semana objetivo,
+    conocido al emitir el miércoles. Semana base completa, sin embargo adicional."""
+    import numpy as np
+
+    d = fe.preparar(dp.tabla_e12())
+    for k in dp.DIAS_CMG:
+        d[f"regla_cmg{k}d"] = d.precio * np.exp(d[f"cmg_{k}d_rel"])
+    r = bt.backtest(d, configuraciones_e12(), inicio=INICIO, cada=4, progreso=True)
+    bt.guardar(r, "E12")
+    w = bt.ancho(r)
+    for c in ("Ridge14", "Ridge14+cmg2d", "Ridge14+cmg3d"):
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL)
+    w.to_parquet(bt.RESULTADOS / "E12_ancho.parquet")
+    return w
+
+
+def resumen_e12(w):
+    """MAE por periodo, diferencia contra Ridge 14 en 2018–2026 y por periodo, reality check,
+    sesgo y cotas."""
+    w = w[w.index >= INICIO_EVALUACION]
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=1))
+    t = ev.mae_por(w, puntuales, periodos).T[["desarrollo", "seleccion", "final"]].add_prefix("MAE_")
+    t.insert(0, "MAE_2018-2026", w[puntuales].sub(w.real, axis=0).abs().mean())
+    t["mejora_%_vs_ingenuo"] = (1 - t["MAE_2018-2026"] / t.loc["Ingenuo", "MAE_2018-2026"]) * 100
+    t["sesgo"] = w[puntuales].sub(w.real, axis=0).mean()
+    for nombre, mascara in (("2018-2026", slice(None)), ("seleccion", periodos == "seleccion"),
+                            ("final", periodos == "final")):
+        c = ev.comparacion(w[mascara], [m for m in puntuales if m != "Ridge14"], referencia="Ridge14")
+        t = t.join(c[["dif_MAE", "IC95_inf", "IC95_sup", "p_DM"]].add_suffix(f"_vs_Ridge14_{nombre}"))
+    t.to_csv(bt.RESULTADOS / "E12_resumen.csv")
+
+    ref = (w.Ridge14 - w.real).abs()
+    familia = [m for m in puntuales if m not in ("Ingenuo", "Ridge14")]
+    rc = ev.reality_check(ref, w[familia].sub(w.real, axis=0).abs())
+    cotas = ev.cotas(w, [c for c in w.columns if c.startswith("cota_")])
+    cotas.to_csv(bt.RESULTADOS / "E12_cotas.csv")
+    pd.Series(rc).to_csv(bt.RESULTADOS / "E12_reality_check.csv")
+    return t, cotas, rc
+
+
 def ensambles(w, ventana=52):
     """E6: ensambles en escala de precio, formados después del backtest con pronósticos
     fuera de muestra. Los pesos adaptativos usan solo errores de semanas anteriores
@@ -429,6 +483,98 @@ def correr_e5e6():
     w = ensambles(bt.ancho(r))
     w.to_parquet(bt.RESULTADOS / "E5E6_ancho.parquet")
     return w
+
+
+def configuraciones_e13():
+    """ARIMA puro, término AR dentro de Ridge y variables en frecuencia (armónicos y STFT)."""
+    v, g = config.VARIABLES, fe.GRUPOS_E13
+    todo = g["stft_precio"] + g["stft_aportes"] + g["stft_demanda"] + g["armonico2"]
+    return [models.Modelo("Ingenuo"),
+            models.Modelo("Ridge14", v, models.ridge),
+            models.ArimaAuto("ARIMA_auto"),
+            models.Modelo("Ridge14+AR2", v + ["rezago_2_rel"], models.ridge),
+            models.Modelo("Ridge14+armonico2", v + g["armonico2"], models.ridge),
+            models.Modelo("Ridge14+STFT_precio", v + g["stft_precio"], models.ridge),
+            models.Modelo("Ridge14+STFT_aportes", v + g["stft_aportes"], models.ridge),
+            models.Modelo("Ridge14+STFT_demanda", v + g["stft_demanda"], models.ridge),
+            models.Modelo("Ridge14+STFT_todo+arm2", v + todo, models.ridge),
+            models.Modelo("LightGBM14+STFT_todo", v + todo, models.lightgbm())]
+
+
+def correr_e13():
+    """E13: ¿ARIMA o variables en el dominio de la frecuencia mejoran a Ridge 14?
+    Mismas semanas y bloques que E5/E6, sobre la tabla corregida."""
+    d = fe.agregar_stft(fe.preparar(dp.tabla_semanal(corregida=True)), dp.tabla_diaria())
+    m = configuraciones_e13()
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True)
+    bt.guardar(r, "E13")
+    arima = next(x for x in m if x.nombre == "ARIMA_auto")
+    pd.Series({a: f"ARIMA{o[0]},1,{o[2]}" for a, o in arima.ordenes.items()}, name="orden").to_csv(
+        bt.RESULTADOS / "E13_ordenes_arima.csv", index_label="anio")
+    w = bt.ancho(r)
+    w["Ens[Ridge14+ARIMA]"] = w[["Ridge14", "ARIMA_auto"]].mean(axis=1)
+    w.to_parquet(bt.RESULTADOS / "E13_ancho.parquet")
+    return w
+
+
+def resumen_e13(w):
+    """MAE por periodo y comparación pareada con Ridge 14; reality check de la familia."""
+    w = w[w.index >= INICIO_EVALUACION].dropna()
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=1))
+    mods = [c for c in w.columns if c not in ("real", "base")]
+    mae = ev.mae_por(w, mods, periodos).T[["desarrollo", "seleccion", "final"]]
+    t = mae.add_prefix("MAE_")
+    t.insert(0, "MAE_2018-2026", w[mods].sub(w.real, axis=0).abs().mean())
+    t["mejora_%_vs_ingenuo"] = (1 - t["MAE_2018-2026"] / t.loc["Ingenuo", "MAE_2018-2026"]) * 100
+    for nombre, mascara in (("2018-2026", slice(None)), ("seleccion", periodos == "seleccion")):
+        c = ev.comparacion(w[mascara], [m for m in mods if m != "Ridge14"], referencia="Ridge14")
+        t = t.join(c[["dif_MAE", "IC95_inf", "IC95_sup", "p_DM"]].add_suffix(f"_vs_Ridge14_{nombre}"))
+    t.to_csv(bt.RESULTADOS / "E13_resumen.csv")
+    sel = w[periodos == "seleccion"]
+    familia = [m for m in mods if m not in ("Ingenuo", "Ridge14")]
+    rc = ev.reality_check((sel.Ridge14 - sel.real).abs(), sel[familia].sub(sel.real, axis=0).abs())
+    pd.Series(rc).to_csv(bt.RESULTADOS / "E13_reality_check.csv")
+    diagnostico_e13(w)
+    return t, rc
+
+
+def diagnostico_e13(w):
+    """Autocorrelación del error fuera de muestra (Ljung-Box) y picos del espectro de Welch
+    de las series semanales y diarias. Picos: razón entre la potencia y la mediana móvil
+    de 9 frecuencias vecinas."""
+    import numpy as np
+    from scipy import signal
+    from statsmodels.stats.diagnostic import acorr_ljungbox
+    from statsmodels.tsa.stattools import acf
+
+    filas = []
+    for m in ("Ingenuo", "Ridge14", "Ridge14+AR2"):
+        e = np.log(w.real / w[m]).dropna()
+        lb = acorr_ljungbox(e, lags=[4, 13, 52]).lb_pvalue
+        r = acf(e, nlags=2)
+        filas.append({"tipo": "ljung_box", "serie": f"error {m}", "acf1": r[1], "acf2": r[2],
+                      "p_lag4": lb[4], "p_lag13": lb[13], "p_lag52": lb[52]})
+
+    d = fe.preparar(dp.tabla_semanal(corregida=True))
+    dia = dp.tabla_diaria()
+    series = {"log precio semanal": (np.log(d.precio), 260, "semanas"),
+              "embalse semanal": (d.embalse_cierre, 260, "semanas"),
+              "aportes semanales": (d.aportes_pct_media, 260, "semanas"),
+              "error Ridge14": (np.log(w.real / w.Ridge14), 156, "semanas"),
+              "log precio diario": (np.log(dia.precio.clip(lower=1)), 364, "dias"),
+              "log demanda diaria": (np.log(dia.demanda), 364, "dias"),
+              "log aportes diarios": (np.log(dia.aportes.clip(lower=1)), 364, "dias")}
+    for nombre, (x, nper, unidad) in series.items():
+        x = x.dropna().to_numpy()
+        f, p = signal.welch(x, fs=1, nperseg=min(nper, len(x)), detrend="linear")
+        f, p = f[1:], p[1:]
+        razon = p / pd.Series(p).rolling(9, center=True, min_periods=1).median().to_numpy()
+        for i in np.argsort(razon)[::-1][:3]:
+            filas.append({"tipo": "pico_espectral", "serie": nombre, "periodo": 1 / f[i],
+                          "unidad": unidad, "razon_sobre_fondo": razon[i]})
+    t = pd.DataFrame(filas)
+    t.to_csv(bt.RESULTADOS / "E13_diagnostico.csv", index=False)
+    return t
 
 
 if __name__ == "__main__":
@@ -460,6 +606,15 @@ if __name__ == "__main__":
     elif comando == "e11":
         nombre, w = correr_e11(4 if "viernes" in opciones else 6)
         print(resumen_comparativo(w, nombre, referencia="Ridge14").to_string())
+    elif comando == "e12":
+        t, cotas, rc = resumen_e12(correr_e12())
+        print(t.to_string())
+        print(cotas.to_string())
+        print(rc)
+    elif comando == "e13":
+        t, rc = resumen_e13(correr_e13())
+        print(t.to_string())
+        print(rc)
     elif comando == "e10":
         correr_e10()
         print(pd.read_csv(bt.RESULTADOS / "E10_estres.csv").to_string(index=False))
@@ -475,4 +630,4 @@ if __name__ == "__main__":
             print(t.to_string())
             print(imp.head(10).to_string())
     else:
-        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 e11 [viernes] cortes tuning alertas [e8]")
+        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 e11 [viernes] e12 e13 cortes tuning alertas [e8]")

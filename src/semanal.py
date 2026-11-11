@@ -44,11 +44,17 @@ COLUMNAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo",
             "datos_precio_hasta", "precio_base", "pronostico", "cambio_pct", "cota90", "cota90_vol",
             "ingenuo", "alerta_precio_alto", "alerta_salto", "alerta_estres_hidrico",
             "real", "error", "cubierto", "fecha_calificacion",
-            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto", "huella"]
+            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto",
+            "candidato_cmg_version", "candidato_cmg_pronostico", "candidato_cmg_cota90", "candidato_cmg_error",
+            "candidato_cmg_cubierto", "huella"]
 # Lo emitido no cambia nunca; la huella encadena estas columnas con la fila anterior.
 COLUMNAS_SELLADAS = ["fecha_emision", "semana_base", "semana_objetivo", "version_modelo", "estado", "motivos",
                      "precio_base", "pronostico", "cota90", "cota90_vol", "candidato_version",
                      "candidato_pronostico", "candidato_cota90"]
+# Columnas añadidas después: se sellan solo en las filas que las tienen, para que las huellas
+# de las filas anteriores no cambien.
+SELLADAS_DESDE_CMG = ["candidato_cmg_version", "candidato_cmg_pronostico", "candidato_cmg_cota90"]
+CANDIDATOS = ("candidato", "candidato_cmg")
 
 
 def actualizar_datos():
@@ -99,6 +105,86 @@ def candidato(d, hist, semana, base, pronostico, recalcular=False):
     return {"version": config.VERSION_CANDIDATO, "pronostico": pred, "cota90": _cota(h, semana, base, pred)}
 
 
+def tabla_cmg(d, cmg):
+    """Tabla semanal con el costo marginal programado de los primeros días de la semana objetivo."""
+    dc = d.join(dp.costo_marginal(cmg, dias=(config.DIAS_CMG_CANDIDATO,)))
+    dc["cmg_brecha"] = np.log(dc.cmg_semana / dc.precio)
+    return dc
+
+
+def candidato_cmg(d, semana, base, actualizar=True):
+    """Ridge 14 + costo marginal programado del lunes y el martes de la semana objetivo (E12).
+
+    Se calcula en paralelo y no afecta al pronóstico oficial. Guarda los valores horarios del
+    costo marginal tal como estaban publicados al emitir: así se puede verificar después que la
+    historia de la API es la versión ex ante y no una revisada.
+    """
+    cmg = xm.descargar("costo_marginal") if actualizar else xm.leer_cache("costo_marginal")
+    dc = tabla_cmg(d, cmg)
+    variables = config.VARIABLES_CANDIDATO_CMG
+    faltan = [v for v in variables if pd.isna(dc.at[semana, v])]
+    if faltan:
+        raise ValueError(f"costo marginal de la semana objetivo aún no publicado ({', '.join(faltan)})")
+    r = bt.backtest(dc, [models.Modelo("Ingenuo"), models.Modelo("CMG", variables, models.ridge)],
+                    inicio=config.INICIO_BACKTEST, cada=4, requeridas=variables + ["y"])
+    w = bt.ancho(r)
+    h = pd.DataFrame({"real": w.real, "ingenuo": w.base, "prediccion": w.CMG})
+    completas = dc.dropna(subset=variables + ["y"])
+    completas = completas[completas.index < semana]
+    m = models.ridge().fit(completas[variables], completas.y)
+    pred = base * float(np.exp(m.predict(dc.loc[[semana], variables])[0]))
+    dias = pd.date_range(semana + pd.Timedelta(weeks=1), periods=config.DIAS_CMG_CANDIDATO)
+    horario = cmg[cmg.fecha.isin(dias)].set_index("fecha")[xm.HORAS]
+    return {"version": config.VERSION_CANDIDATO_CMG, "pronostico": pred, "cota90": _cota(h, semana, base, pred),
+            "cmg_hasta": f"{cmg.fecha.max():%Y-%m-%d}",
+            "cmg_publicado": {f"{f:%Y-%m-%d}": [float(x) for x in fila] for f, fila in horario.iterrows()},
+            "variables": {v: float(dc.at[semana, v]) for v in variables[-2:]}}
+
+
+def _huella_tabla(t):
+    """SHA-256 del contenido de una tabla (índice y valores), independiente del archivo."""
+    return hashlib.sha256(pd.util.hash_pandas_object(t, index=True).to_numpy().tobytes()).hexdigest()
+
+
+def datos_reproduccion(modelo, completas, hist_cota, semana, pronostico, cota, cota_vol):
+    """Lo necesario para reconstruir la emisión aunque XM revise los datos después.
+
+    Con los coeficientes, el escalador y las variables del snapshot, el pronóstico se recalcula
+    sin datos; las huellas dicen si la tabla de entrenamiento o los errores que calibran la cota
+    siguen siendo los mismos.
+    """
+    import sklearn
+
+    previos = hist_cota[hist_cota.index < semana].dropna(subset=["real", "prediccion"])
+    out = {
+        "n_entrenamiento": int(len(completas)),
+        "entrenamiento_desde": f"{completas.index.min():%Y-%m-%d}" if len(completas) else None,
+        "entrenamiento_hasta": f"{completas.index.max():%Y-%m-%d}" if len(completas) else None,
+        "huella_entrenamiento": _huella_tabla(completas[config.VARIABLES + ["y"]]),
+        "margen_log": float(np.log(cota / pronostico)),
+        "margen_vol_log": float(np.log(cota_vol / pronostico)),
+        "errores_cota": int(min(len(previos), config.VENTANA_CONFORMAL)),
+        "huella_errores_cota": _huella_tabla(previos[["real", "prediccion"]].tail(config.VENTANA_CONFORMAL)),
+        "versiones": {"numpy": np.__version__, "pandas": pd.__version__, "scikit-learn": sklearn.__version__},
+    }
+    if modelo is not None:
+        esc, reg = modelo[0], modelo[-1]
+        out["modelo"] = {"variables": list(config.VARIABLES), "intercepto": float(reg.intercept_),
+                         "coeficientes": [float(c) for c in reg.coef_], "alpha": float(reg.alpha_),
+                         "media": [float(m) for m in esc.mean_], "escala": [float(s) for s in esc.scale_]}
+    return out
+
+
+def reproducir(snapshot, precio_base):
+    """Pronóstico y cotas a partir de un snapshot, sin datos ni reentrenar."""
+    m = snapshot["reproduccion"]["modelo"]
+    x = np.array([snapshot["variables"][v] for v in m["variables"]])
+    z = (x - np.array(m["media"])) / np.array(m["escala"])
+    pronostico = precio_base * float(np.exp(m["intercepto"] + z @ np.array(m["coeficientes"])))
+    r = snapshot["reproduccion"]
+    return pronostico, pronostico * np.exp(r["margen_log"]), pronostico * np.exp(r["margen_vol_log"])
+
+
 def _alertas(d):
     umbrales = pd.read_csv(RAIZ / "results" / "alertas_resumen.csv").query("modelo == 'Logistica'")
     out = {}
@@ -121,7 +207,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     semana = d.index.max()
     fila = d.loc[semana]
 
-    controles = monitoreo.calidad(d, semana, fecha_emision)
+    controles = monitoreo.calidad(d, semana, fecha_emision, datos_hasta=fechas)
     rango = monitoreo.fuera_de_rango(d, semana)
     hist = historial_fuera_de_muestra(d)
     hist["cota"] = cal.conformal(hist.real, hist.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL)
@@ -131,6 +217,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     base = float(fila.precio)
     completas = d.dropna(subset=config.VARIABLES + ["y"])
     completas = completas[completas.index < semana]
+    modelo = None
     if estado == "respaldo":
         pronostico, intercepto, aportes = base, 0.0, pd.Series(dtype=float)
         hist_cota = hist.assign(prediccion=hist.ingenuo)
@@ -141,6 +228,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         hist_cota = hist
     cota = _cota(hist_cota, semana, base, pronostico)
     cota_vol = _cota(hist_cota, semana, base, pronostico, escala=d.volatilidad_4s)
+    reproduccion = datos_reproduccion(modelo, completas, hist_cota, semana, pronostico, cota, cota_vol)
     avisos = _alertas(d)
 
     # Un fallo del candidato nunca debe impedir la emisión oficial.
@@ -150,6 +238,12 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
             cand = candidato(d, hist, semana, base, pronostico, recalcular=actualizar)
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
+    cand_cmg = None
+    if estado != "respaldo":
+        try:
+            cand_cmg = candidato_cmg(d, semana, base, actualizar=actualizar)
+        except Exception as e:
+            print(f"No se pudo calcular el candidato con costo marginal: {e}", flush=True)
 
     resultado = {
         "fecha_emision": fecha_emision, "semana_base": semana, "semana_objetivo": semana + pd.Timedelta(weeks=1),
@@ -158,7 +252,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "cambio_pct": (pronostico / base - 1) * 100, "cota90": cota, "cota90_vol": cota_vol, "ingenuo": base,
         "intercepto": intercepto, "aportes": aportes, "controles": controles, "fuera_de_rango": rango,
         "desempeno_reciente": desempeno, "alertas": avisos, "historial": hist,
-        "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand,
+        "variables": fila[config.VARIABLES].astype(float).to_dict(), "candidato": cand, "candidato_cmg": cand_cmg,
+        "reproduccion": reproduccion,
     }
     if guardar:
         registrar(resultado)
@@ -172,7 +267,8 @@ def _leer_registro():
     # Las filas anteriores al candidato quedan sin esas columnas: no se llenan hacia atrás.
     reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
     # Una columna de texto o sí/no vacía se lee como float y luego no acepta sus valores.
-    return reg.astype({c: object for c in ("motivos", "candidato_version", "huella", "cubierto", "candidato_cubierto")})
+    return reg.astype({c: object for c in ("motivos", "candidato_version", "huella", "cubierto", "candidato_cubierto",
+                                           "candidato_cmg_version", "candidato_cmg_cubierto")})
 
 
 FECHAS = ["fecha_emision", "semana_base", "semana_objetivo", "datos_precio_hasta", "fecha_calificacion"]
@@ -188,7 +284,8 @@ def _texto(v):
 
 def huella(fila, anterior=""):
     """SHA-256 de lo emitido, encadenado con la huella anterior: alterar una fila rompe la cadena."""
-    texto = anterior + "|" + "|".join(_texto(fila[c]) for c in COLUMNAS_SELLADAS)
+    columnas = COLUMNAS_SELLADAS + (SELLADAS_DESDE_CMG if _texto(fila.get("candidato_cmg_version")) else [])
+    texto = anterior + "|" + "|".join(_texto(fila.get(c)) for c in columnas)
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()
 
 
@@ -210,6 +307,17 @@ def _escribir(reg):
     reg[COLUMNAS].to_csv(ARCHIVO, index=False)
 
 
+def _json(v):
+    """Tipos de numpy y pandas que json no serializa solo."""
+    if isinstance(v, (np.integer, np.floating)):
+        return None if isinstance(v, np.floating) and not np.isfinite(v) else v.item()
+    if isinstance(v, np.bool_):
+        return bool(v)
+    if isinstance(v, pd.Timestamp):
+        return f"{v:%Y-%m-%d}"
+    raise TypeError(f"No serializable: {type(v)}")
+
+
 def registrar(r):
     """Agrega la emisión si su semana base no estaba registrada; nunca reescribe una existente."""
     REGISTRO.mkdir(exist_ok=True)
@@ -225,12 +333,12 @@ def registrar(r):
         "cota90": round(r["cota90"], 2), "cota90_vol": round(r["cota90_vol"], 2), "ingenuo": round(r["ingenuo"], 2),
         **{f"alerta_{k}": round(v["puntaje"], 4) for k, v in r["alertas"].items()},
     }
-    cand = r.get("candidato")
-    if cand:
-        fila.update(candidato_version=cand["version"], candidato_pronostico=round(cand["pronostico"], 2),
-                    candidato_cota90=round(cand["cota90"], 2))
+    for prefijo in CANDIDATOS:
+        if cand := r.get(prefijo):
+            fila.update({f"{prefijo}_version": cand["version"], f"{prefijo}_pronostico": round(cand["pronostico"], 2),
+                         f"{prefijo}_cota90": round(cand["cota90"], 2)})
     anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
-    fila["huella"] = huella({c: fila.get(c, np.nan) for c in COLUMNAS_SELLADAS}, anterior)
+    fila["huella"] = huella({c: fila.get(c, np.nan) for c in COLUMNAS_SELLADAS + SELLADAS_DESDE_CMG}, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
     snap = REGISTRO / "snapshots" / f"{r['semana_base']:%Y-%m-%d}.json"
     snap.parent.mkdir(exist_ok=True)
@@ -238,8 +346,11 @@ def registrar(r):
         "fecha_emision": f"{r['fecha_emision']:%Y-%m-%d}", "version_modelo": r["version_modelo"],
         "datos_hasta": {k: f"{v:%Y-%m-%d}" for k, v in r["datos_hasta"].items()},
         "variables": r["variables"], "estado": r["estado"], "motivos": r["motivos"],
-        "controles": r["controles"].to_dict("records"), "candidato": cand,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+        "controles": r["controles"].to_dict("records"), "candidato": r.get("candidato"),
+        "candidato_cmg": r.get("candidato_cmg"),
+        "precio_base": r["precio_base"], "pronostico": r["pronostico"], "cota90": r["cota90"], "cota90_vol": r["cota90_vol"],
+        "desempeno_reciente": r.get("desempeno_reciente"), "reproduccion": r.get("reproduccion"),
+    }, ensure_ascii=False, indent=2, default=_json), encoding="utf-8")
     print(f"Registrado: semana base {r['semana_base']:%Y-%m-%d}, pronóstico {r['pronostico']:,.1f} COP/kWh")
     return True
 
@@ -262,9 +373,10 @@ def calificar(d=None):
         reg.loc[pendientes, "error"] = np.round(reg.loc[pendientes, "pronostico"] - real, 2)
         reg.loc[pendientes, "cubierto"] = real <= reg.loc[pendientes, "cota90"]
         reales = pd.Series(real, index=reg.index[pendientes])
-        con_cand = reales.index[reg.loc[reales.index, "candidato_pronostico"].notna()]
-        reg.loc[con_cand, "candidato_error"] = (reg.loc[con_cand, "candidato_pronostico"] - reales[con_cand]).round(2)
-        reg.loc[con_cand, "candidato_cubierto"] = reales[con_cand] <= reg.loc[con_cand, "candidato_cota90"]
+        for p in CANDIDATOS:
+            con = reales.index[reg.loc[reales.index, f"{p}_pronostico"].notna()]
+            reg.loc[con, f"{p}_error"] = (reg.loc[con, f"{p}_pronostico"] - reales[con]).round(2)
+            reg.loc[con, f"{p}_cubierto"] = reales[con] <= reg.loc[con, f"{p}_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones")
@@ -278,3 +390,6 @@ if __name__ == "__main__":
           f"({r['cambio_pct']:+.1f} %), cota 90 % {r['cota90']:,.1f}")
     if r["candidato"]:
         print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, cota 90 % {r['candidato']['cota90']:,.1f}")
+    if r["candidato_cmg"]:
+        print(f"Candidato con costo marginal: {r['candidato_cmg']['pronostico']:,.1f} COP/kWh, "
+              f"cota 90 % {r['candidato_cmg']['cota90']:,.1f}")

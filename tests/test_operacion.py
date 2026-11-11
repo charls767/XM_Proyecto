@@ -61,7 +61,63 @@ def test_desempeno_bajo_pide_vigilancia():
     des = monitoreo.desempeno_reciente(h)
     assert des["razon_mae"] > 1 and des["cobertura"] == 0
     estado, motivos = monitoreo.estado(pd.DataFrame(columns=["control", "estado", "detalle"]), pd.DataFrame(columns=["nivel"]), des)
-    assert estado == "vigilancia" and len(motivos) == 2
+    assert estado == "vigilancia" and len(motivos) == 3  # MAE, cobertura y sesgo (+20 %)
+    assert any("se pasó" in m for m in motivos)
+
+
+def _historial(errores, real=500.0):
+    idx = pd.date_range("2025-01-06", periods=len(errores), freq="W-MON")
+    e = np.asarray(errores, dtype=float)
+    return pd.DataFrame({"real": real, "ingenuo": real + 80 * np.sign(np.sin(np.arange(len(e)) + 0.5)),
+                         "prediccion": real + e, "cota": real + 200}, index=idx)
+
+
+def test_sesgo_significativo_pide_vigilancia():
+    rng = np.random.default_rng(0)
+    des = monitoreo.desempeno_reciente(_historial(-55 + rng.normal(0, 40, 26)))  # ≈ −11 % del precio
+    assert des["p_sesgo"] < 0.05 and monitoreo.sesgo_significativo(des)
+    estado, motivos = monitoreo.estado(pd.DataFrame(columns=["control", "estado", "detalle"]),
+                                       pd.DataFrame(columns=["nivel"]), des)
+    assert estado == "vigilancia" and any("se quedó corto" in m for m in motivos)
+
+
+def test_sesgo_pequeno_o_ruidoso_no_alarma():
+    rng = np.random.default_rng(1)
+    pequeno = monitoreo.desempeno_reciente(_historial(-10 + rng.normal(0, 5, 26)))  # 2 %, significativo
+    ruidoso = monitoreo.desempeno_reciente(_historial(-30 + rng.normal(0, 200, 26)))  # 6 %, no significativo
+    assert pequeno["p_sesgo"] < 0.05 and not monitoreo.sesgo_significativo(pequeno)
+    assert ruidoso["p_sesgo"] > 0.05 and not monitoreo.sesgo_significativo(ruidoso)
+
+
+@pytest.mark.parametrize("dias_oferta, esperado", [(0, "ok"), (1, "nota"), (2, "aviso")])
+def test_series_deben_cubrir_la_semana_base(d, dias_oferta, esperado):
+    semana = d.index[-2]
+    domingo = semana + pd.Timedelta(days=6)
+    fechas = {s: domingo + pd.Timedelta(days=2) for s in config.SERIES_SEMANA_BASE}
+    fechas["oferta"] = domingo - pd.Timedelta(days=dias_oferta)
+    controles = monitoreo.calidad(d, semana, semana + pd.Timedelta(days=9), datos_hasta=fechas)
+    fila = controles.set_index("control").loc["Series al día"]
+    assert fila.estado == esperado
+    if dias_oferta:
+        assert "oferta" in fila.detalle
+    estado, motivos = monitoreo.estado(controles, pd.DataFrame(columns=["nivel"]), {"semanas": 0})
+    assert any("Series al día" in m for m in motivos) == (esperado == "aviso")
+
+
+def test_emision_se_reconstruye_desde_el_snapshot():
+    """Prueba de humo de punta a punta (sin API ni registro) y reproducción sin datos."""
+    import json
+
+    r = semanal.emitir(actualizar=False, guardar=False)
+    assert r["estado"] in ("normal", "vigilancia", "respaldo")
+    assert "Series al día" in set(r["controles"].control)
+    if r["estado"] == "respaldo":
+        pytest.skip("en respaldo no hay modelo que reconstruir")
+    snap = json.loads(json.dumps({"variables": r["variables"], "reproduccion": r["reproduccion"]}, default=semanal._json))
+    pron, cota, cota_vol = semanal.reproducir(snap, r["precio_base"])
+    assert pron == pytest.approx(r["pronostico"], rel=1e-10)
+    assert cota == pytest.approx(r["cota90"], rel=1e-10) and cota_vol == pytest.approx(r["cota90_vol"], rel=1e-10)
+    assert len(r["reproduccion"]["huella_entrenamiento"]) == 64
 
 
 def _emision(semana, pronostico):
@@ -103,6 +159,52 @@ def test_candidato_se_registra_y_califica_aparte(tmp_path, monkeypatch, d):
     real = d.precio[semana + pd.Timedelta(weeks=1)]
     assert reg.candidato_error.iloc[1] == pytest.approx(80.0 - real, abs=0.01)
     assert bool(reg.candidato_cubierto.iloc[1]) is False
+
+
+def test_candidato_cmg_se_registra_sella_y_califica(tmp_path, monkeypatch, d):
+    monkeypatch.setattr(semanal, "REGISTRO", tmp_path)
+    monkeypatch.setattr(semanal, "ARCHIVO", tmp_path / "pronosticos.csv")
+    semana = d.index[-3]
+    semanal.registrar(_emision(d.index[-4], 90.0))  # fila anterior sin el candidato nuevo
+    conc = _emision(semana, 95.0)
+    conc["candidato_cmg"] = {"version": "cmg-prueba", "pronostico": 85.0, "cota90": 1e6}
+    semanal.registrar(conc)
+    reg = semanal.calificar(d)
+    real = d.precio[semana + pd.Timedelta(weeks=1)]
+    assert pd.isna(reg.candidato_cmg_error.iloc[0])
+    assert reg.candidato_cmg_error.iloc[1] == pytest.approx(85.0 - real, abs=0.01)
+    assert bool(reg.candidato_cmg_cubierto.iloc[1]) is True
+    assert semanal.verificar_registro() == []
+    reg.loc[1, "candidato_cmg_pronostico"] = 86.0  # lo emitido por el candidato también está sellado
+    semanal._escribir(reg)
+    assert semanal.verificar_registro() == [f"{semana:%Y-%m-%d}"]
+
+
+def test_columnas_nuevas_no_cambian_las_huellas_del_registro_real():
+    """Las filas emitidas antes del candidato con costo marginal deben seguir verificando."""
+    if not semanal.ARCHIVO.exists():
+        pytest.skip("sin registro")
+    assert semanal.verificar_registro() == []
+
+
+def test_candidato_cmg_solo_usa_dias_publicados(d):
+    import xm_client as xm
+
+    cmg = xm.leer_cache("costo_marginal")
+    if cmg.empty:
+        pytest.skip("sin caché de costo marginal")
+    semana = d.index[-3]
+    lunes = semana + pd.Timedelta(weeks=1)
+    con = semanal.candidato_cmg(d, semana, float(d.precio[semana]), actualizar=False)
+    assert sorted(con["cmg_publicado"]) == [f"{lunes:%Y-%m-%d}", f"{lunes + pd.Timedelta(days=1):%Y-%m-%d}"]
+    # Alterar el miércoles en adelante de la semana objetivo no cambia nada.
+    otro = cmg.copy()
+    tarde = otro.fecha >= lunes + pd.Timedelta(days=2)
+    otro.loc[tarde, xm.HORAS] = otro.loc[tarde, xm.HORAS] * 5
+    pd.testing.assert_frame_equal(semanal.tabla_cmg(d, cmg).loc[[semana]], semanal.tabla_cmg(d, otro).loc[[semana]])
+    # Sin el martes publicado, no hay candidato.
+    sin_martes = cmg[cmg.fecha != lunes + pd.Timedelta(days=1)]
+    assert pd.isna(semanal.tabla_cmg(d, sin_martes).at[semana, "cmg_2d_rel"])
 
 
 def test_registro_antiguo_sin_columnas_de_candidato(tmp_path, monkeypatch):

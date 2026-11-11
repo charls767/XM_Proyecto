@@ -40,6 +40,8 @@ SERIES = {
     "precio_escasez": ("PrecEsca", "Sistema", "daily"),
     # E9: despacho programado (publicado el día anterior)
     "gene_programada": ("GeneProgDesp", "Recurso", "hourly"),
+    # E12: costo marginal del despacho programado (publicado el día anterior)
+    "costo_marginal": ("CostMargDesp", "Sistema", "hourly"),
 }
 
 
@@ -225,6 +227,12 @@ def descargar(nombre, inicio="2010-01-01", fin=None, hilos=4):
     partes = [pd.read_parquet(_archivo(nombre, m)) for m in meses]
     df = pd.concat([p for p in partes if not p.empty], ignore_index=True)
     return df[(df.fecha >= pd.Timestamp(inicio)) & (df.fecha <= fin)]
+
+
+def leer_cache(nombre):
+    """Serie completa desde la caché local, sin consultar la API (corridas en seco y pruebas)."""
+    partes = [pd.read_parquet(a) for a in sorted((CACHE / nombre).glob("*.parquet")) if _filas(a) > 0]
+    return pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
 
 
 def ultima_fecha_en_cache(nombre):

@@ -205,6 +205,7 @@ DICCIONARIO = pd.DataFrame([
     ("oferta", "PrecOferDesp", "Recurso", "horaria→diaria", "COP/kWh", "D+1"),
     ("generacion", "Gene", "Recurso", "horaria→diaria", "kWh", "D+1"),
     ("combustible", "ConsCombustibleMBTU", "Recurso", "horaria→diaria", "MBTU", "D+1"),
+    ("costo_marginal", "CostMargDesp", "Sistema", "horaria", "COP/kWh", "antes del día (despacho programado; hora por confirmar)"),
     ("oni", "ONI (NOAA CPC)", "Global", "trimestral móvil", "°C", "día 14 del mes siguiente al cierre de la estación"),
 ], columns=["serie", "metrica", "entidad", "resolucion", "unidad", "disponibilidad"]).set_index("serie")
 
@@ -425,6 +426,48 @@ def tabla_e9(ultimo_dia=6, recalcular=False):
     clases = clasificar_recursos(xm.listado_recursos(), datos["combustible"], codigos)
     sem = sem.join(rasgos_diarios(datos["precio"], datos["demanda"], ultimo_dia))
     sem = sem.join(despacho_programado(datos, clases, ultimo_dia))
+    sem.to_parquet(archivo)
+    return sem
+
+
+# --- E12: costo marginal del despacho programado -------------------------------
+
+DIAS_CMG = (1, 2, 3, 4)  # días conocidos de la semana objetivo: lunes, lunes-martes, ...
+
+
+def costo_marginal(cmg, dias=DIAS_CMG):
+    """Costo marginal programado (`CostMargDesp`) de la semana base s y de los primeros
+    días de la semana objetivo s+1. XM lo publica el día anterior, así que con la emisión
+    del miércoles de s+1 se conocen el lunes, el martes y el miércoles; el jueves depende
+    de la hora en que se corra.
+
+    - cmg_brecha: log(costo marginal medio de s / precio de bolsa de s). Se une a la tabla después.
+    - cmg_{k}d_rel: log(costo marginal medio de los primeros k días de s+1 / el de s).
+    """
+    h = xm.a_horario(cmg).dropna()
+    dia = h.groupby(h.index.normalize()).agg(["mean", "size"])
+    dia = dia[dia["size"] == 24]["mean"]
+    semana = _semana(dia.index.to_series())
+    g = dia.groupby(semana)
+    base = g.mean().where(g.size() == 7)
+    v = pd.DataFrame({"cmg_semana": base})
+    for k in dias:
+        primeros = dia[dia.index.weekday < k]
+        gk = primeros.groupby(_semana(primeros.index.to_series()))
+        sig = gk.mean().where(gk.size() == k)
+        sig.index = sig.index - pd.Timedelta(days=7)  # se asigna a la semana base s
+        v[f"cmg_{k}d_rel"] = np.log(sig.reindex(v.index) / v.cmg_semana)
+    return v
+
+
+def tabla_e12(recalcular=False):
+    """Tabla con la semana base completa (emisión del miércoles) más el costo marginal programado."""
+    archivo = PROCESSED / "semanal_e12.parquet"
+    if archivo.exists() and not recalcular:
+        return pd.read_parquet(archivo)
+    sem = tabla_semanal(corregida=True).copy()
+    sem = sem.join(costo_marginal(xm.descargar("costo_marginal")))
+    sem["cmg_brecha"] = np.log(sem.cmg_semana / sem.precio)
     sem.to_parquet(archivo)
     return sem
 

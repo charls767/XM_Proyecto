@@ -1,0 +1,25 @@
+tipo,serie,acf1,acf2,p_lag4,p_lag13,p_lag52,periodo,unidad,razon_sobre_fondo
+ljung_box,error Ingenuo,0.042289606295479884,-0.1788805009268162,9.522315643961879e-05,0.0025717893739700686,0.019347345257741864,,,
+ljung_box,error Ridge14,0.04764059634791268,-0.12705522999479496,0.04749475220986852,0.10412694860311364,0.02357194390278369,,,
+ljung_box,error Ridge14+AR2,0.041296126649509456,-0.09618839003579237,0.20094073927772121,0.3130739539195989,0.04403731757401114,,,
+pico_espectral,log precio semanal,,,,,,260.0,semanas,3.0671889660249163
+pico_espectral,log precio semanal,,,,,,2.280701754385965,semanas,2.739517902681821
+pico_espectral,log precio semanal,,,,,,2.3008849557522124,semanas,2.236011341978878
+pico_espectral,embalse semanal,,,,,,26.0,semanas,10.773525535448302
+pico_espectral,embalse semanal,,,,,,52.0,semanas,4.2552334765509086
+pico_espectral,embalse semanal,,,,,,13.68421052631579,semanas,2.7615048697441025
+pico_espectral,aportes semanales,,,,,,3.0588235294117645,semanas,2.811212529120385
+pico_espectral,aportes semanales,,,,,,3.023255813953488,semanas,2.658730465530296
+pico_espectral,aportes semanales,,,,,,17.333333333333332,semanas,2.577415108989305
+pico_espectral,error Ridge14,,,,,,2.4761904761904763,semanas,3.291117853422363
+pico_espectral,error Ridge14,,,,,,2.5161290322580645,semanas,3.1046547861452813
+pico_espectral,error Ridge14,,,,,,6.0,semanas,2.696579582905225
+pico_espectral,log precio diario,,,,,,6.999999999999999,dias,8.90060969600165
+pico_espectral,log precio diario,,,,,,3.4999999999999996,dias,5.3941038569920865
+pico_espectral,log precio diario,,,,,,2.333333333333333,dias,3.5050166077626463
+pico_espectral,log demanda diaria,,,,,,3.4999999999999996,dias,74.71260379569486
+pico_espectral,log demanda diaria,,,,,,6.999999999999999,dias,71.661548401523
+pico_espectral,log demanda diaria,,,,,,2.333333333333333,dias,51.49264119477152
+pico_espectral,log aportes diarios,,,,,,182.0,dias,4.821550140464064
+pico_espectral,log aportes diarios,,,,,,364.0,dias,3.9045831636931325
+pico_espectral,log aportes diarios,,,,,,121.33333333333333,dias,3.044445957525096
