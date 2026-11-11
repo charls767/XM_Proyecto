@@ -39,15 +39,28 @@ def _fecha(t):
     return None if pd.isna(t) else pd.Timestamp(t).strftime("%Y-%m-%d")
 
 
-def actual(r):
+def posicion(r, d):
+    """Dónde cae cada variable de la semana base frente a la historia con que se entrenó el modelo:
+    desviación estandarizada (la misma del Ridge) y percentil, para explicar en palabras."""
+    hist = d.dropna(subset=config.VARIABLES + ["y"])
+    hist = hist[hist.index < r["semana_base"]]
+    out = {}
+    for k, x in r["variables"].items():
+        s = hist[k]
+        out[k] = {"z": _f((x - s.mean()) / s.std(ddof=0), 2), "percentil": _f((s <= x).mean() * 100, 0)}
+    return out
+
+
+def actual(r, d):
     aportes = r["aportes"].copy()
     nombres = dict(config.NOMBRES)
+    pos = posicion(r, d)
     if {"sen_semana", "cos_semana"} <= set(aportes.index):
         # Seno y coseno son una sola idea para el lector: la época del año.
         aportes["epoca"] = aportes.pop("sen_semana") + aportes.pop("cos_semana")
         nombres["epoca"] = "Época del año"
     explicacion = [{"var": k, "nombre": nombres.get(k, k), "log": _f(v, 4),
-                    "pct": _f((np.exp(v) - 1) * 100, 1)}
+                    "pct": _f((np.exp(v) - 1) * 100, 1), **pos.get(k, {"z": None, "percentil": None})}
                    for k, v in aportes.reindex(aportes.abs().sort_values(ascending=False).index).items()]
     return {
         "fecha_emision": _fecha(r["fecha_emision"]), "semana_base": _fecha(r["semana_base"]),
@@ -165,7 +178,7 @@ def main():
     d = fe.preparar(dp.tabla_semanal(corregida=True))
     datos = {
         "generado": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
-        "actual": {**actual(r), "nota_registro": nota_registro(r)}, "historial": historial(r, d), "registro": registro(),
+        "actual": {**actual(r, d), "nota_registro": nota_registro(r)}, "historial": historial(r, d), "registro": registro(),
         "hidro": hidro(d), "estres": estres(), "modelos": modelos_tabla(), "alertas": alertas_datos(r),
         "candidato": {"actual": {k: (_f(v, 1) if k != "version" else v) for k, v in r["candidato"].items()} if r["candidato"] else None,
                       "simulado": candidato_simulado(), "revision": config.REVISION_CANDIDATO,
