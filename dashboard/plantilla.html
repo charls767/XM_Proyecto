@@ -132,6 +132,11 @@ td:first-child { font-family: var(--font-body); }
 tr.ref td { font-weight: 600; }
 td .chip { font-family: var(--font-body); }
 
+.matrices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px 18px; }
+.matriz table { width: 100%; font-size: 0.85rem; }
+.matriz caption { text-align: left; font-weight: 600; padding-bottom: 4px; }
+.matriz td, .matriz th { text-align: center; }
+.matriz td.diag { font-weight: 700; outline: 2px solid var(--line); outline-offset: -2px; }
 .controles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 8px 16px; font-size: 0.9rem; }
 .control { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; }
 .control .d { grid-column: 2; color: var(--ink-2); font-size: 0.84rem; }
@@ -226,7 +231,7 @@ table.texto td.n { font-family: var(--font-data); text-align: right; white-space
 
   <nav class="indice" aria-label="Secciones del tablero">
     <a href="#como">Cómo funciona</a><a href="#porque">¿Por qué?</a><a href="#metricas-sec">¿Qué tan bueno es?</a>
-    <a href="#registro">Registro real</a><a href="#candidato">Candidato</a><a href="#controles-sec">Controles</a>
+    <a href="#registro">Registro real</a><a href="#candidato">Candidatos</a><a href="#comparacion">Comparación</a><a href="#controles-sec">Controles</a>
     <a href="#serie">Serie</a><a href="#alertas-sec">Alertas</a><a href="#hidro">Hidrología</a>
     <a href="#limites">Cuándo no confiar</a><a href="#glosario">Glosario</a>
   </nav>
@@ -340,15 +345,15 @@ table.texto td.n { font-family: var(--font-data); text-align: right; white-space
         <li><b>Estado</b>: normal, vigilancia o respaldo al momento de emitir (ver el recuadro de estado arriba).</li>
         <li><b>Real</b>: precio que publicó XM. <b>Error</b>: pronóstico menos real; negativo significa que se quedó corto.</li>
         <li><b>¿Cubrió?</b>: «Sí» si el precio real quedó por debajo de la cota. «Pendiente» mientras XM no publique la semana completa.</li>
-        <li><b>Candidato</b>: lo mismo para el modelo en prueba (ver la sección siguiente).</li>
+        <li><b>Candidato 1</b> y <b>Candidato 2</b>: lo mismo para los dos modelos en prueba (ver las secciones siguientes). El candidato 2 se registra desde la emisión del 11 de noviembre de 2026; las filas anteriores quedan con «–».</li>
       </ul>
     </details>
-    <div class="table-wrap"><table id="tb-reg"><thead><tr><th>Emitido</th><th>Semana objetivo</th><th>Estado</th><th>Pronóstico</th><th>Cota 90 %</th><th>Real</th><th>Error</th><th>¿Cubrió?</th><th>Candidato</th><th>Error<br>candidato</th><th>¿Cubrió?<br>candidato</th></tr></thead><tbody></tbody></table></div>
+    <div class="table-wrap"><table id="tb-reg"><thead><tr><th>Emitido</th><th>Semana objetivo</th><th>Estado</th><th>Pronóstico</th><th>Cota 90 %</th><th>Real</th><th>Error</th><th>¿Cubrió?</th><th>Candidato 1</th><th>Error<br>cand. 1</th><th>¿Cubrió?<br>cand. 1</th><th>Candidato 2</th><th>Error<br>cand. 2</th><th>¿Cubrió?<br>cand. 2</th></tr></thead><tbody></tbody></table></div>
   </section>
 
   <section class="panel" id="candidato" aria-labelledby="t-cand">
     <div class="panel-head"><div>
-      <h2 id="t-cand">Modelo candidato en paralelo</h2>
+      <h2 id="t-cand">Candidato 1 · ensamble con LEAR</h2>
       <p class="muted small">Un posible reemplazo en prueba. Promedia el modelo oficial con LEAR, un segundo modelo que pronostica día por día y luego arma la semana. Se emite y califica cada semana junto al oficial, pero no lo reemplaza: en la evaluación simulada erró menos, y falta comprobarlo con semanas reales.</p>
     </div></div>
     <div class="metricas" id="cand-tarjetas"></div>
@@ -361,6 +366,34 @@ table.texto td.n { font-family: var(--font-data); text-align: right; white-space
       <summary>Por qué no se cambia ya, si erró menos</summary>
       <p>Se probaron 67 modelos sobre la misma historia. Entre tantos, alguno sale mejor por azar. Al corregir por eso, la mejora del candidato (3 % menos error) deja de ser significativa. La regla de cambio se fijó antes de ver los resultados reales, para que la decisión no dependa de mirar los datos hasta encontrar lo que se busca.</p>
     </details>
+  </section>
+
+  <section class="panel" id="candidato-cmg" aria-labelledby="t-cand2">
+    <div class="panel-head"><div>
+      <h2 id="t-cand2">Candidato 2 · costo marginal programado</h2>
+      <p class="muted small">El modelo oficial más el costo marginal del despacho programado del lunes y el martes de la semana objetivo, que XM publica antes de cada día. Con la emisión del miércoles esos dos días ya se conocen. Es la mayor mejora del proyecto en la evaluación simulada, pero estima lo que resta de una semana que ya empezó.</p>
+    </div></div>
+    <div class="metricas" id="c2-tarjetas"></div>
+    <div>
+      <div class="meter-lab small"><span id="c2-avance"></span><span id="c2-meta"></span></div>
+      <div class="meter"><span class="fill" id="c2-barra" style="width:0"></span><span class="thr" id="c2-marca"></span></div>
+    </div>
+    <p class="small muted" id="c2-regla"></p>
+    <details class="ayuda">
+      <summary>Por qué no se cambia ya, si erró mucho menos</summary>
+      <p>A diferencia del candidato 1, su mejora sigue siendo significativa después de corregir por todos los modelos probados. Lo que falta no es evidencia estadística sino dos confirmaciones de XM: que la garantía pueda fijarse con la semana objetivo ya iniciada, y que la historia del costo marginal en la API sea la que se publicó antes de cada día y no una versión revisada. Para verificar lo segundo, cada emisión guarda el costo marginal tal como estaba publicado.</p>
+    </details>
+  </section>
+
+  <section class="panel" id="comparacion" aria-labelledby="t-comp">
+    <div class="panel-head"><div>
+      <h2 id="t-comp">Comparación de los modelos registrados</h2>
+      <p class="muted small">Los tres modelos que se emiten cada semana, evaluados en las mismas semanas de 2018–2026 y con los mismos reentrenamientos (experimento E14). Es una evaluación simulada: la evidencia definitiva será el registro real.</p>
+    </div></div>
+    <div class="table-wrap"><table id="tb-comp"><thead><tr><th>Modelo</th><th>Error medio</th><th>Diferencia vs oficial<br>(IC 95 %)</th><th>Error<br>últimas 52 sem.</th><th>Sesgo<br>últimas 52 sem.</th><th>Cobertura<br>de la cota</th><th>Cobertura<br>en saltos</th><th>Exceso<br>de la cota</th><th>Subidas ≥ 25 %<br>anticipadas</th><th>Caídas ≥ 20 %<br>anticipadas</th></tr></thead><tbody></tbody></table></div>
+    <h3 class="small" style="margin-top:14px">Matrices de confusión del tamaño del cambio</h3>
+    <p class="muted small">Cada semana se clasifica en baja (caída de 20 % o más), estable o sube (aumento de 25 % o más), según lo que ocurrió (filas) y lo que anticipó el modelo (columnas). La diagonal son los aciertos. Casi todos los errores son anticipar estabilidad cuando el precio se movió con fuerza; ningún modelo confunde una subida con una caída. El ingenuo no aparece: siempre anticipa estabilidad.</p>
+    <div class="matrices" id="matrices"></div>
   </section>
 
   <section class="panel" id="controles-sec" aria-labelledby="t-ctl">
@@ -707,19 +740,21 @@ function tablas() {
 }
 
 const esSi = v => v === true || v === "True";
-function cubreCand(r) {
-  if (r.candidato_pronostico == null) return "–";
-  if (r.candidato_error == null) return "pendiente";
-  return esSi(r.candidato_cubierto) ? chip("good", "Sí") : chip("crit", "No");
+function cubreCand(r, p = "candidato") {
+  if (r[p + "_pronostico"] == null) return "–";
+  if (r[p + "_error"] == null) return "pendiente";
+  return esSi(r[p + "_cubierto"]) ? chip("good", "Sí") : chip("crit", "No");
 }
 
-function candidatoUI() {
-  const C = D.candidato, sim = C.simulado, act = C.actual;
-  const pares = D.registro.filter(r => r.candidato_error != null && r.error != null);
+function candidatoUI(C = D.candidato, p = "candidato", id = "cand", extra = "") {
+  if (!C || !C.simulado) { $(id + "-tarjetas").innerHTML = '<p class="small muted">Sin evaluación simulada: corre <code>python src/experimentos.py e14</code>.</p>'; return; }
+  const sim = C.simulado, act = C.actual;
+  const pares = D.registro.filter(r => r[p + "_error"] != null && r.error != null);
   const n = pares.length;
-  const maeO = media(pares.map(r => Math.abs(r.error))), maeC = media(pares.map(r => Math.abs(r.candidato_error)));
-  const gana = pares.filter(r => Math.abs(r.candidato_error) < Math.abs(r.error)).length;
-  const cobO = media(pares.map(r => Number(esSi(r.cubierto)))) * 100, cobC = media(pares.map(r => Number(esSi(r.candidato_cubierto)))) * 100;
+  const maeO = media(pares.map(r => Math.abs(r.error))), maeC = media(pares.map(r => Math.abs(r[p + "_error"])));
+  const gana = pares.filter(r => Math.abs(r[p + "_error"]) < Math.abs(r.error)).length;
+  const cobO = media(pares.map(r => Number(esSi(r.cubierto)))) * 100, cobC = media(pares.map(r => Number(esSi(r[p + "_cubierto"])))) * 100;
+  const subidas = sim.candidato.subidas != null ? ` Anticipó ${pct(sim.candidato.subidas, 0)} de las subidas de 25 % o más (oficial ${pct(sim.oficial.subidas, 0)}).` : "";
   const dif = act ? (act.pronostico / A.pronostico - 1) * 100 : null;
   const tarjetas = [
     { lab: "Esta semana", val: act ? `${fmt(act.pronostico)}<small>COP/kWh</small>` : "–", niv: "neutral", txt: "No es oficial",
@@ -727,17 +762,32 @@ function candidatoUI() {
       exp: act ? `Su cota al 90 % es ${fmt(act.cota90)} COP/kWh, frente a ${fmt(A.cota90)} del oficial.` : "El candidato no se calcula en estado de respaldo." },
     { lab: "Evaluación simulada 2018–2026", val: `${fmt(sim.candidato.mae)}<small>COP/kWh</small>`, niv: sim.candidato.mae < sim.oficial.mae ? "good" : "warn", txt: sim.candidato.mae < sim.oficial.mae ? "Erró menos" : "No erró menos",
       cmp: `Oficial ${fmt(sim.oficial.mae)} · pinball ${fmt(sim.candidato.pinball, 2)} vs ${fmt(sim.oficial.pinball, 2)}`,
-      exp: `Cobertura de su cota: ${pct(sim.candidato.cobertura, 1)}, frente a ${pct(sim.oficial.cobertura, 1)} del oficial. Se eligió mirando estos datos, por eso no basta.` },
+      exp: `Cobertura de su cota: ${pct(sim.candidato.cobertura, 1)}, frente a ${pct(sim.oficial.cobertura, 1)} del oficial.${subidas} Se eligió mirando estos datos, por eso no basta.` },
     { lab: "Semanas reales comparadas", val: n ? `${fmt(maeC)}<small>COP/kWh</small>` : `${n}<small>semanas</small>`, niv: n >= C.decision ? (maeC < maeO ? "good" : "crit") : "neutral", txt: n >= C.decision ? (maeC < maeO ? "Erró menos" : "No erró menos") : "En curso",
       cmp: n ? `Oficial ${fmt(maeO)} · erró menos en ${gana} de ${n}` : "Aún sin semanas calificadas",
       exp: n ? `Cobertura real de la cota: ${pct(cobC)} frente a ${pct(cobO)} del oficial.` : "La comparación empieza con la próxima emisión; las anteriores no se llenan hacia atrás." },
   ];
-  $("cand-tarjetas").innerHTML = tarjetas.map(t => `<article class="metrica"><div class="top"><span class="lab">${t.lab}</span>${chip(t.niv, t.txt)}</div><div class="val">${t.val}</div><div class="cmp">${t.cmp}</div><p class="exp">${t.exp}</p></article>`).join("");
-  $("cand-avance").textContent = `${n} de ${C.decision} semanas calificadas`;
-  $("cand-meta").textContent = `Primera lectura a las ${C.revision} · decisión a las ${C.decision}`;
-  $("cand-barra").style.width = Math.min(n / C.decision, 1) * 100 + "%";
-  $("cand-marca").style.left = C.revision / C.decision * 100 + "%";
-  $("cand-regla").textContent = `Regla fijada de antemano: a las ${C.decision} semanas calificadas, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. Antes de eso los resultados son solo informativos.`;
+  $(id + "-tarjetas").innerHTML = tarjetas.map(t => `<article class="metrica"><div class="top"><span class="lab">${t.lab}</span>${chip(t.niv, t.txt)}</div><div class="val">${t.val}</div><div class="cmp">${t.cmp}</div><p class="exp">${t.exp}</p></article>`).join("");
+  $(id + "-avance").textContent = `${n} de ${C.decision} semanas calificadas`;
+  $(id + "-meta").textContent = `Primera lectura a las ${C.revision} · decisión a las ${C.decision}`;
+  $(id + "-barra").style.width = Math.min(n / C.decision, 1) * 100 + "%";
+  $(id + "-marca").style.left = C.revision / C.decision * 100 + "%";
+  $(id + "-regla").textContent = `Regla fijada de antemano: a las ${C.decision} semanas calificadas, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %.${extra} Antes de eso los resultados son solo informativos.`;
+}
+
+function comparacionUI() {
+  const K = D.comparacion;
+  if (!K) { $("comparacion").hidden = true; return; }
+  const ic = f => `${signo(f.dif)} (${fmt(f.ic[0])} a ${fmt(f.ic[1])})`;
+  const ref = f => f.modelo === "Oficial";
+  document.querySelector("#tb-comp tbody").innerHTML = K.filas.map(f =>
+    `<tr class="${ref(f) ? "ref" : ""}"><td>${f.modelo}</td><td>${fmt(f.mae)}</td><td>${ref(f) ? "referencia" : ic(f)}</td><td>${fmt(f.mae_52)}</td><td>${signo(f.sesgo_52, 0)}</td><td>${pct(f.cob, 1)}</td><td>${pct(f.cob_saltos, 0)}</td><td>${pct(f.exceso, 0)}</td><td>${f.modelo === "Ingenuo" ? "–" : pct(f.subidas, 0)}</td><td>${f.modelo === "Ingenuo" ? "–" : pct(f.caidas, 0)}</td></tr>`).join("");
+  const C = ["Baja", "Estable", "Sube"];
+  $("matrices").innerHTML = Object.entries(K.matrices).map(([m, M]) => {
+    const tot = C.reduce((a, r) => a + C.reduce((b, c) => b + M[r][c], 0), 0), ok = C.reduce((a, c) => a + M[c][c], 0);
+    return `<div class="matriz"><table><caption>${m} · acierto ${pct(ok / tot * 100, 1)}</caption><thead><tr><th>Ocurrió ↓ · anticipó →</th>${C.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>${
+      C.map(r => `<tr><th>${r}</th>${C.map(c => `<td class="${r === c ? "diag" : ""}">${M[r][c]}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  }).join("");
 }
 
 function registroUI() {
@@ -749,7 +799,7 @@ function registroUI() {
   const niv = { normal: "good", vigilancia: "warn", respaldo: "crit" };
   document.querySelector("#tb-reg tbody").innerHTML = R.slice().reverse().map(r => {
     const cub = r.real == null ? "pendiente" : (r.cubierto === true || r.cubierto === "True") ? chip("good", "Sí") : chip("crit", "No");
-    return `<tr><td>${fecha(r.fecha_emision)}</td><td>${fecha(r.semana_objetivo)}</td><td>${chip(niv[r.estado] || "neutral", r.estado)}</td><td>${fmt(r.pronostico)}</td><td>${fmt(r.cota90)}</td><td>${fmt(r.real)}</td><td>${r.error == null ? "–" : signo(r.error)}</td><td>${cub}</td><td>${fmt(r.candidato_pronostico)}</td><td>${r.candidato_error == null ? "–" : signo(r.candidato_error)}</td><td>${cubreCand(r)}</td></tr>`;
+    return `<tr><td>${fecha(r.fecha_emision)}</td><td>${fecha(r.semana_objetivo)}</td><td>${chip(niv[r.estado] || "neutral", r.estado)}</td><td>${fmt(r.pronostico)}</td><td>${fmt(r.cota90)}</td><td>${fmt(r.real)}</td><td>${r.error == null ? "–" : signo(r.error)}</td><td>${cub}</td><td>${fmt(r.candidato_pronostico)}</td><td>${r.candidato_error == null ? "–" : signo(r.candidato_error)}</td><td>${cubreCand(r)}</td><td>${fmt(r.candidato_cmg_pronostico)}</td><td>${r.candidato_cmg_error == null ? "–" : signo(r.candidato_cmg_error)}</td><td>${cubreCand(r, "candidato_cmg")}</td></tr>`;
   }).join("");
 }
 
@@ -895,7 +945,7 @@ try {
   if (g) { periodo = g; document.querySelectorAll("[data-per]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.per === g))); }
 } catch (e) {}
 
-cabecera(); comoFunciona(); porque(); metricas(); tablas(); registroUI(); candidatoUI(); controlesUI(); alertasUI(); limitesUI(); dibujar();
+cabecera(); comoFunciona(); porque(); metricas(); tablas(); registroUI(); candidatoUI(); candidatoUI(D.candidato_cmg, "candidato_cmg", "c2", " Además, solo puede adoptarse si XM confirma que la garantía se fija con la semana objetivo ya iniciada."); comparacionUI(); controlesUI(); alertasUI(); limitesUI(); dibujar();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", dibujar);
 new MutationObserver(dibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 </script>

@@ -1,0 +1,49 @@
+real,pronosticado,semanas,modelo,tipo
+Baja,Baja,0,Referencia simple,tamano
+Baja,Estable,72,Referencia simple,tamano
+Baja,Sube,0,Referencia simple,tamano
+Estable,Baja,0,Referencia simple,tamano
+Estable,Estable,313,Referencia simple,tamano
+Estable,Sube,0,Referencia simple,tamano
+Sube,Baja,0,Referencia simple,tamano
+Sube,Estable,71,Referencia simple,tamano
+Sube,Sube,0,Referencia simple,tamano
+Baja,Baja,25,Oficial (Ridge 14),tamano
+Baja,Estable,47,Oficial (Ridge 14),tamano
+Baja,Sube,0,Oficial (Ridge 14),tamano
+Estable,Baja,11,Oficial (Ridge 14),tamano
+Estable,Estable,298,Oficial (Ridge 14),tamano
+Estable,Sube,4,Oficial (Ridge 14),tamano
+Sube,Baja,0,Oficial (Ridge 14),tamano
+Sube,Estable,59,Oficial (Ridge 14),tamano
+Sube,Sube,12,Oficial (Ridge 14),tamano
+Baja,Baja,169,Oficial (Ridge 14),sentido
+Baja,Sube,63,Oficial (Ridge 14),sentido
+Sube,Baja,60,Oficial (Ridge 14),sentido
+Sube,Sube,164,Oficial (Ridge 14),sentido
+Baja,Baja,30,Candidato 1 (Ridge 14 + LEAR),tamano
+Baja,Estable,42,Candidato 1 (Ridge 14 + LEAR),tamano
+Baja,Sube,0,Candidato 1 (Ridge 14 + LEAR),tamano
+Estable,Baja,11,Candidato 1 (Ridge 14 + LEAR),tamano
+Estable,Estable,299,Candidato 1 (Ridge 14 + LEAR),tamano
+Estable,Sube,3,Candidato 1 (Ridge 14 + LEAR),tamano
+Sube,Baja,0,Candidato 1 (Ridge 14 + LEAR),tamano
+Sube,Estable,59,Candidato 1 (Ridge 14 + LEAR),tamano
+Sube,Sube,12,Candidato 1 (Ridge 14 + LEAR),tamano
+Baja,Baja,171,Candidato 1 (Ridge 14 + LEAR),sentido
+Baja,Sube,61,Candidato 1 (Ridge 14 + LEAR),sentido
+Sube,Baja,55,Candidato 1 (Ridge 14 + LEAR),sentido
+Sube,Sube,169,Candidato 1 (Ridge 14 + LEAR),sentido
+Baja,Baja,43,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Baja,Estable,29,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Baja,Sube,0,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Estable,Baja,9,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Estable,Estable,297,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Estable,Sube,7,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Sube,Baja,1,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Sube,Estable,40,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Sube,Sube,30,Candidato 2 (Ridge 14 + CMg 2 días),tamano
+Baja,Baja,175,Candidato 2 (Ridge 14 + CMg 2 días),sentido
+Baja,Sube,57,Candidato 2 (Ridge 14 + CMg 2 días),sentido
+Sube,Baja,38,Candidato 2 (Ridge 14 + CMg 2 días),sentido
+Sube,Sube,186,Candidato 2 (Ridge 14 + CMg 2 días),sentido

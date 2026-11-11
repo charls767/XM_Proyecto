@@ -115,3 +115,10 @@ def test_listado_vencido_sobrevive_a_una_caida(tmp_path, monkeypatch):
     archivo.unlink()
     with pytest.raises(OSError):
         xm.listado_recursos()
+
+
+def test_clases_del_cambio_usan_los_umbrales_de_dos_etapas():
+    import experimentos
+
+    cambio = pd.Series(np.log([0.79, 0.8, 0.81, 1.0, 1.24, 1.25, 1.3]))
+    assert experimentos.clase_cambio(cambio).tolist() == ["Baja", "Estable", "Estable", "Estable", "Estable", "Sube", "Sube"]

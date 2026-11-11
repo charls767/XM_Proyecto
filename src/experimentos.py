@@ -1,6 +1,6 @@
 """Experimentos de evaluación. Uso: python src/experimentos.py <comando> [opción]
 
-Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10, e11 [viernes], e12, e13,
+Comandos: e1 (por defecto), e2, e3e4, e5e6, e7, e8 [tx1], e9 [viernes], e10, e11 [viernes], e12, e13, e14,
 cortes, tuning y alertas [e8]. Cada uno escribe sus archivos en results/; el
 detalle de cada experimento está en docs/EXPERIMENTOS.md.
 
@@ -577,6 +577,94 @@ def diagnostico_e13(w):
     return t
 
 
+CLASES = ("Baja", "Estable", "Sube")  # cambio < −20 %, entre ambos, ≥ +25 % (umbrales de DosEtapas)
+
+
+def clase_cambio(cambio_log):
+    import numpy as np
+    return pd.Series(np.digitize(cambio_log, models.DosEtapas.UMBRALES), index=cambio_log.index).map(dict(enumerate(CLASES)))
+
+
+def correr_e14():
+    """E14: los tres modelos que se registran (oficial y dos candidatos) en un mismo walk-forward.
+
+    E11 y E12 usaban bloques distintos, así que sus Ridge 14 no coinciden; aquí todos se
+    evalúan en las mismas semanas y con los mismos reentrenamientos.
+    """
+    import lear
+
+    d = fe.preparar(dp.tabla_e12())
+    v_cmg = config.VARIABLES_CANDIDATO_CMG
+    m = [models.Modelo("Ingenuo"),
+         models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+         lear.LEAR("LEAR_directo", dp.tabla_diaria(), 6, "directo"),
+         models.Modelo("Ridge14+cmg2d", v_cmg, models.ridge)]
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=sorted(set(v_cmg) | {"y"}))
+    bt.guardar(r, "E14")
+    w = bt.ancho(r)
+    w["Ens[Ridge14+LEAR]"] = w[["Ridge14", "LEAR_directo"]].mean(axis=1)
+    for c in ("Ingenuo", "Ridge14", "Ens[Ridge14+LEAR]", "Ridge14+cmg2d"):
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL)
+    w.to_parquet(bt.RESULTADOS / "E14_ancho.parquet")
+    return w
+
+
+def resumen_e14(w):
+    """Error, sesgo, cota y significancia; matrices de confusión del sentido y del tamaño del cambio."""
+    import numpy as np
+
+    w = w[w.index >= INICIO_EVALUACION].dropna(subset=["real"])
+    modelos_ = {"Ingenuo": "Referencia simple", "Ridge14": "Oficial (Ridge 14)",
+                "Ens[Ridge14+LEAR]": "Candidato 1 (Ridge 14 + LEAR)", "Ridge14+cmg2d": "Candidato 2 (Ridge 14 + CMg 2 días)"}
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=1))
+    real_cambio = np.log(w.real / w.base)
+    alta = ev.alta_variabilidad_ex_post(w)
+    filas, matrices = [], []
+    for m, nombre in modelos_.items():
+        e = w[m] - w.real
+        cubre = w.real <= w[f"cota_{m}"]
+        pred_cambio = np.log(w[m] / w.base)
+        fila = {"modelo": nombre, "MAE": e.abs().mean(), "sesgo": e.mean(),
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                "MAE_52s": e.tail(52).abs().mean(), "sesgo_52s": e.tail(52).mean(),
+                "cobertura": cubre.mean(), "cobertura_saltos": cubre[alta].mean(),
+                "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        if m != "Ridge14":
+            est, p = ev.diebold_mariano(w, m, "Ridge14")
+            lo, hi = ev.ic_diferencia_mae(w, m, "Ridge14")
+            fila.update(dif_vs_oficial=e.abs().mean() - (w.Ridge14 - w.real).abs().mean(), IC95_inf=lo, IC95_sup=hi, p_DM=p)
+        # Sentido del cambio (el ingenuo no predice cambio: no tiene sentido).
+        if m != "Ingenuo":
+            fila["acierto_sentido_%"] = ((pred_cambio > 0) == (real_cambio > 0)).mean() * 100
+        # Tamaño del cambio en tres clases.
+        pc, rc = clase_cambio(pred_cambio), clase_cambio(real_cambio)
+        cm = pd.crosstab(rc, pc).reindex(index=CLASES, columns=CLASES, fill_value=0)
+        fila["acierto_clase_%"] = np.trace(cm.to_numpy()) / cm.to_numpy().sum() * 100
+        for k in ("Baja", "Sube"):
+            fila[f"recall_{k}_%"] = cm.at[k, k] / cm.loc[k].sum() * 100
+            fila[f"precision_{k}_%"] = cm.at[k, k] / cm[k].sum() * 100 if cm[k].sum() else np.nan
+        filas.append(fila)
+        matrices.append(cm.rename_axis(index="real", columns="pronosticado").stack().rename("semanas")
+                        .reset_index().assign(modelo=nombre, tipo="tamano"))
+        if m != "Ingenuo":
+            sentido = pd.crosstab(np.where(real_cambio > 0, "Sube", "Baja"), np.where(pred_cambio > 0, "Sube", "Baja"))
+            sentido = sentido.reindex(index=["Baja", "Sube"], columns=["Baja", "Sube"], fill_value=0)
+            matrices.append(sentido.rename_axis(index="real", columns="pronosticado").stack().rename("semanas")
+                            .reset_index().assign(modelo=nombre, tipo="sentido"))
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E14_resumen.csv")
+    cms = pd.concat(matrices, ignore_index=True)
+    cms.to_csv(bt.RESULTADOS / "E14_confusion.csv", index=False)
+
+    # Alerta de salto (logística con el umbral fijado en desarrollo), como clasificador binario.
+    a = pd.read_parquet(bt.RESULTADOS / "alertas.parquet").query("evento == 'salto' and semana_base >= @INICIO_EVALUACION")
+    u = pd.read_csv(bt.RESULTADOS / "alertas_resumen.csv").query("evento == 'salto' and modelo == 'Logistica'").umbral.iloc[0]
+    alerta = pd.crosstab(a.observado.map({0: "Sin salto", 1: "Salto"}), (a.Logistica >= u).map({False: "Sin alerta", True: "Alerta"}))
+    alerta = alerta.reindex(index=["Sin salto", "Salto"], columns=["Sin alerta", "Alerta"], fill_value=0)
+    alerta.to_csv(bt.RESULTADOS / "E14_confusion_alerta_salto.csv")
+    return t, cms, alerta
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -615,6 +703,11 @@ if __name__ == "__main__":
         t, rc = resumen_e13(correr_e13())
         print(t.to_string())
         print(rc)
+    elif comando == "e14":
+        t, cms, alerta = resumen_e14(correr_e14())
+        print(t.T.to_string())
+        print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
+        print(alerta.to_string())
     elif comando == "e10":
         correr_e10()
         print(pd.read_csv(bt.RESULTADOS / "E10_estres.csv").to_string(index=False))
@@ -630,4 +723,4 @@ if __name__ == "__main__":
             print(t.to_string())
             print(imp.head(10).to_string())
     else:
-        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 e11 [viernes] e12 e13 cortes tuning alertas [e8]")
+        sys.exit(f"Comando desconocido: {comando}. Opciones: e1 e2 e3e4 e5e6 e7 e8 [tx1] e9 [viernes] e10 e11 [viernes] e12 e13 e14 cortes tuning alertas [e8]")
