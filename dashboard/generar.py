@@ -145,21 +145,69 @@ def alertas_datos(r):
     return out
 
 
-def candidato_simulado():
-    """Oficial frente al candidato en la evaluación simulada 2018–2026 (E11, semana completa)."""
-    w = pd.read_parquet(RES / "E11_corte6_ancho.parquet")
-    columnas = {"oficial": "Ridge14", "candidato": "Ens[Ridge14+LEAR_directo]"}
-    for c in columnas.values():
-        w["cota " + c] = cal.conformal(w.real, w[c], nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL)
-    w = w[w.index >= DESDE]
+E14 = {"oficial": "Ridge14", "candidato": "Ens[Ridge14+LEAR]", "candidato_cmg": "Ridge14+cmg2d"}
+NOMBRES_E14 = {"Oficial (Ridge 14)": "Oficial", "Candidato 1 (Ridge 14 + LEAR)": "Candidato 1 · LEAR",
+               "Candidato 2 (Ridge 14 + CMg 2 días)": "Candidato 2 · costo marginal", "Referencia simple": "Ingenuo"}
+
+
+def candidato_simulado(clave="candidato"):
+    """Oficial frente a un candidato en la evaluación simulada 2018–2026.
+
+    Usa E14, que evalúa los tres modelos registrados en las mismas semanas y bloques; si no se
+    ha corrido, el candidato LEAR se toma de E11.
+    """
+    if (RES / "E14_ancho.parquet").exists():
+        w = pd.read_parquet(RES / "E14_ancho.parquet")
+        columnas = {"oficial": E14["oficial"], "candidato": E14[clave]}
+        cotas = {c: w[f"cota_{c}"] for c in columnas.values()}
+    elif clave == "candidato":
+        w = pd.read_parquet(RES / "E11_corte6_ancho.parquet")
+        columnas = {"oficial": "Ridge14", "candidato": "Ens[Ridge14+LEAR_directo]"}
+        cotas = {c: cal.conformal(w.real, w[c], nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL)
+                 for c in columnas.values()}
+    else:
+        return None
+    m = w.index >= DESDE
+    w = w[m]
+    resumen = pd.read_csv(RES / "E14_resumen.csv", index_col=0) if (RES / "E14_resumen.csv").exists() else None
     out = {}
     for nombre, c in columnas.items():
-        e = w.real - w["cota " + c]
+        cota = cotas[c][m]
+        e = w.real - cota
         out[nombre] = {"mae": _f((w[c] - w.real).abs().mean(), 1),
                        "sesgo": _f((w[c] - w.real).mean(), 1),
-                       "cobertura": _f((w.real <= w["cota " + c]).mean() * 100, 1),
+                       "cobertura": _f((w.real <= cota).mean() * 100, 1),
                        "pinball": _f(np.maximum(0.9 * e, -0.1 * e).mean(), 2)}
+    if resumen is not None:
+        fila = {"candidato": "Candidato 1 (Ridge 14 + LEAR)", "candidato_cmg": "Candidato 2 (Ridge 14 + CMg 2 días)"}[clave]
+        out["candidato"].update(subidas=_f(resumen.at[fila, "recall_Sube_%"], 0), p=_f(resumen.at[fila, "p_DM"], 3))
+        out["oficial"]["subidas"] = _f(resumen.at["Oficial (Ridge 14)", "recall_Sube_%"], 0)
     return out
+
+
+def comparacion_modelos():
+    """Resumen de E14 y matrices de confusión del tamaño del cambio, para el tablero."""
+    if not (RES / "E14_resumen.csv").exists():
+        return None
+    t = pd.read_csv(RES / "E14_resumen.csv", index_col=0)
+    cms = pd.read_csv(RES / "E14_confusion.csv").query("tipo == 'tamano'")
+    filas = [{"modelo": NOMBRES_E14.get(k, k), "mae": _f(f.MAE, 1), "mae_52": _f(f.MAE_52s, 1),
+              "sesgo_52": _f(f.sesgo_52s, 1), "cob": _f(f.cobertura * 100, 1), "cob_saltos": _f(f.cobertura_saltos * 100, 0),
+              "exceso": _f(f["exceso_cota_%"], 0), "acierto": _f(f["acierto_clase_%"], 1),
+              "subidas": _f(f["recall_Sube_%"], 0), "caidas": _f(f["recall_Baja_%"], 0),
+              "dif": _f(f.get("dif_vs_oficial"), 1), "ic": [_f(f.get("IC95_inf"), 1), _f(f.get("IC95_sup"), 1)]}
+             for k, f in t.iterrows()]
+    matrices = {NOMBRES_E14.get(m, m): {r: {c: int(g[(g.real == r) & (g.pronosticado == c)].semanas.sum())
+                                            for c in ("Baja", "Estable", "Sube")} for r in ("Baja", "Estable", "Sube")}
+                for m, g in cms.groupby("modelo", sort=False) if m != "Referencia simple"}
+    return {"filas": filas, "matrices": matrices}
+
+
+def _actual_candidato(c):
+    """Pronóstico y cota de un candidato esta semana (sin los valores horarios del snapshot)."""
+    if not c:
+        return None
+    return {"version": c["version"], "pronostico": _f(c["pronostico"], 1), "cota90": _f(c["cota90"], 1)}
 
 
 def nota_registro(r):
@@ -180,9 +228,13 @@ def main():
         "generado": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
         "actual": {**actual(r, d), "nota_registro": nota_registro(r)}, "historial": historial(r, d), "registro": registro(),
         "hidro": hidro(d), "estres": estres(), "modelos": modelos_tabla(), "alertas": alertas_datos(r),
-        "candidato": {"actual": {k: (_f(v, 1) if k != "version" else v) for k, v in r["candidato"].items()} if r["candidato"] else None,
+        "candidato": {"actual": _actual_candidato(r["candidato"]),
                       "simulado": candidato_simulado(), "revision": config.REVISION_CANDIDATO,
                       "decision": config.DECISION_CANDIDATO},
+        "candidato_cmg": {"actual": _actual_candidato(r.get("candidato_cmg")),
+                          "simulado": candidato_simulado("candidato_cmg"), "revision": config.REVISION_CANDIDATO,
+                          "decision": config.DECISION_CANDIDATO},
+        "comparacion": comparacion_modelos(),
         "metas": {"mejora_mae": 10, "cobertura": config.NIVEL_COTA * 100, "cobertura_volatil": 85,
                   "ventana": config.VENTANA_MONITOREO},
         "nombres": {**config.NOMBRES, **{k: v for k, v in alertas_nombres().items()}},

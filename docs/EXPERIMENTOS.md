@@ -30,6 +30,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo es el mejor candidato, pero no es significativo al corregir por búsqueda; se valida con pronósticos reales. |
 | E12 | `e12` | ¿Ayuda el costo marginal del despacho programado de los primeros días de la semana objetivo? | Sí: con lunes a miércoles el error baja 38 % frente a Ridge 14, significativo tras corregir por búsqueda. Falta confirmar con XM la hora de publicación y si la garantía se fija con la semana ya empezada. |
 | E13 | `e13` | ¿Mejora un ARIMA? ¿Aportan variables en frecuencia (STFT, armónicos)? | No. ARIMA puro queda casi en el ingenuo; STFT no aporta. El segundo armónico anual mejora 0.8 en selección, pero no pasa la corrección por búsqueda (p = 0.71). |
+| E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -479,6 +480,41 @@ Si se confirma, el paso siguiente es registrar Ridge 14 + costo marginal en para
 - **El segundo armónico es la única pista.** Tiene lectura física (las dos temporadas de lluvia) y en selección mejora 0.8 COP/kWh (p DM = 0.03). Pero en 2025–26 es levemente peor y el reality check sobre los 9 modelos de E13 en selección da p = 0.71.
 
 **Decisión de E13:** Ridge 14 sigue en operación. No se adopta ARIMA ni variables STFT. El segundo armónico no pasa el criterio; si se quiere seguir, se registra en paralelo como los otros candidatos y se decide con pronósticos reales.
+
+## E14: los modelos registrados en un mismo backtest y matrices de confusión
+
+`python src/experimentos.py e14` (~2 min). Resultados en `results/E14.parquet`, `E14_ancho.parquet`, `E14_resumen.csv`, `E14_confusion.csv` y `E14_confusion_alerta_salto.csv`.
+
+**Por qué.** E11 y E12 usaban bloques de reentrenamiento distintos (sus Ridge 14 difieren hasta 3.7 COP/kWh), así que comparar el candidato con LEAR y el candidato con costo marginal entre esos archivos no era emparejado. E14 corre el oficial, LEAR directo y Ridge 14 + CMg de 2 días en la tabla de E12, con las mismas 456 semanas desde 2018 y los mismos bloques.
+
+**Matrices de confusión.** El error medio no dice si el modelo anticipa los movimientos que importan para la garantía. Cada semana se clasifica por el cambio real y por el anticipado: *baja* (< −20 %), *estable* o *sube* (≥ +25 %), los umbrales de `DosEtapas`. También se tabula el sentido del cambio y la alerta de salto (logística, umbral fijado en desarrollo).
+
+| Ocurrió → anticipó | Oficial: Baja / Estable / Sube | Candidato 1 (LEAR) | Candidato 2 (CMg 2 días) |
+|---|---|---|---|
+| Baja (72) | **25** / 47 / 0 | **30** / 42 / 0 | **43** / 29 / 0 |
+| Estable (313) | 11 / **298** / 4 | 11 / **299** / 3 | 9 / **297** / 7 |
+| Sube (71) | 0 / 59 / **12** | 0 / 59 / **12** | 1 / 40 / **30** |
+| Acierto | 73.5 % | 74.8 % | 81.1 % |
+
+| | Oficial | Candidato 1 | Candidato 2 |
+|---|---|---|---|
+| MAE 2018–2026 | 54.0 | 52.5 | **39.3** |
+| Diferencia vs oficial (IC 95 %) | | −1.4 (−2.7 a −0.4) | **−14.7 (−21.2 a −10.0)** |
+| MAE últimas 52 semanas | 70.9 | 73.0 | 49.0 |
+| Sesgo últimas 52 semanas | −33.8 | −37.3 | −25.9 |
+| Cobertura de la cota / en saltos | 90.1 % / 70 % | 90.1 % / 68 % | 91.0 % / 75 % |
+| Exceso de la cota | 37 % | 36 % | 28 % |
+| Acierto del sentido del cambio | 73.0 % | 74.6 % | 79.2 % |
+| Subidas ≥ 25 % anticipadas (precisión) | 17 % (75 %) | 17 % (80 %) | 42 % (81 %) |
+
+Alerta de salto, 2018–2026: detecta 48 de 71 saltos (68 %), con 116 falsas alarmas (precisión 29 %).
+
+Conclusiones:
+- **Ningún modelo confunde una subida con una caída.** Casi todos los errores son anticipar estabilidad cuando el precio se movió con fuerza. El oficial y el candidato 1 anticipan las mismas 12 subidas de 71: LEAR mejora las caídas, no las subidas.
+- **El candidato 2 mejora todo a la vez:** error, cobertura en saltos, exceso de la cota y subidas anticipadas. El candidato 1 erra 1.4 menos en todo el periodo (p = 0.012 aislado, no significativo al corregir por búsqueda), pero es peor en las últimas 52 semanas.
+- **Ninguno corrige el sesgo del último año**: los tres se quedan cortos en un año de precios al alza.
+
+**Decisión de E14:** nada cambia en la operación. Los tres modelos siguen en paralelo y se deciden con el registro. El tablero muestra esta comparación y las matrices.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
