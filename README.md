@@ -119,7 +119,7 @@ La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
 ### 9. Qué se probó además
 
-Se compararon LightGBM, XGBoost, SARIMAX, ElasticNet, un modelo en dos etapas y LEAR diario. El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
+Se compararon LightGBM, XGBoost, SARIMAX, ARIMA, ElasticNet, un modelo en dos etapas, LEAR diario y variables en frecuencia (STFT y armónicos). El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
 
 ### Modelo candidato en paralelo
 
@@ -166,7 +166,7 @@ Luego abre http://localhost:8000. También funciona abriendo `dashboard/index.ht
 python src/experimentos.py e10
 ```
 
-Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
+Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
 ---
 
@@ -186,7 +186,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 │   ├── xm_client.py          descarga desde XM con pydataxm (o consulta directa) y caché mensual
 │   ├── data_pipeline.py      tabla semanal y variantes usadas en los experimentos
 │   ├── feature_engineering.py variables del modelo
-│   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX)
+│   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX, ARIMA)
 │   ├── lear.py               LEAR diario agregado a la semana (candidato, E11)
 │   ├── calibration.py        cotas conformales
 │   ├── alertas.py            alertas tempranas y su explicación

@@ -190,3 +190,43 @@ class Sarimax:
                 r = res.apply(conocidas.y.to_numpy(), exog=z(conocidas))
                 yhat.append(float(r.forecast(1, exog=z(prueba.iloc[[i]]))[0]))
         return prueba.precio.to_numpy() * np.exp(np.array(yhat))
+
+
+class ArimaAuto:
+    """E13: ARMA(p,q) con constante sobre y = log(P_{s+1}/P_s), es decir ARIMA(p,1,q) sobre
+    el log del precio, sin variables externas.
+
+    El orden (p, q ≤ 3) se elige por AIC con el entrenamiento del primer bloque de cada
+    año y queda en `ordenes`; los parámetros se reestiman en cada bloque. Dentro del
+    bloque se pronostica a un paso filtrando con las semanas ya conocidas, como `Sarimax`.
+    """
+
+    def __init__(self, nombre, pmax=3, qmax=3):
+        self.nombre, self.variables, self.pmax, self.qmax = nombre, [], pmax, qmax
+        self.orden, self.anio, self.ordenes = None, None, {}
+
+    @staticmethod
+    def _ajustar(y, orden):
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+        return SARIMAX(y, order=orden, trend="c").fit(disp=False)
+
+    def ajustar_predecir(self, entren, prueba):
+        import warnings
+
+        y = entren.y.to_numpy()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if prueba.index[0].year != self.anio:
+                aic = {}
+                for p in range(self.pmax + 1):
+                    for q in range(self.qmax + 1):
+                        try:
+                            aic[(p, 0, q)] = self._ajustar(y, (p, 0, q)).aic
+                        except Exception:
+                            pass
+                self.orden, self.anio = min(aic, key=aic.get), prueba.index[0].year
+                self.ordenes[self.anio] = self.orden
+            res = self._ajustar(y, self.orden)
+            yhat = [float(res.apply(np.concatenate([y, prueba.y.to_numpy()[:i]])).forecast(1)[0])
+                    for i in range(len(prueba))]
+        return prueba.precio.to_numpy() * np.exp(np.array(yhat))

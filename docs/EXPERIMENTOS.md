@@ -29,6 +29,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E5/E6 | `e5e6` | ¿SARIMAX o ensambles? | SARIMAX empata; el ensamble mejora ~2 % sin pasar el criterio. |
 | E11 | `e11`, `e11 viernes` | ¿LEAR diario y promedio de ventanas? | Las ventanas empeoran. El ensamble Ridge 14 + LEAR directo es el mejor candidato, pero no es significativo al corregir por búsqueda; se valida con pronósticos reales. |
 | E12 | `e12` | ¿Ayuda el costo marginal del despacho programado de los primeros días de la semana objetivo? | Sí: con lunes a miércoles el error baja 38 % frente a Ridge 14, significativo tras corregir por búsqueda. Falta confirmar con XM la hora de publicación y si la garantía se fija con la semana ya empezada. |
+| E13 | `e13` | ¿Mejora un ARIMA? ¿Aportan variables en frecuencia (STFT, armónicos)? | No. ARIMA puro queda casi en el ingenuo; STFT no aporta. El segundo armónico anual mejora 0.8 en selección, pero no pasa la corrección por búsqueda (p = 0.71). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -434,6 +435,48 @@ Conclusiones:
 3. Que la garantía se puede fijar con la semana objetivo ya empezada.
 
 Si se confirma, el paso siguiente es registrar Ridge 14 + costo marginal en paralelo, como el candidato de E11, y decidir con las semanas calificadas.
+
+## E13: ARIMA y variables en el dominio de la frecuencia
+
+`python src/experimentos.py e13` (~1 min). Resultados en `results/E13.parquet`, `E13_ancho.parquet`, `E13_resumen.csv`, `E13_reality_check.csv`, `E13_ordenes_arima.csv` y `E13_diagnostico.csv`. Mismas semanas y bloques que E5/E6 (460 semanas desde 2018, tabla corregida); el Ridge 14 de esta corrida es idéntico al de E5/E6.
+
+**Hipótesis.**
+1. Un ARIMA mejora el pronóstico, solo o como corrección de Ridge 14.
+2. Algunas variables se representan mejor en frecuencia: armónicos del ciclo anual, o una STFT de las series diarias.
+
+**Diagnóstico** (`E13_diagnostico.csv`):
+- Al error de Ridge 14 le queda una autocorrelación pequeña en el rezago 2 (−0.13; Ljung-Box p = 0.047 a 4 rezagos). Al añadir el rezago 2 del precio baja a −0.10 (p = 0.20).
+- El embalse tiene un ciclo semestral fuerte (26 semanas, 10.8 veces el fondo del espectro) y los aportes diarios uno de 182 días: son las dos temporadas de lluvia. Ridge 14 solo tiene el primer armónico anual.
+- El precio y la demanda diarios tienen un ciclo de 7 días muy marcado, que desaparece al promediar la semana.
+
+**Modelos** (`models.ArimaAuto`, `fe.GRUPOS_E13`, `fe.agregar_stft`):
+- `ARIMA_auto`: ARIMA(p,1,q) sobre el log del precio, sin variables externas. Orden por AIC (p, q ≤ 3) una vez al año; casi siempre ARIMA(1,1,2). Pronóstico a un paso filtrando con las semanas ya conocidas.
+- `Ridge14+AR2`: Ridge 14 más `rezago_2_rel`, el término AR que sugiere el error.
+- `Ridge14+armonico2`: Ridge 14 más seno y coseno de 26 semanas.
+- `STFT_*`: último cuadro de una STFT causal (ventana Hann de 28 días que termina el domingo de la semana base) del log del precio, los aportes y la demanda diarios: potencia total, fracción en la banda lenta (> 10 días), fracción en la banda semanal (7 y 3.5 días) y su cambio semanal.
+
+### Resultados (MAE, COP/kWh)
+
+| Modelo | MAE 2018–21 | MAE 2022–24 | MAE 2025–26 | MAE 2018–26 | Dif. vs Ridge 14, 2018–26 (IC 95 %) | Dif. vs Ridge 14, 2022–24 (IC 95 %) |
+|---|---|---|---|---|---|---|
+| Ingenuo | 28.3 | 116.5 | 67.7 | 66.5 | | |
+| **Ridge 14 (operación)** | 21.8 | 91.9 | 62.1 | 54.1 | referencia | referencia |
+| ARIMA(p,1,q) por AIC | 28.6 | 114.2 | 68.7 | 66.1 | +12.0 (7.3 a 16.8) | +22.3 (9.5 a 34.1) |
+| Promedio Ridge 14 + ARIMA | 23.9 | 101.2 | 63.1 | 58.4 | +4.3 (1.9 a 6.8) | +9.2 (2.6 a 15.2) |
+| Ridge 14 + rezago 2 | 21.9 | 91.9 | 60.7 | 53.8 | −0.3 (−0.7 a 0.2) | −0.1 (−0.8 a 0.9) |
+| Ridge 14 + segundo armónico | 21.7 | 91.2 | 62.3 | 53.8 | −0.3 (−0.6 a 0.01) | −0.8 (−1.4 a −0.01) |
+| Ridge 14 + STFT precio | 21.5 | 92.5 | 63.0 | 54.3 | +0.2 (−0.3 a 0.8) | +0.6 (−0.6 a 2.3) |
+| Ridge 14 + STFT aportes | 21.9 | 92.0 | 62.2 | 54.2 | +0.1 (−0.01 a 0.2) | +0.1 (−0.2 a 0.3) |
+| Ridge 14 + STFT demanda | 22.3 | 92.0 | 61.2 | 54.1 | +0.1 (−0.5 a 0.6) | +0.1 (−1.1 a 0.6) |
+| Ridge 14 + todas las STFT + armónico | 22.0 | 91.8 | 62.2 | 54.1 | +0.1 (−0.8 a 0.9) | −0.2 (−1.8 a 1.7) |
+| LightGBM + todas las STFT | 22.3 | 92.8 | 64.0 | 55.0 | +0.9 (−1.2 a 3.1) | +0.8 (−2.5 a 5.8) |
+
+- **ARIMA puro casi no supera al ingenuo** (0.7 %). La información útil para la semana siguiente viene de la hidrología y las ofertas, no de la dinámica del propio precio. Promediarlo con Ridge 14 empeora.
+- **La estructura ARMA que queda en el error es real pero no paga.** El rezago 2 la absorbe en buena parte, como el SARIMAX de E5, y en los dos casos la mejora es ~0.3 COP/kWh sin significancia.
+- **La STFT no aporta.** Las bandas del precio, los aportes y la demanda no mejoran ni a Ridge ni a LightGBM. El ciclo de 7 días es regular y no anticipa el promedio de la semana siguiente.
+- **El segundo armónico es la única pista.** Tiene lectura física (las dos temporadas de lluvia) y en selección mejora 0.8 COP/kWh (p DM = 0.03). Pero en 2025–26 es levemente peor y el reality check sobre los 9 modelos de E13 en selección da p = 0.71.
+
+**Decisión de E13:** Ridge 14 sigue en operación. No se adopta ARIMA ni variables STFT. El segundo armónico no pasa el criterio; si se quiere seguir, se registra en paralelo como los otros candidatos y se decide con pronósticos reales.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
