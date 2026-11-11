@@ -75,8 +75,14 @@
   {Bogotá, noviembre de 2026\par}
 \end{titlepage}
 
+% ---------- Índice ----------
+\pagenumbering{roman}
+\tableofcontents
+\newpage
+
 % ---------- Resumen ----------
-\begin{abstract}
+\section*{Resumen}
+\addcontentsline{toc}{section}{Resumen}
 \noindent
 Las exportaciones de energía de Colombia a Ecuador se liquidan con el
 precio de bolsa del Mercado de Energía Mayorista, un valor que solo se
@@ -90,17 +96,18 @@ se dimensiona la brecha frente a la situación deseada, se distinguen los
 hechos comprobados de los supuestos que aún dependen de XM, se analizan
 las causas y se delimita el alcance. El informe cierra con la pregunta
 de investigación, los objetivos y una síntesis del trabajo exploratorio
-realizado, cuyos resultados ayudaron a precisar el propio problema.
+realizado, cuyos resultados ayudaron a precisar el propio problema. Entre
+ellos, el más relevante es que la información disponible ---y por tanto
+la calidad de cualquier estimación--- depende sobre todo del momento en
+que se fije la garantía.
 
 \medskip
 \noindent\textbf{Palabras clave:} mercado eléctrico colombiano, precio de
 bolsa, transacciones internacionales de electricidad, garantías,
 incertidumbre, planteamiento del problema.
-\end{abstract}
 
-\thispagestyle{empty}
-\tableofcontents
 \newpage
+\pagenumbering{arabic}
 
 % =====================================================================
 \section{Introducción}
@@ -242,7 +249,9 @@ dimensiones medibles, resumidas en la Figura~\ref{fig:brecha}:
         de referencia solo queda completa hacia el miércoles, cuando la
         semana que se quiere anticipar ya lleva dos días en curso. Con la
         información pública, la ``semana de antelación'' que planteaba la
-        propuesta inicial no existe.
+        propuesta inicial no existe. Además, no está definido en qué
+        momento debe fijarse la garantía, y de ese momento depende qué
+        información está disponible para decidir.
 \end{itemize}
 
 \begin{figure}[H]
@@ -402,6 +411,15 @@ Jueves             & 76,1 & 14,3\,\%  & Domingo \\
 \end{tabular}
 \end{table}
 
+\paragraph{Información anticipada de la propia semana.} No toda la
+información llega tarde. XM publica, antes de que empiece cada día, el
+costo marginal del despacho programado: el precio que resulta de cruzar
+las ofertas con la demanda prevista. Si la garantía se fija a mitad de
+semana, ya se conoce esa señal para los primeros días de la semana que
+se quiere anticipar. La consulta del martes 10 de noviembre de 2026 a las
+21:19 mostraba publicado el costo marginal de ese martes, pero no el del
+miércoles; la hora exacta de publicación debe confirmarse con XM.
+
 \paragraph{Calidad e historia de los datos.} La información reciente no
 siempre está completa. El 1 y 2 de noviembre de 2026, por ejemplo, la
 API reportaba 60\,GWh de demanda frente a unos 220\,GWh de generación,
@@ -415,7 +433,12 @@ existían en su momento.
 coincidiendo con la suspensión de las exportaciones y el nuevo marco
 regulatorio, el precio cayó de 932 a 593\cop{} y la oferta promedio de
 las plantas no térmicas, de 452 a 280\cop. La coincidencia no prueba
-causalidad, pero sugiere que la formación del precio cambió.
+causalidad, pero sugiere que la formación del precio cambió. Una señal
+anterior apunta en la misma dirección: la distancia entre el precio de
+bolsa y el costo marginal del despacho programado, medida en logaritmos,
+pasó de $-0{,}04$ en 2014--2015 a $-0{,}28$ en 2025--2026; es decir, el
+precio de bolsa se ha ido separando del precio que anticipa el propio
+despacho.
 
 \subsection{Supuestos por confirmar}
 
@@ -454,6 +477,11 @@ Referencia actual &
 La práctica vigente equivale a repetir el precio anterior. &
 Historial de la estimación usada hoy frente al valor real. \\
 \addlinespace
+Momento de fijación &
+La garantía puede fijarse con la semana objetivo ya iniciada. &
+Día y hora en que debe quedar constituida; hora de publicación del
+despacho programado. \\
+\addlinespace
 Asimetría de costos &
 Quedarse corto es más grave que excederse; 90\,\% de cumplimiento es
 adecuado. &
@@ -462,11 +490,13 @@ Sanciones por faltante y costo financiero del exceso. \\
 \end{tabularx}
 \end{table}
 
-De estos supuestos, dos son especialmente críticos. Si la garantía no
+De estos supuestos, tres son especialmente críticos. Si la garantía no
 depende del precio de bolsa nacional sino del Precio de Bolsa TIE o de
-otro valor, la variable de interés del estudio sería otra. Y si la
+otro valor, la variable de interés del estudio sería otra. Si la
 necesidad no está vigente mientras no haya exportaciones, el problema
-pasa a ser de preparación para su eventual reanudación.
+pasa a ser de preparación para su eventual reanudación. Y el momento en
+que se fija la garantía determina qué información existe para decidir,
+como se verá en la Sección~\ref{sec:avance}.
 
 % =====================================================================
 \section{Análisis de causas}
@@ -587,7 +617,8 @@ horarios. \\
 \addlinespace
 Momento de decisión &
 Dos escenarios: inicio de semana, con información hasta el viernes, y
-mitad de semana, con la semana anterior completa. \\
+mitad de semana, con la semana anterior completa y el despacho
+programado de los primeros días de la semana objetivo. \\
 \addlinespace
 Periodo &
 Enero de 2010 a noviembre de 2026, con análisis separado de los años de
@@ -638,8 +669,9 @@ valor superior de confiabilidad conocida.
 \begin{enumerate}
   \item Precisar, con XM, la regla de la garantía, el precio que
         interviene en ella y el momento en que se fija.
-  \item Cuantificar la pérdida de exactitud asociada al rezago de
-        publicación de los datos, según el día de la decisión.
+  \item Cuantificar cómo cambia la exactitud según el día de la
+        decisión, considerando tanto el rezago de publicación como la
+        información anticipada de la propia semana.
   \item Establecer la proporción de semanas que debe cubrir el valor
         superior, en función del costo relativo de quedarse corto o de
         excederse.
@@ -689,9 +721,12 @@ el error que solo se superó en el 10\,\% de las últimas 104 semanas.
 
 La evaluación simuló la operación real: cada semana se estimó usando
 solo la información disponible hasta ese momento, reentrenando
-periódicamente. Se compararon 67 alternativas, entre ellas métodos de
-árboles de decisión, modelos de series de tiempo, modelos diarios del
-tipo LEAR~\cite{lago2021} y combinaciones de modelos. Las diferencias se
+periódicamente. Se compararon decenas de alternativas, entre ellas
+métodos de árboles de decisión, modelos de series de tiempo (SARIMAX y
+ARIMA), modelos diarios del tipo LEAR~\cite{lago2021}, variables
+construidas en el dominio de la frecuencia y combinaciones de modelos.
+En una etapa posterior se probó, además, el costo marginal del despacho
+programado de los primeros días de la semana objetivo. Las diferencias se
 contrastaron con la prueba de Diebold y Mariano~\cite{diebold1995} y, para
 corregir el efecto de haber probado muchas alternativas, con el
 \emph{reality check} de White~\cite{white2000}.
@@ -764,16 +799,70 @@ volátiles y el exceso de garantía, para los métodos evaluados.}
 \label{fig:frontera}
 \end{figure}
 
+Los métodos más elaborados tampoco cambiaron este panorama. Un modelo
+ARIMA, que solo usa la historia del propio precio, apenas mejoró la
+referencia simple (0,7\,\%), y las variables construidas en el dominio de
+la frecuencia a partir del precio, los aportes y la demanda diarios no
+aportaron. La información útil para anticipar la semana siguiente
+proviene de la hidrología y de las ofertas, no de la dinámica del propio
+precio.
+
+\subsection{El efecto de la información de la semana objetivo}
+
+El único cambio que mejoró con claridad la estimación no fue de método,
+sino de información. Cuando la decisión se toma a mitad de semana, ya se
+conoce el costo marginal del despacho programado de los primeros días de
+la semana objetivo. Incorporarlo redujo el error medio de 54,0 a
+39,3\cop{} con dos días conocidos, y a 33,4\cop{} con tres
+(Figura~\ref{fig:cmg}). La mejora se mantuvo en los tres periodos
+analizados y siguió siendo significativa después de corregir por el
+número de alternativas probadas ($p<0{,}001$). Incluso una regla simple,
+sin parámetros ajustados, superó al modelo de catorce variables.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=22pt, width=0.8\linewidth, height=6cm,
+  ymin=0, ymax=78, xmin=0.5, xmax=4.5,
+  ylabel={Error medio (COP/kWh)},
+  xtick={1,2,3,4},
+  xticklabels={Referencia simple,Modelo de 14 variables,
+     {+ lunes y martes},{+ lunes a miércoles}},
+  xticklabel style={font=\small,text width=2.6cm,align=center},
+  nodes near coords, nodes near coords style={font=\scriptsize},
+  every node near coord/.append style={/pgf/number format/fixed,
+     /pgf/number format/precision=1},
+  axis lines*=left, ymajorgrids, grid style={gray!25}]
+  \addplot[fill=azul!60,draw=azul] coordinates
+    {(1,66.7) (2,54.0) (3,39.3) (4,33.4)};
+\end{axis}
+\end{tikzpicture}
+\caption{Error medio 2018--2026 al incorporar el costo marginal del
+despacho programado de los primeros días de la semana objetivo.}
+\label{fig:cmg}
+\end{figure}
+
+El valor superior también mejoró en las dos direcciones a la vez: su
+cumplimiento en las semanas de salto subió de 70\,\% a 76\,\%, y el
+exceso medio de garantía bajó de 37\,\% a 23\,\%. Este resultado, sin
+embargo, tiene un alcance preciso: ya no es una estimación a una semana
+completa, sino a lo que resta de una semana que comenzó. Solo es útil si
+la garantía puede fijarse con la semana en curso y si la serie publicada
+no se revisa después, dos condiciones que deben confirmarse con XM.
+
 \subsection{Cómo cambió el planteamiento}
 
 El trabajo exploratorio dejó cinco aprendizajes que se incorporaron al
 problema:
 
 \begin{enumerate}
-  \item \textbf{El momento de la decisión importa tanto como el método.}
+  \item \textbf{El momento de la decisión importa más que el método.}
         Con la información pública, la semana anterior solo queda
-        completa cuando la siguiente ya comenzó. Por eso el momento de
-        decisión pasó a formar parte de la pregunta de investigación.
+        completa cuando la siguiente ya comenzó; y, si se decide a mitad
+        de semana, el despacho programado de esos días reduce el error en
+        cerca de 38\,\%. Por eso el momento de decisión pasó a formar
+        parte de la pregunta de investigación.
   \item \textbf{El promedio oculta lo importante.} La ventaja frente a la
         referencia simple se concentra en semanas tranquilas. De ahí que
         la pregunta incluya en qué condiciones la estimación deja de ser
@@ -781,14 +870,17 @@ problema:
   \item \textbf{La confiabilidad tiene un costo.} Cumplir el 90\,\% de
         las semanas implica un exceso medio del 37\,\%. Si ese costo es
         aceptable depende de la regla de la garantía.
-  \item \textbf{Las cifras históricas son optimistas.} Al comparar muchas
-        alternativas sobre las mismas semanas, la mejor de ellas no
-        supera de forma significativa a la elegida, y en 2025--2026 la
+  \item \textbf{Las cifras históricas son optimistas.} Al comparar las
+        67 alternativas de la etapa principal sobre las mismas semanas,
+        la mejor de ellas no supera de forma significativa a la elegida
+        ($p=0{,}52$), y en 2025--2026 la
         ventaja frente a la referencia simple no es significativa. Desde
         noviembre de 2026 se lleva un registro de estimaciones emitidas
         antes de conocer el resultado, que será la evidencia independiente.
-  \item \textbf{El límite parece estar en la información.} Ningún método
-        más complejo superó al lineal, lo que sugiere que el problema es
+  \item \textbf{El límite está en la información.} Ningún método más
+        complejo superó al lineal, mientras que una sola fuente de
+        información nueva ---el despacho programado de la semana
+        objetivo--- produjo la mayor mejora del proyecto. El problema es
         de información disponible más que de capacidad de los modelos.
 \end{enumerate}
 
@@ -804,7 +896,10 @@ decisión a la que sirva.
 
 La brecha tiene tres dimensiones ---exactitud, confiabilidad y
 oportunidad---, y la tercera no aparecía en la propuesta original: surgió
-al medir el rezago real de publicación de los datos. Los hechos que
+al medir el rezago real de publicación de los datos. El trabajo
+exploratorio mostró, además, que la oportunidad condiciona a las otras
+dos: según el día en que se fije la garantía, el error esperado puede
+variar de unos 61 a unos 33\cop. Los hechos que
 sustentan el problema están documentados con información pública; los
 supuestos centrales, en cambio, solo pueden confirmarse con XM.
 
@@ -820,6 +915,9 @@ En consecuencia, se recomienda:
   \item Conocer la estimación que se usa hoy y su historial, para
         compararse contra la práctica real y no solo contra una
         referencia simple.
+  \item Definir el día y la hora en que debe quedar constituida la
+        garantía, y confirmar cuándo se publica el costo marginal del
+        despacho programado y si esa serie se revisa después.
   \item Establecer el costo relativo de quedarse corto o excederse, para
         definir el nivel de confiabilidad requerido.
   \item Mantener el registro de estimaciones emitidas como única
