@@ -57,10 +57,14 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 
 ## Pendiente con XM
 
-1. Hora de emisión y rezago real de publicación.
-2. A qué hora se publica el despacho programado.
-3. Regla de la garantía y costo de quedarse corto frente a pasarse.
-4. Estimación que usan hoy los agentes, para compararla.
+Las 35 preguntas, con el supuesto actual de cada una y lo que cambia según la respuesta, están en [docs/PREGUNTAS_XM.md](docs/PREGUNTAS_XM.md). Las prioritarias:
+
+1. Si sigue vigente la garantía con las exportaciones a Ecuador en cero (A1).
+2. Qué precio entra en la garantía y con qué fórmula (B1, B2).
+3. Qué estimación usan hoy y qué tan buena es (A3).
+4. Cuánto cuesta quedarse corto frente a pasarse (B5).
+5. Qué día y hora debe estar el pronóstico, y el rezago oficial de cada serie (D1, D2).
+6. Si las ofertas hidráulicas siguen siendo informativas con las reglas del período de riesgo (E2).
 
 ## Mantenimiento
 

@@ -39,7 +39,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 - **Duplicados en `CapEfecNeta`.** La API repite filas (fecha, recurso) para TBQ3, TBQ4, TGJ1, TYP1 y TMB1 en enero de 2010 y 2011, más días sueltos en 2016 y 2018. En el baseline esto duplica la capacidad térmica del FUT y el peso de esas ofertas en 12 semanas. `tabla_semanal(corregida=True)` los elimina. El MAE de Ridge pasa de 54.303 a 54.340, un efecto despreciable. Se recomienda usar la tabla corregida desde E2.
 - **`PrecOferDesp`** no tiene datos el 2021-02-17; esa semana promedia 6 días.
 - **`ConsCombustibleMBTU`** tiene una fila por recurso y combustible; no son duplicados y solo se usa para clasificar.
-- **Disponibilidad**: `diccionario_datos.csv` registra el supuesto de publicación de cada serie. Pendiente de confirmar con XM.
+- **Disponibilidad**: `diccionario_datos.csv` registra el rezago de publicación observado en la API para cada serie (unos 3 días para precio, demanda, ofertas y generación; 1 día para la hidrología) y la pregunta de [PREGUNTAS_XM.md](PREGUNTAS_XM.md) que debe confirmarlo. Ningún rezago es oficial todavía.
 
 ## Hallazgos de la reproducción por periodo (MAE, COP/kWh)
 

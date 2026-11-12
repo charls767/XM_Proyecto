@@ -1,12 +1,12 @@
-serie,metrica,entidad,resolucion,unidad,disponibilidad
-precio,PrecBolsNaci,Sistema,horaria,COP/kWh,"D+1 (versión TX1, luego se revisa)"
-demanda,DemaCome,Sistema,horaria,kWh,D+1
-aportes,AporEner,Sistema,diaria,kWh,D+1
-aportes_media,AporEnerMediHist,Sistema,diaria,kWh,D+1
-volumen_pct,PorcVoluUtilDiar,Sistema,diaria,fracción,D+1
-volumen_kwh,VoluUtilDiarEner,Sistema,diaria,kWh,D+1
-capacidad,CapEfecNeta,Recurso,diaria,kW,D+1
-oferta,PrecOferDesp,Recurso,horaria→diaria,COP/kWh,D+1
-generacion,Gene,Recurso,horaria→diaria,kWh,D+1
-combustible,ConsCombustibleMBTU,Recurso,horaria→diaria,MBTU,D+1
-oni,ONI (NOAA CPC),Global,trimestral móvil,°C,día 14 del mes siguiente al cierre de la estación
+serie,metrica,entidad,resolucion,unidad,disponibilidad,pregunta_xm
+precio,PrecBolsNaci,Sistema,horaria,COP/kWh,"~3 días (primero TX1, luego se revisa)","D2, D5, C4"
+demanda,DemaCome,Sistema,horaria,kWh,~3 días; los últimos días pueden venir incompletos,"D2, F2, F3"
+aportes,AporEner,Sistema,diaria,kWh,~1 día,D2
+aportes_media,AporEnerMediHist,Sistema,diaria,kWh,~1 día,"D2, F1"
+volumen_pct,PorcVoluUtilDiar,Sistema,diaria,fracción,~1 día,"D2, F7"
+volumen_kwh,VoluUtilDiarEner,Sistema,diaria,kWh,~1 día,"D2, F7"
+capacidad,CapEfecNeta,Recurso,diaria,kW,sin medir,"D2, F6"
+oferta,PrecOferDesp,Recurso,horaria→diaria,COP/kWh,~3 días,"D2, D4, F4"
+generacion,Gene,Recurso,horaria→diaria,kWh,~3 días,D2
+combustible,ConsCombustibleMBTU,Recurso,horaria→diaria,MBTU,sin medir,F5
+oni,ONI (NOAA CPC),Global,trimestral móvil,°C,día 14 del mes siguiente al cierre de la estación,—

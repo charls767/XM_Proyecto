@@ -177,6 +177,7 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `corte
 ├── FICHA_TECNICA.md          el modelo en una página
 ├── docs/AUDITORIA.md         auditoría metodológica: riesgos, evidencia y correcciones
 ├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
+├── docs/PREGUNTAS_XM.md     datos y supuestos por confirmar con XM, con hoja de respuestas
 ├── correr_semanal.bat        emisión semanal completa
 ├── requirements.txt          dependencias fijas (Python 3.11)
 ├── src/
