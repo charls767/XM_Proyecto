@@ -59,8 +59,8 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 
 Las 35 preguntas, con el supuesto actual de cada una y lo que cambia según la respuesta, están en [docs/PREGUNTAS_XM.md](docs/PREGUNTAS_XM.md). Las prioritarias:
 
-1. Si sigue vigente la garantía con las exportaciones a Ecuador en cero (A1).
-2. Qué precio entra en la garantía y con qué fórmula (B1, B2).
+1. Si se calcula la garantía en las semanas con intercambio, ahora que las exportaciones a Ecuador son intermitentes (A1).
+2. Qué precio entra en la garantía y con qué fórmula (B1, B2). La CREG 160 de 2009 liquida las exportaciones al Precio de Bolsa TIE, no al nacional.
 3. Qué estimación usan hoy y qué tan buena es (A3).
 4. Cuánto cuesta quedarse corto frente a pasarse (B5).
 5. Qué día y hora debe estar el pronóstico, y el rezago oficial de cada serie (D1, D2).

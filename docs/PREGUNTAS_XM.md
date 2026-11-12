@@ -6,7 +6,7 @@ Guía para la reunión con XM. Cada pregunta trae tres partes:
 - **Pregunta:** lo que hay que preguntar, en una frase que se pueda leer tal cual en la reunión.
 - **Si la respuesta es distinta:** qué hay que cambiar en el proyecto.
 
-Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de uso en pausa. Las de B y C pueden cambiar la variable que se pronostica. Las de D a G ajustan datos y detalles. Al final hay una [hoja de respuestas](#hoja-de-respuestas) para anotar durante la reunión.
+Antes de las preguntas hay un resumen de [lo que ya responden las fuentes públicas](#lo-que-ya-responden-las-fuentes-públicas). Sirve para no preguntar lo que ya está escrito y para pedirle a XM que confirme o corrija. Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de uso en pausa. Las de B y C pueden cambiar la variable que se pronostica. Las de D a G ajustan datos y detalles. Al final hay una [hoja de respuestas](#hoja-de-respuestas) para anotar durante la reunión.
 
 **Lectura normativa sin validar:** lo citado sobre la CREG 101 127 y la Resolución 40308 viene de una revisión rápida de los textos públicos y, en el caso de la 40308, del proyecto de resolución, no de su versión final. Sirve para formular las preguntas, no como interpretación oficial.
 
@@ -14,12 +14,36 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 
 | Hecho público | Por qué le importa al proyecto |
 |---|---|
-| Desde el 7 de septiembre de 2026 no hay exportaciones por TIE a Ecuador y está activo el período de riesgo de desabastecimiento ([Portafolio](https://www.portafolio.co/energia/colombia-termina-suministro-de-energia-a-ecuador-exportaciones-por-mas-de-530-000-millones-quedaron-frenadas-503959)) | Sin intercambios, quizá hoy no haya garantía que estimar |
+| El 7 de septiembre de 2026 empezó el período de riesgo de desabastecimiento (Circular CREG 343 del 5 de septiembre) y las exportaciones por TIE a Ecuador quedaron en cero ([Portafolio](https://www.portafolio.co/energia/colombia-termina-suministro-de-energia-a-ecuador-exportaciones-por-mas-de-530-000-millones-quedaron-frenadas-503959)). Según la prensa se reanudaron, con poco volumen, el 16 de octubre ([Xinhua](https://english.news.cn/20261017/1222a41a7f3a4087a9be1cbe040acac5/c.html), [El Comercio](https://www.elcomercio.com/actualidad/negocios/esta-es-la-energia-que-colombia-entrega-a-ecuador/)) y de nuevo el 6 de noviembre, con unos 247 MW ([Diario Los Andes](https://diariolosandes.com.ec/colombia-retomo-las-exportaciones-electricas-a-ecuador/)) | Los intercambios van y vienen: la garantía puede aplicar unas semanas y otras no |
 | La [CREG 101 127 de 2026](https://gestornormativo.creg.gov.co/gestor/entorno/docs/originales/Resoluci%C3%B3n_CREG_101_127_2026/) suspende el estatuto de 2014 hasta una resolución definitiva o hasta el 31 de mayo de 2027. Regula las ofertas hidráulicas con una curva y limita las ofertas en el despacho ideal | El modelo aprendió de la historia 2010–2026, que se formó con otras reglas |
 | Para los cargos de exportación, esa norma toma el máximo entre el Precio de Bolsa TIE, el precio de la planta más cara más arranque y parada, y el costo marginal del importador | Quizá la garantía no dependa del precio que pronosticamos |
 | La Resolución 40308 de 2026 habilitó contratos bilaterales entre agentes privados ([proyecto](https://www.expreso.ec/uploads/files/2026/06/23/Exportaciones_Ecuador_Contratos_OAJ.pdf)): las diferencias deben ser "respaldadas, prepagadas y recaudadas" por las partes | Pudo cambiar cuánto se expone cada parte y quién cubre el riesgo |
 
 **En nuestros datos:** la semana del 7 de septiembre el precio cayó de 932 a 593 COP/kWh y la oferta no térmica de 452 a 280 COP/kWh. En las 8 semanas siguientes el modelo erró en promedio 60 COP/kWh y el ingenuo 93. Son pocas semanas, y la coincidencia no prueba que la causa sea el cambio de reglas.
+
+## Lo que ya responden las fuentes públicas
+
+Búsqueda del 12 de noviembre de 2026 en normas de la CREG, páginas de XM, prensa y el código de la librería `pydataxm` 0.3.19. Desde el entorno de trabajo no se pudo abrir el texto completo de las normas (el Gestor Normativo de la CREG y las APIs de XM y SIMEM estaban bloqueados por la red), así que lo de esta tabla viene de los extractos que muestra el buscador. **Todo debe confirmarse con XM o con el texto vigente de la norma.**
+
+| ID | Lo que encontramos | Fuente | Confianza | Qué queda por preguntar |
+|---|---|---|---|---|
+| **B2** | **Las exportaciones se liquidan al Precio de Bolsa TIE, no al precio de bolsa nacional.** El Precio de Bolsa TIE es el precio de oferta más alto, en cada hora, de los recursos sin inflexibilidad que cubren la demanda internacional en el despacho ideal | CREG 160 de 2009 | Media: norma de 2009, puede estar modificada | Si esa definición sigue vigente con la CREG 101 127, y si la garantía usa ese mismo precio |
+| B2, C4 | SIMEM publica un conjunto de datos de precio de bolsa horario con los precios nacional, internacional y TIE (identificador `EC6945`), consultable con `pydataxm` | Proyectos públicos en GitHub | Media | Cuál de esos precios usar y desde qué fecha tiene historial |
+| B1, B3 | El mecanismo de la norma es un **pago anticipado**, no una garantía bancaria: se calcula sobre el monto esperado de las TIE de corto plazo, y sin él no puede haber TIE | CREG 004 de 2003, art. 23 | Media | La fórmula vigente y quién paga en una exportación |
+| B4, C2, C3, D1 | **El ASIC informa el pago anticipado el viernes, a más tardar a las 15:00, para la semana s+2.** Para ese cálculo las semanas van **de sábado a viernes**. Se ajusta el viernes de la semana s+2 con los seis primeros días reales, y otra vez el viernes de s+3 | CREG 004 de 2003, modificada | Media: es la regla para importaciones; para exportaciones no se confirmó | Si aplica igual a las exportaciones. **Si aplica, cambian la semana del modelo (sábado a viernes), el horizonte (dos semanas, no una) y la hora de emisión (viernes antes de las 15:00)** |
+| B1 | Hay un proyecto de la CREG (701 065 de 2024) que modifica el art. 23 de la CREG 004 de 2003 y fija montos semanales de garantía por enlace | CREG, proyecto 701 065 de 2024 | Baja: no se confirmó si quedó en firme | Cuál es la versión vigente del art. 23 |
+| B1 | La CREG 101 127 de 2026 (27 de agosto) exige que las exportaciones salgan sobre todo de generación térmica. La hidráulica, la eólica y la solar solo se exportan como excedente, después de cubrir la demanda nacional | Prensa ecuatoriana y colombiana | Media | Cómo cambia eso el precio de exportación y la garantía |
+| E1 | El período de riesgo empezó el 7 de septiembre de 2026 por la Circular CREG 343 del 5 de septiembre. No tiene fecha de fin fija: termina cuando se recuperen los embalses o cuando la CREG lo decida. XM espera que lo más crítico sea entre diciembre de 2026 y marzo de 2027 | Prensa, citando a la CREG y a XM | Media | Las fechas de los períodos de riesgo anteriores, desde 2010 |
+| **D4** | **Las ofertas de precio son confidenciales hasta su publicación, y esta se puede hacer desde el primer día hábil del mes siguiente.** Una norma anterior (CREG 094 de 2001) las publicaba el mismo día del despacho | CREG 006 de 2009 | Media: no se confirmó si se modificó después | En la API vemos `PrecOferDesp` con ~3 días de rezago. Hay que preguntar desde qué fecha se publican así. **Si en años pasados solo salían al mes siguiente, la evaluación usó ofertas que no se conocían al emitir** |
+| C1, F3 | La demanda comercial es la demanda real del comercializador más las pérdidas de las redes regionales y locales y del Sistema de Transmisión Nacional | Glosario de XM | Alta | Si incluye o no las exportaciones |
+| D3 | El despacho programado es la programación del día siguiente. Los operadores de red entregan su pronóstico de demanda antes de las 07:30 del día anterior. Los archivos están en el portal de XM, en Generación > Informes despacho | Páginas de XM | Media | A qué hora se publica el despacho programado |
+| D5, D6 | El precio tiene varias versiones de liquidación, en orden: TX1, TX2, TXR, TXF y después TX3 y siguientes. TXF no es la definitiva | Proyectos públicos en GitHub | Media | Qué versión usar para calificar |
+| D5, D6 | `pydataxm` 0.3.19 tiene un módulo para SIMEM (`pydatasimem.py`) que maneja versiones: lee un calendario de versiones por mes (conjunto `24914F`, con `Version`, `FechaPublicacion` y `esMaximaVersion`) y permite pedir una variable en una versión dada (`VariableSIMEM(..., version=...)`). Cuando un mes solo tiene TXR, la librería supone que TX2 salió un día antes y TX1 dos días antes | Código de la librería | Alta, sobre lo que hace el código | Si con SIMEM se pueden reconstruir los datos tal como estaban publicados. Eso resolvería en parte D6 |
+| F1 | Las unidades 1 y 2 de Ituango entraron en operación comercial el 1 de diciembre de 2022. XM reescala años anteriores con "la media histórica actual" | XM | Media, para el salto de 2022 | Si el salto de `AporEnerMediHist` se debe a eso |
+| D2 | No se encontró un rezago oficial por serie. Otro proyecto público también observa ~3 días para el precio | — | — | Se mantiene la pregunta |
+| F7, F8 | No se encontró la definición oficial de `PorcVoluUtilDiar` ni de la convención horaria de `Hour01`. Un proyecto de terceros usa un desfase configurable para convertir las horas | — | — | Se mantienen las preguntas |
+
+Fuentes: [Resolución CREG 160 de 2009](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_creg_0160_2009.htm), [Resolución CREG 004 de 2003](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_creg_0004_2003.htm), [Resolución CREG 116 de 2012](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_creg_0116_2012.htm), [Resolución CREG 006 de 2009](https://normas.cra.gov.co/gestor/docs/resolucion_creg_0006_2009.htm), [Proyecto CREG 701 065 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/originales/Proyecto_Resoluci%C3%B3n_CREG_701_065_2024/), [Glosario de XM](https://www.xm.com.co/herramientas/glosario-xm), [Despacho de generación, XM](https://www.xm.com.co/generacion/despacho), [Estándar de información del despacho, XM](https://www.xm.com.co/sites/default/files/documents/XM-CND-2025-055%20Estandar%20de%20informacion%20del%20despacho.pdf), [Ituango en operación comercial, XM](https://www.xm.com.co/noticias/5412-proyecto-hidroelectrico-ituango-entra-en-operacion-comercial), [Informe CND de abril de 2025](https://img.lalr.co/cms/2025/04/08133137/XM-CNO-2025-04-03-1.pdf), [El Heraldo, período crítico](https://www.elheraldo.co/colombia/2026/10/15/entre-diciembre-y-marzo-sera-el-periodo-mas-critico-del-fenomeno-de-el-nino-advierte-xm/), [El Diario, límite a las ventas](https://www.eldiario.ec/ecuador/colombia-limita-la-venta-de-electricidad-a-ecuador-por-riesgo-de-desabastecimiento-07102026/), [Resolución MinEnergía 40308 de 2026](https://img.lalr.co/cms/2026/07/22124329/resolucion-40308-2026_36694.pdf), [API_XM](https://github.com/EquipoAnaliticaXM/API_XM), [VatioPlan](https://github.com/julianordonez2005/VatioPlan), [Forecast-Energy-StockChange-Colombia](https://github.com/POLUX89/Forecast-Energy-StockChange-Colombia).
 
 ---
 
@@ -27,7 +51,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 
 **A1. Vigencia**
 - **Hoy suponemos:** existe una garantía de los intercambios con Ecuador que se calcula cada semana (`README.md`).
-- **Pregunta:** con las exportaciones en cero, ¿hoy se está calculando alguna garantía? Si no, ¿en qué condiciones volvería a calcularse?
+- **Pregunta:** con las exportaciones intermitentes desde septiembre, ¿se está calculando la garantía en las semanas en que hay intercambio? ¿En qué condiciones se suspende y se reactiva?
 - **Si la respuesta es distinta:** el caso de uso queda en pausa hasta que se reanuden los intercambios, o hay que redefinirlo.
 
 **A2. Usuario y decisión**
@@ -56,6 +80,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 - **Hoy suponemos:** el precio de bolsa nacional `PrecBolsNaci` (`src/xm_client.py`).
 - **Pregunta:** ¿qué precio entra en la garantía: el precio de bolsa nacional, el Precio de Bolsa TIE o el máximo del Anexo 3 de la CREG 101 127?
 - **Si la respuesta es distinta:** la variable que pronostica el modelo es la equivocada y hay que rehacer el objetivo y la evaluación.
+- **Ya encontramos:** la CREG 160 de 2009 liquida las exportaciones al Precio de Bolsa TIE. Llevar esa definición y pedir que la confirmen.
 
 **B3. Instrumento**
 - **Hoy suponemos:** un monto en COP.
@@ -65,6 +90,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 **B4. Periodo y momento de constitución**
 - **Hoy suponemos:** cubre una semana de lunes a domingo.
 - **Pregunta:** ¿qué periodo cubre la garantía y qué día, y a qué hora, debe quedar constituida?
+- **Ya encontramos:** en la CREG 004 de 2003, el ASIC informa el viernes antes de las 15:00 el pago anticipado de la semana s+2, con semanas de sábado a viernes. Preguntar si aplica a las exportaciones.
 - **Si la respuesta es distinta:** cambian la semana del modelo (C2) y la hora de emisión (D1).
 
 **B5. Costo de equivocarse en cada dirección**
@@ -123,7 +149,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 
 **D4. Ofertas de precio**
 - **Hoy suponemos:** las ofertas (`PrecOferDesp`) se conocen con el mismo rezago que el precio.
-- **Pregunta:** ¿desde cuándo son públicas las ofertas de precio de un día? ¿Hay algún embargo o reserva?
+- **Pregunta:** la CREG 006 de 2009 permite publicar las ofertas desde el mes siguiente, pero en la API aparecen con ~3 días de rezago. ¿Desde qué fecha se publican así? ¿Cómo se publicaban antes?
 - **Si la respuesta es distinta:** son 3 de las 14 variables del modelo. Si se publican más tarde, hay fuga de información en la evaluación.
 
 **D5. Versiones del precio y cuándo queda firme**
@@ -133,7 +159,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 
 **D6. Datos tal como se publicaron**
 - **Hoy suponemos:** la evaluación usa los valores ya revisados. Solo desde el 5 de noviembre de 2026 hay copias de lo publicado en cada emisión (`registro/snapshots/`).
-- **Pregunta:** ¿se pueden obtener las series tal como estaban publicadas en cada fecha pasada, sobre todo hidrología y ofertas?
+- **Pregunta:** ¿se pueden obtener las series tal como estaban publicadas en cada fecha pasada, sobre todo hidrología y ofertas? ¿El calendario de versiones de SIMEM (`24914F`) sirve para eso?
 - **Si la respuesta es distinta:** si se pueden obtener, se rehace la evaluación sin el sesgo de las revisiones.
 
 ## E. Cambios de régimen
@@ -219,7 +245,7 @@ Las preguntas van por orden de impacto. Las del bloque A pueden dejar el caso de
 
 ## Si el tiempo alcanza para pocas
 
-1. ¿Sigue vigente la necesidad con las exportaciones en cero? (A1)
+1. ¿Se calcula la garantía en las semanas con intercambio, ahora que las exportaciones son intermitentes? (A1)
 2. ¿Qué precio entra en la garantía y con qué fórmula? (B1 y B2)
 3. ¿Qué estimación usan hoy y qué tan buena es? (A3)
 4. ¿Cuánto cuesta equivocarse en cada dirección? (B5)
