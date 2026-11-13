@@ -72,6 +72,8 @@ Tiene una causa matemática: Ridge ajusta el logaritmo, y exp(ŷ) estima la medi
 **6. Los datos históricos no son los que existían en su momento.**
 El backtest usa los valores de hoy, ya revisados. Se midió el efecto solo para el precio (TX1: ~1 % de MAE). Hidrología, ofertas y disponibilidad no tienen versiones anteriores. Además, la clasificación térmica usa el listado de plantas de hoy (fuera del listado: 2.6 % de la generación en 2010, 0 % en 2026), y `AporEnerMediHist` salta cerca de 30 % a finales de 2022, algo que hay que aclarar con XM. Las versiones reales solo existen desde el 5 de noviembre de 2026, en `registro/snapshots/`.
 
+**Regla de calificación (según XM, sin confirmar por el CRM):** TX1 y TX2 son preliminares y se calculan cada día para los dos días anteriores; TXR y TXF son las versiones "finales" y salen cada mes; TX3 en adelante son ajustes a facturas. Por eso cada pronóstico del registro se califica dos veces: una provisional con TX2, apenas está la semana completa, y otra definitiva con TXF, cuando sale la liquidación mensual. La calificación oficial es la de TXF; si después llega un ajuste TX3+, se anota pero no reemplaza la cifra.
+
 ### Medio
 
 | # | Hallazgo | Evidencia | Estado |

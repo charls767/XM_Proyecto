@@ -1,0 +1,104 @@
+{
+  "fecha_emision": "2026-11-12",
+  "version_modelo": "ridge14-conformal104-v1",
+  "datos_hasta": {
+    "precio": "2026-11-09",
+    "demanda": "2026-11-09",
+    "aportes": "2026-11-11",
+    "aportes_media": "2026-11-11",
+    "volumen_pct": "2026-11-11",
+    "volumen_kwh": "2026-11-11",
+    "capacidad": "2026-11-10",
+    "oferta": "2026-10-31",
+    "generacion": "2026-11-09",
+    "combustible": "2026-11-09"
+  },
+  "variables": {
+    "log_precio": 5.92276880371045,
+    "momentum": -0.313325053362936,
+    "cv_diario": 0.17108983644364606,
+    "ultimo_dia_rel": -0.3682307063112848,
+    "max_h_rel": 1.6208149873868947,
+    "embalse_cierre": 0.79188,
+    "embalse_cambio": 0.015979999999999994,
+    "aportes_pct_media": 0.6030987189642001,
+    "aportes_pct_media_4s": 0.6220561455040068,
+    "log_oferta_termica": NaN,
+    "log_oferta_no_termica": NaN,
+    "brecha_oferta_nt": NaN,
+    "sen_semana": -0.7608163763489766,
+    "cos_semana": 0.6489672114053316
+  },
+  "estado": "respaldo",
+  "motivos": [
+    "Variables completas: Faltan: log_oferta_termica, log_oferta_no_termica, brecha_oferta_nt"
+  ],
+  "controles": [
+    {
+      "control": "Variables completas",
+      "estado": "falla",
+      "detalle": "Faltan: log_oferta_termica, log_oferta_no_termica, brecha_oferta_nt"
+    },
+    {
+      "control": "Series al día",
+      "estado": "aviso",
+      "detalle": "Les faltan días de la semana base: oferta (7 días); las variables se calcularon con los días publicados"
+    },
+    {
+      "control": "Datos al día",
+      "estado": "ok",
+      "detalle": "La semana base cerró hace 4 días"
+    },
+    {
+      "control": "Precio válido",
+      "estado": "ok",
+      "detalle": "373.4 COP/kWh"
+    },
+    {
+      "control": "Embalse en rango físico",
+      "estado": "ok",
+      "detalle": "79.2%"
+    },
+    {
+      "control": "Demanda completa",
+      "estado": "aviso",
+      "detalle": "1 día de la semana base con demanda estimada a partir de la generación"
+    },
+    {
+      "control": "Cambio semanal plausible",
+      "estado": "ok",
+      "detalle": "-27% frente a la semana anterior"
+    }
+  ],
+  "candidato": null,
+  "candidato_cmg": null,
+  "precio_base": 373.4442776349012,
+  "pronostico": 373.4442776349012,
+  "cota90": 529.529093330793,
+  "cota90_vol": 461.12090410389266,
+  "desempeno_reciente": {
+    "semanas": 26,
+    "mae": 100.72927766124275,
+    "mae_ingenuo": 107.21372411612303,
+    "razon_mae": 0.9395185037331882,
+    "cobertura": 0.9230769230769231,
+    "sesgo": -48.86311864086944,
+    "sesgo_pct": -7.009851180606709,
+    "p_sesgo": 0.05300096996685789
+  },
+  "reproduccion": {
+    "n_entrenamiento": 876,
+    "entrenamiento_desde": "2010-01-18",
+    "entrenamiento_hasta": "2026-10-26",
+    "huella_entrenamiento": "0d3f47ded567e6ab9ef94961304b8b8955072a620f7efccfe164608266f77105",
+    "margen_log": 0.34921930473338514,
+    "margen_vol_log": 0.2108914697682262,
+    "errores_cota": 104,
+    "huella_errores_cota": "3abfc147b1116443bda1bb7c3aa331d48b50f01fa0cc846e2bf27347a47da35e",
+    "versiones": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.3",
+      "scikit-learn": "1.9.1"
+    }
+  }
+}

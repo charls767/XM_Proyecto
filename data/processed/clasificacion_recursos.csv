@@ -2095,6 +2095,8 @@ codigo,termico,fuente
 5SEB,False,listado
 5SED,False,listado
 5SEF,False,listado
+5SEH,False,combustible
+5SEJ,False,combustible
 5SEL,False,listado
 5SEN,False,listado
 5SEP,False,listado
@@ -2261,6 +2263,7 @@ codigo,termico,fuente
 5YHD,False,listado
 5YPB,False,listado
 5YSW,False,listado
+5ZOA,False,listado
 5ZS4,False,listado
 5ZSR,False,listado
 5ZSY,False,listado
@@ -2280,6 +2283,10 @@ codigo,termico,fuente
 6ASY,False,listado
 6AT1,False,listado
 6AT3,False,listado
+6BMJ,False,listado
+6BOI,False,combustible
+6BPN,False,combustible
+6BPP,False,combustible
 ABJ1,False,listado
 AFR1,False,listado
 ALBG,False,listado
