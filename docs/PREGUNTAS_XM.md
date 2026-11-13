@@ -15,6 +15,25 @@ Guía para la reunión con XM. Las preguntas van en orden de impacto: las primer
 
 **En nuestros datos:** la semana del 7 de septiembre el precio cayó de 932 a 593 COP/kWh y la oferta no térmica de 452 a 280 COP/kWh. En las 8 semanas desde entonces el modelo erró 60 COP/kWh, frente a 93 del ingenuo. Son pocas semanas, y la coincidencia no prueba que la causa sea el cambio de reglas.
 
+## Primera respuesta recibida (noviembre de 2026)
+
+Una persona de XM respondió 7 puntos. Es una guía, no la respuesta definitiva. La correspondencia con las preguntas de abajo es nuestra lectura.
+
+| Tema | Respuesta | Preguntas | Qué hacemos |
+|---|---|---|---|
+| Qué se pronostica y para qué | Lo debe definir el proyecto | 1, 2, 3, 14 | Escribirlo como supuesto explícito del proyecto |
+| Versiones del precio | TX1 y TX2: preliminares, cada día para los dos días anteriores. TXR y TXF: "finales", cada mes. TX3 en adelante: ajustes a facturas | 13, 18, 19, 24 | Calificar provisional con TX2 y definitivo con TXF (ver [auditoría](AUDITORIA.md), hallazgo 6) |
+| Necesidad, costos y uso | No lo sabe; es decisión del proyecto o consulta al CRM de XM | 3, 4, 9, 10 | Supuesto del proyecto; consultar al CRM |
+| Regla de la garantía | Consultar al CRM de XM | 5, 6, 7, 8 | Enviar al CRM |
+| Disponibilidad de datos | Revisar las versiones TX y consultar al CRM | 16, 17, 32 | Enviar al CRM |
+| Implicaciones regulatorias | Depende del proyecto; las implicaciones, al CRM | 20, 21, 22 | Enviar al CRM |
+| Otras fuentes | SiMEM y el portal de XM son las fuentes públicas; lo demás, por el CRM | 28 | Explorar SiMEM |
+
+**Qué sigue:**
+- **El CRM de XM** es el canal formal para lo normativo. Prioridad: 6, 5, 9 y 21.
+- **SiMEM** es una fuente que no hemos explorado. Buscar ahí mantenimientos, indisponibilidades y pronóstico de aportes (pregunta 28).
+- **La demanda incompleta (24)** puede deberse a que los días recientes aún son preliminares. Es hipótesis.
+
 ---
 
 ## A. La necesidad real (lo primero)

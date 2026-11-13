@@ -195,7 +195,7 @@ def construir(datos, listado, tabla_oni=None):
 # Disponibilidad supuesta al emitir el pronóstico el lunes posterior a la semana s.
 # "D+1": el dato del día d se publica el día siguiente. Pendiente de confirmar con XM.
 DICCIONARIO = pd.DataFrame([
-    ("precio", "PrecBolsNaci", "Sistema", "horaria", "COP/kWh", "D+1 (versión TX1, luego se revisa)"),
+    ("precio", "PrecBolsNaci", "Sistema", "horaria", "COP/kWh", "D+1/D+2 preliminar (TX1, TX2); final mensual (TXR, TXF); ajustes TX3+"),
     ("demanda", "DemaCome", "Sistema", "horaria", "kWh", "D+1"),
     ("aportes", "AporEner", "Sistema", "diaria", "kWh", "D+1"),
     ("aportes_media", "AporEnerMediHist", "Sistema", "diaria", "kWh", "D+1"),

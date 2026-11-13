@@ -1,5 +1,5 @@
 serie,metrica,entidad,resolucion,unidad,disponibilidad
-precio,PrecBolsNaci,Sistema,horaria,COP/kWh,"D+1 (versión TX1, luego se revisa)"
+precio,PrecBolsNaci,Sistema,horaria,COP/kWh,"D+1/D+2 preliminar (TX1, TX2); final mensual (TXR, TXF); ajustes TX3+"
 demanda,DemaCome,Sistema,horaria,kWh,D+1
 aportes,AporEner,Sistema,diaria,kWh,D+1
 aportes_media,AporEnerMediHist,Sistema,diaria,kWh,D+1
