@@ -40,9 +40,18 @@ MODELOS = [
     ("E14", "Ridge14+cmg2d", "Ridge 14 + costo marginal", "Lineal",
      "Oficial más el costo marginal programado del lunes y martes de la semana objetivo (candidato 2). "
      "Requiere emitir con la semana objetivo ya iniciada."),
+    ("E15", "Ridge14_Duan", "Ridge 14 con corrección de sesgo", "Lineal",
+     "Oficial con el factor de Duan: pronostica la media del precio y no la mediana (E15)."),
+    ("E15", "Ridge14+cmg3d_Duan", "Ridge 14 + costo marginal 3 días", "Lineal",
+     "Costo marginal programado de lunes a miércoles, con corrección de sesgo (E15). "
+     "Es lo que se conoce al emitir el miércoles en la tarde."),
 ]
-COTAS = {"Ingenuo": "cota_Ingenuo", "Ridge 14 (oficial)": "cota_Ridge14",
-         "Ensamble Ridge + LEAR": "cota_Ens[Ridge14+LEAR]", "Ridge 14 + costo marginal": "cota_Ridge14+cmg2d"}
+# Cota 90 % por modelo: (archivo, columna).
+COTAS = {"Ingenuo": ("E14", "cota_Ingenuo"), "Ridge 14 (oficial)": ("E14", "cota_Ridge14"),
+         "Ensamble Ridge + LEAR": ("E14", "cota_Ens[Ridge14+LEAR]"),
+         "Ridge 14 + costo marginal": ("E14", "cota_Ridge14+cmg2d"),
+         "Ridge 14 con corrección de sesgo": ("E15", "cota_Ridge14_Duan"),
+         "Ridge 14 + costo marginal 3 días": ("E15", "cota_Ridge14+cmg3d_Duan")}
 
 EPISODIOS = {**ex.EPISODIOS_ESTRES, "Período de riesgo 2026": ("2026-09-07", "2026-12-31")}
 OFERTAS = ["log_oferta_termica", "log_oferta_no_termica", "brecha_oferta_nt"]
@@ -55,8 +64,8 @@ def predicciones():
     p = e14[["real", "base"]].copy()
     for archivo, col, nombre, *_ in MODELOS:
         p[nombre] = tablas[archivo][col].reindex(p.index)
-    for nombre, col in COTAS.items():
-        p[f"cota|{nombre}"] = e14[col]
+    for nombre, (archivo, col) in COTAS.items():
+        p[f"cota|{nombre}"] = tablas[archivo][col].reindex(p.index)
     p = p.dropna(subset=["real", "Ridge 14 (oficial)"])
     p.index.name = "semana_base"
     p.insert(0, "semana_objetivo", p.index + pd.Timedelta(weeks=1))

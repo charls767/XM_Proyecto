@@ -665,6 +665,64 @@ def resumen_e14(w):
     return t, cms, alerta
 
 
+def configuraciones_e15():
+    """Ridge 14 y Ridge 14 + costo marginal (2 y 3 días), cada uno con y sin la corrección de Duan,
+    y el oficial con alpha elegido por validación temporal en vez de leave-one-out."""
+    v2 = config.VARIABLES + ["cmg_2d_rel", "cmg_brecha"]
+    v3 = config.VARIABLES + ["cmg_3d_rel", "cmg_brecha"]
+    return [models.Modelo("Ingenuo"),
+            models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+            models.Modelo("Ridge14_alpha_temporal", config.VARIABLES, models.ridge_temporal),
+            models.Duan("Ridge14_Duan", config.VARIABLES, models.ridge),
+            models.Modelo("Ridge14+cmg2d", v2, models.ridge),
+            models.Duan("Ridge14+cmg2d_Duan", v2, models.ridge),
+            models.Modelo("Ridge14+cmg3d", v3, models.ridge),
+            models.Duan("Ridge14+cmg3d_Duan", v3, models.ridge)]
+
+
+def correr_e15():
+    """E15: costo marginal de 3 días, corrección de sesgo de Duan y alpha con validación temporal.
+
+    Todos en un mismo walk-forward (mismas semanas y reentrenamientos), con la semana base completa.
+    """
+    d = fe.preparar(dp.tabla_e12())
+    m = configuraciones_e15()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas)
+    bt.guardar(r, "E15")
+    w = bt.ancho(r)
+    for c in [x.nombre for x in m]:
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL)
+    w.to_parquet(bt.RESULTADOS / "E15_ancho.parquet")
+    return w
+
+
+def resumen_e15(w):
+    """Error, sesgo y cota por modelo; diferencias contra el oficial y de 3 contra 2 días."""
+    w = w[w.index >= INICIO_EVALUACION].dropna(subset=["real"])
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=1))
+    alta = ev.alta_variabilidad_ex_post(w)
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "MAE": e.abs().mean(), "sesgo": e.mean(),
+                "sesgo_%": (e / w.real).mean() * 100, "quedarse_corto_%": (e < 0).mean() * 100,
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                "cobertura": cubre.mean(), "cobertura_saltos": cubre[alta].mean(),
+                "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        for ref in ("Ridge14", "Ridge14+cmg2d"):
+            if m not in ("Ingenuo", ref):
+                lo, hi = ev.ic_diferencia_mae(w, m, ref)
+                fila.update({f"dif_vs_{ref}": e.abs().mean() - (w[ref] - w.real).abs().mean(),
+                             f"IC95_inf_vs_{ref}": lo, f"IC95_sup_vs_{ref}": hi,
+                             f"p_DM_vs_{ref}": ev.diebold_mariano(w, m, ref)[1]})
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E15_resumen.csv")
+    return t
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -708,6 +766,8 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e15":
+        print(resumen_e15(correr_e15()).T.to_string())
     elif comando == "e10":
         correr_e10()
         print(pd.read_csv(bt.RESULTADOS / "E10_estres.csv").to_string(index=False))

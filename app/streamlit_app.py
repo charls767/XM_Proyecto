@@ -20,18 +20,20 @@ st.set_page_config(page_title="Pronóstico del precio de bolsa", page_icon="⚡"
 INK, INK2, MUTED, GRID, BASE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
 COLOR = {
     "Ridge 14 (oficial)": "#2a78d6",
-    "Ridge 14 + costo marginal": "#eb6834",
+    "Ridge 14 + costo marginal 3 días": "#eb6834",
     "Ensamble Ridge + LEAR": "#1baf7a",
-    "LightGBM": "#eda100",
-    "SARIMAX": "#e87ba4",
+    "Ridge 14 + costo marginal": "#eda100",
+    "Ridge 14 con corrección de sesgo": "#6250d6",
+    "LightGBM": "#e87ba4",
     "Ensamble Ridge + LightGBM + SARIMAX": "#008300",
-    "LEAR diario": "#6250d6",
-    "Ridge 19": "#e34948",
+    "SARIMAX": "#e34948",
+    "LEAR diario": "#a3a29b",
+    "Ridge 19": "#a3a29b",
     "ARIMA": INK2,
     "Ingenuo": MUTED,
     "Estacional": BASE,
 }
-PRINCIPALES = ["Ridge 14 (oficial)", "Ensamble Ridge + LEAR", "Ridge 14 + costo marginal"]
+PRINCIPALES = ["Ridge 14 (oficial)", "Ridge 14 con corrección de sesgo", "Ridge 14 + costo marginal", "Ridge 14 + costo marginal 3 días"]
 PERIODOS = {
     "Evaluación 2018–2026": ("2018-01-01", "2026-12-31"),
     "Desarrollo 2014–2021": ("2014-01-01", "2021-12-31"),
@@ -56,7 +58,7 @@ def estilo(fig, alto=380, titulo_y="COP/kWh"):
 
 
 @st.cache_data
-def cargar():
+def cargar(version):
     p = pd.read_parquet(DATOS / "predicciones.parquet")
     modelos = pd.read_csv(DATOS / "modelos.csv")
     episodios = pd.read_csv(DATOS / "episodios.csv")
@@ -66,7 +68,8 @@ def cargar():
     return p, modelos, episodios, contexto, reg, ultimo
 
 
-P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO = cargar()
+# La versión cambia cuando se regeneran los resultados: así la caché no sirve datos viejos.
+P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO = cargar(max(a.stat().st_mtime for a in DATOS.iterdir()))
 NOMBRES = MODELOS.modelo.tolist()
 
 
@@ -125,28 +128,29 @@ def resumen():
     st.caption("Caso XM–UNAL · precio promedio de la semana siguiente, ponderado por demanda · "
                "prototipo académico, no validado para fijar garantías")
     ev = metricas(filtrar(P, *PERIODOS["Evaluación 2018–2026"]), ["Ingenuo", *PRINCIPALES]).set_index("Modelo")
-    of, cmg = ev.loc["Ridge 14 (oficial)"], ev.loc["Ridge 14 + costo marginal"]
+    of, cmg = ev.loc["Ridge 14 (oficial)"], ev.loc["Ridge 14 + costo marginal 3 días"]
 
     c = st.columns(4)
     c[0].metric("Error medio del oficial (COP/kWh)", f"{of.MAE:.1f}",
                 f"{-of['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
     c[1].metric("Error típico (% del precio)", f"{of['Error %']:.0f} %")
     c[2].metric("Cobertura de la cota 90 %", f"{of['Cobertura cota 90 %']:.1f} %", "meta 90 %", delta_color="off")
-    c[3].metric("Con costo marginal (COP/kWh)", f"{cmg.MAE:.1f}",
+    c[3].metric("Con costo marginal, 3 días (COP/kWh)", f"{cmg.MAE:.1f}",
                 f"{-cmg['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
     st.caption("Evaluación simulada 2018–2026: cada semana se pronosticó solo con lo que se sabía antes, "
                "reentrenando cada 4 semanas. Ingenuo = repetir el precio de la semana anterior.")
 
     st.subheader("Últimos dos años: real frente a los modelos principales")
     reciente = P[P.semana_objetivo >= P.semana_objetivo.max() - pd.Timedelta(weeks=104)]
-    st.plotly_chart(grafico_series(reciente, ["Ingenuo", "Ridge 14 (oficial)", "Ridge 14 + costo marginal"]),
+    st.plotly_chart(grafico_series(reciente, ["Ingenuo", "Ridge 14 (oficial)", "Ridge 14 + costo marginal 3 días"]),
                     use_container_width=True)
 
     st.subheader("Qué dicen los resultados")
     st.markdown(f"""
 - **El modelo oficial erra {of.MAE:.0f} COP/kWh por semana**, {of['Mejora vs ingenuo %']:.0f} % menos que repetir el precio anterior, y acierta si el precio sube o baja en {of['Acierta el sentido %']:.0f} % de las semanas.
 - **Su cota del 90 % cubre {of['Cobertura cota 90 %']:.0f} % de las semanas**, como se diseñó, pero solo ~70 % de las semanas de salto.
-- **El costo marginal del despacho programado es la mejor información disponible**: con el lunes y el martes de la semana objetivo el error baja a {cmg.MAE:.0f} COP/kWh. Sirve solo si la garantía se fija con la semana ya iniciada.
+- **El costo marginal del despacho programado es la mejor información disponible**: con el de lunes a miércoles de la semana objetivo, que probablemente ya está publicado al emitir el miércoles en la tarde, el error baja a {cmg.MAE:.0f} COP/kWh. Sirve solo si la garantía se fija con la semana ya iniciada.
+- **Corregir el sesgo de volver de logaritmo a precio (Duan) baja el error y reduce cuánto se queda corto**, sin costo en la cota.
 - **Ningún modelo anticipa bien los saltos bruscos**: fallan sobre todo por pronosticar estabilidad.
 """)
 
@@ -164,7 +168,7 @@ def capacidad():
     st.subheader("Comparación de todos los modelos")
     st.dataframe(t, hide_index=True, use_container_width=True, column_config=FORMATO)
     st.caption("La cobertura solo aplica a los modelos con cota calibrada. "
-               "‘Ridge 14 + costo marginal’ usa información de la semana objetivo ya iniciada.")
+               "Los modelos con costo marginal usan información de la semana objetivo ya iniciada.")
 
     st.subheader("Error medio por modelo")
     t2 = t.sort_values("MAE", ascending=True)

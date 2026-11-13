@@ -31,6 +31,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E12 | `e12` | ¿Ayuda el costo marginal del despacho programado de los primeros días de la semana objetivo? | Sí: con lunes a miércoles el error baja 38 % frente a Ridge 14, significativo tras corregir por búsqueda. Falta confirmar con XM la hora de publicación y si la garantía se fija con la semana ya empezada. |
 | E13 | `e13` | ¿Mejora un ARIMA? ¿Aportan variables en frecuencia (STFT, armónicos)? | No. ARIMA puro queda casi en el ingenuo; STFT no aporta. El segundo armónico anual mejora 0.8 en selección, pero no pasa la corrección por búsqueda (p = 0.71). |
 | E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
+| E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -515,6 +516,26 @@ Conclusiones:
 - **Ninguno corrige el sesgo del último año**: los tres se quedan cortos en un año de precios al alza.
 
 **Decisión de E14:** nada cambia en la operación. Los tres modelos siguen en paralelo y se deciden con el registro. El tablero muestra esta comparación y las matrices.
+
+## E15: costo marginal de 3 días, corrección de sesgo y alpha temporal
+
+Un solo walk-forward, 2018–2026 (456 semanas), semana base completa. Resultados en `results/E15_resumen.csv`.
+
+| Modelo | MAE | Sesgo | Cobertura cota | Cobertura en saltos |
+|---|---|---|---|---|
+| Ingenuo | 66.7 | −1.2 | 89.9 % | 56.5 % |
+| Ridge 14 (oficial) | 54.0 | −12.9 | 90.1 % | 69.6 % |
+| Ridge 14 con Duan | 53.4 | −8.3 | 90.1 % | 69.6 % |
+| Ridge 14 con alpha temporal | 54.4 | −12.9 | 90.4 % | 68.5 % |
+| Ridge 14 + CMg 2 días | 39.3 | −9.4 | 91.0 % | 75.0 % |
+| Ridge 14 + CMg 2 días con Duan | 39.1 | −6.6 | 91.0 % | 75.0 % |
+| Ridge 14 + CMg 3 días | 33.4 | −9.1 | 91.2 % | 76.1 % |
+| Ridge 14 + CMg 3 días con Duan | 33.2 | −6.9 | 91.2 % | 76.1 % |
+
+- **Costo marginal de 3 días:** erra 5.9 COP/kWh menos que con 2 días (IC 95 % de −8.7 a −3.6, p < 0.001) y 20.5 menos que el oficial. Al emitir el miércoles en la tarde, el del miércoles probablemente ya está publicado: el jueves 12 de noviembre de 2026 a las 22:06 aún no estaba el del viernes, así que XM lo publica tarde la víspera o el mismo día. Falta confirmar la hora.
+- **Duan dentro de cada bloque:** el factor es el promedio de exp(residuo) del entrenamiento, así que no usa datos futuros. Baja el MAE 0.6 (IC de −1.2 a −0.1, p = 0.04) y el sesgo de −12.9 a −8.3. La auditoría había probado el factor con errores fuera de muestra y subía el MAE; calcularlo dentro del bloque funciona mejor.
+- **Alpha con validación temporal:** erra 0.4 más (p = 0.06). El alpha elegido por leave-one-out es estable (8.5–18.9, mediana 12.7) y se mantiene.
+- **Sin corrección por búsqueda:** son 3 comparaciones fijadas de antemano, no una búsqueda amplia.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
