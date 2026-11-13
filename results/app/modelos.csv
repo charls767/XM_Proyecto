@@ -1,0 +1,12 @@
+modelo,familia,descripcion,tiene_cota
+Ingenuo,Referencia,Repite el precio de la semana base.,True
+Estacional,Referencia,"Precio de la misma semana del año anterior, ajustado.",False
+Ridge 14 (oficial),Lineal,Regresión Ridge sobre el cambio del precio con 14 variables.,True
+Ridge 19,Lineal,"Ridge con 19 variables, incluye ENOS y generación térmica.",False
+ARIMA,Series de tiempo,ARIMA con órdenes elegidos automáticamente.,False
+SARIMAX,Series de tiempo,SARIMAX con las mismas variables exógenas.,False
+LightGBM,Árboles,Gradient boosting con las 14 variables.,False
+LEAR diario,Lineal,"LASSO sobre precios diarios, agregado a la semana.",False
+Ensamble Ridge + LEAR,Ensamble,Promedio del oficial y LEAR diario (candidato 1).,True
+Ensamble Ridge + LightGBM + SARIMAX,Ensamble,Promedio de los tres modelos.,False
+Ridge 14 + costo marginal,Lineal,Oficial más el costo marginal programado del lunes y martes de la semana objetivo (candidato 2). Requiere emitir con la semana objetivo ya iniciada.,True
