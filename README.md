@@ -162,8 +162,6 @@ El script también califica las emisiones anteriores (incluidas las del registro
 
 Para probar sin registrar: `python src/semanal_tie.py --seco --fecha 2026-11-13`.
 
-Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, viernes en la tarde → Iniciar un programa → `correr_semanal.bat`.
-
 **Por qué el viernes:** es el día de cálculo del ASIC. Con unos 3 días de rezago de la API, ese día ya están la semana s-1 completa y los días de sábado a martes de s.
 
 El registro a una semana (`registro/pronosticos.csv`, [src/semanal.py](src/semanal.py)) se conserva como evidencia: sus filas no se borran y se siguen calificando.
