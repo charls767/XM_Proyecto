@@ -723,6 +723,66 @@ def resumen_e15(w):
     return t
 
 
+def configuraciones_e16():
+    """La regla de XM (repetir s-1) frente a Ridge 14, con y sin Duan y con los días de la semana s."""
+    vp = config.VARIABLES + ["parcial_rel"]
+    return [models.Modelo("Regla XM"),
+            models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+            models.Duan("Ridge14_Duan", config.VARIABLES, models.ridge),
+            models.Modelo("Regla XM + sáb-mar", columna_referencia="precio_parcial"),
+            models.Modelo("Ridge14+parcial", vp, models.ridge),
+            models.Duan("Ridge14+parcial_Duan", vp, models.ridge)]
+
+
+def correr_e16():
+    """E16: pronóstico alineado con la garantía TIE (CREG 004 de 2003, art. 23).
+
+    Semana de sábado a viernes, precio horario promedio y horizonte s-1 → s+2. Al emitir el
+    viernes de la semana s solo se conocen completas las semanas hasta s-1: la fila r tiene
+    objetivo r+3, así que se entrena con filas r ≤ s-1-3 (embargo de 2 semanas) y la cota usa
+    errores con rezago 3.
+    """
+    d = fe.preparar(dp.tabla_tie(recalcular=True))
+    m = configuraciones_e16()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y", "precio_parcial"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas,
+                    embargo=dp.HORIZONTE_TIE - 1)
+    r["semana_objetivo"] = r.semana_base + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    r["fecha_emision"] = r.semana_base + pd.Timedelta(days=13)  # viernes de la semana s
+    r["periodo"] = bt.periodo(r.semana_objetivo)
+    bt.guardar(r, "E16")
+    w = bt.ancho(r)
+    for c in [x.nombre for x in m]:
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE)
+    w.to_parquet(bt.RESULTADOS / "E16_ancho.parquet")
+    return w
+
+
+def resumen_e16(w):
+    """Error, sesgo y cota por modelo frente a la regla de XM, en semanas objetivo 2018–2026."""
+    obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    mae_regla = (w["Regla XM"] - w.real).abs().mean()
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "semanas": int(e.notna().sum()), "MAE": e.abs().mean(),
+                "mejora_vs_regla_%": (1 - e.abs().mean() / mae_regla) * 100, "sesgo": e.mean(),
+                "quedarse_corto_%": (e < 0).mean() * 100,
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                "cobertura": cubre.mean(), "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        if m != "Regla XM":
+            lo, hi = ev.ic_diferencia_mae(w, m, "Regla XM")
+            fila.update(dif_vs_regla=e.abs().mean() - mae_regla, IC95_inf=lo, IC95_sup=hi,
+                        p_DM=ev.diebold_mariano(w, m, "Regla XM")[1])
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E16_resumen.csv")
+    return t
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -766,6 +826,8 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e16":
+        print(resumen_e16(correr_e16()).T.to_string())
     elif comando == "e15":
         print(resumen_e15(correr_e15()).T.to_string())
     elif comando == "e10":

@@ -72,6 +72,25 @@ def predicciones():
     return p
 
 
+TIE = {"Regla XM": "Regla XM (repetir s-1)", "Regla XM + sáb-mar": "Regla con sábado a martes de s",
+       "Ridge14": "Ridge 14", "Ridge14_Duan": "Ridge 14 con corrección de sesgo",
+       "Ridge14+parcial": "Ridge 14 + sábado a martes de s",
+       "Ridge14+parcial_Duan": "Ridge 14 + sábado a martes de s, con corrección de sesgo"}
+
+
+def predicciones_tie():
+    """E16: semana TIE de sábado a viernes, base s-1 y objetivo s+2 (tres semanas después)."""
+    w = pd.read_parquet(RES / "E16_ancho.parquet")
+    p = w[["real", "base"]].copy()
+    for col, nombre in TIE.items():
+        p[nombre] = w[col]
+        p[f"cota|{nombre}"] = w[f"cota_{col}"]
+    p = p.dropna(subset=["real", "Ridge 14"])
+    p.index.name = "semana_base"
+    p.insert(0, "semana_objetivo", p.index + pd.Timedelta(weeks=3))
+    return p
+
+
 def catalogo():
     return pd.DataFrame([{"modelo": n, "familia": f, "descripcion": d, "tiene_cota": n in COTAS}
                          for _, _, n, f, d in MODELOS])
@@ -113,6 +132,7 @@ def main():
     SALIDA.mkdir(parents=True, exist_ok=True)
     p = predicciones()
     p.to_parquet(SALIDA / "predicciones.parquet")
+    predicciones_tie().to_parquet(SALIDA / "predicciones_tie.parquet")
     catalogo().to_csv(SALIDA / "modelos.csv", index=False)
     pd.DataFrame([{"episodio": k, "inicio": a, "fin": b} for k, (a, b) in EPISODIOS.items()]).to_csv(
         SALIDA / "episodios.csv", index=False)

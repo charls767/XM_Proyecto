@@ -32,6 +32,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E13 | `e13` | ¿Mejora un ARIMA? ¿Aportan variables en frecuencia (STFT, armónicos)? | No. ARIMA puro queda casi en el ingenuo; STFT no aporta. El segundo armónico anual mejora 0.8 en selección, pero no pasa la corrección por búsqueda (p = 0.71). |
 | E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
 | E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
+| E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -536,6 +537,34 @@ Un solo walk-forward, 2018–2026 (456 semanas), semana base completa. Resultado
 - **Duan dentro de cada bloque:** el factor es el promedio de exp(residuo) del entrenamiento, así que no usa datos futuros. Baja el MAE 0.6 (IC de −1.2 a −0.1, p = 0.04) y el sesgo de −12.9 a −8.3. La auditoría había probado el factor con errores fuera de muestra y subía el MAE; calcularlo dentro del bloque funciona mejor.
 - **Alpha con validación temporal:** erra 0.4 más (p = 0.06). El alpha elegido por leave-one-out es estable (8.5–18.9, mediana 12.7) y se mantiene.
 - **Sin corrección por búsqueda:** son 3 comparaciones fijadas de antemano, no una búsqueda amplia.
+
+## E16: pronóstico alineado con la garantía TIE
+
+La regla (CREG 004 de 2003, art. 23, según el material de formación de XM) calcula el viernes de la semana s el monto de la semana s+2 con los precios horarios de s-1. Tabla en `dp.tabla_tie()`:
+- **Semanas:** de sábado a viernes.
+- **Precio:** promedio horario simple, porque la máxima transferencia se aproxima constante.
+- **Objetivo:** tres semanas después de la semana base.
+- **Embargo de 2 semanas:** la fila r tiene objetivo r+3, que aún no se conoce al emitir s.
+- **Cota:** conformal con rezago 3.
+- **`parcial_rel`:** precio de sábado a martes de la semana s frente a s-1, ya publicado el viernes.
+
+Semanas objetivo de 2018 a 2026 (461). Resultados en `results/E16_resumen.csv`.
+
+| Modelo | MAE | Mejora vs. regla | Sesgo | Cobertura cota |
+|---|---|---|---|---|
+| Regla XM (repetir s-1) | 115.3 | — | −2.4 | 91.3 % |
+| Regla con sábado a martes de s | 103.3 | 10.4 % | −8.9 | 90.0 % |
+| Ridge 14 | 105.2 | 8.7 % (p = 0.03) | −28.4 | 90.7 % |
+| Ridge 14 con Duan | 105.2 | 8.8 % (p = 0.01) | −10.2 | 90.7 % |
+| Ridge 14 + sábado a martes | 98.3 | 14.8 % | −23.6 | 90.2 % |
+| Ridge 14 + sábado a martes con Duan | 98.2 | 14.8 % (p < 0.001) | −7.5 | 90.5 % |
+
+- **El horizonte duplica el error:** a una semana el ingenuo erra 66.7; a tres, 115.3.
+- **La ganancia más simple:** usar los días ya publicados de la semana en curso en vez de solo s-1 baja el error 10 %, sin modelo.
+- **El mejor modelo** combina esos días con Ridge 14 y la corrección de Duan. El sesgo baja de −23.6 a −7.5.
+- **La cota es ancha:** cuando cubre, excede al precio real en 88 %.
+- **El costo marginal programado** no está disponible para s+2 el viernes de cálculo, así que no se probó.
+- **Sin corrección por búsqueda:** son 5 comparaciones fijadas de antemano.
 
 ## Correcciones de la auditoría a las cifras anteriores
 

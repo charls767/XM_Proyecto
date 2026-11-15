@@ -29,6 +29,23 @@ Una persona de XM respondió 7 puntos. Es una guía, no la respuesta definitiva.
 | Implicaciones regulatorias | Depende del proyecto; las implicaciones, al CRM | 20, 21, 22 | Enviar al CRM |
 | Otras fuentes | SiMEM y el portal de XM son las fuentes públicas; lo demás, por el CRM | 28 | Explorar SiMEM |
 
+## Lo que respondió el material de formación de XM (noviembre de 2026)
+
+La sesión 2 de Reafirmación 2025 ("Garantías y mecanismos de cubrimiento del mercado") muestra la regla de la garantía TIE (CREG 004 de 2003, art. 23). El detalle está en [SUPUESTOS.md](SUPUESTOS.md).
+
+| Pregunta | Respuesta |
+|---|---|
+| 2. ¿Quién usa el pronóstico? | El ASIC calcula la garantía; el país importador la consigna |
+| 3. ¿Qué estimación se usa hoy? | Repetir los precios horarios de la semana s-1 |
+| 5 y 6. ¿Fórmula y precio? | Σ máxima transferencia horaria × (precio horario de bolsa de s-1 − CEE), en USD |
+| 8. ¿Periodo y fecha? | Semana de sábado a viernes; cálculo el viernes para s+2; vencimiento el martes |
+| 11. ¿Ponderar por demanda? | No: por la máxima transferencia horaria |
+| 12. ¿Cuál es la semana? | De sábado a viernes |
+| 14 y 15. ¿Horizonte y hora? | Viernes, tres semanas después de la semana base |
+| 18. ¿Con qué versión calificar? | TX2, la del ajuste 2 |
+
+Siguen abiertas la 1 (vigencia sin exportaciones), la 9 (costo de equivocarse), la 21 (período de riesgo) y si la CREG 101 127 de 2026 cambió el artículo 23.
+
 **Qué sigue:**
 - **El CRM de XM** es el canal formal para lo normativo. Prioridad: 6, 5, 9 y 21.
 - **SiMEM** es una fuente que no hemos explorado. Buscar ahí mantenimientos, indisponibilidades y pronóstico de aportes (pregunta 28).

@@ -65,11 +65,16 @@ def cargar(version):
     contexto = pd.read_parquet(DATOS / "contexto.parquet")
     reg = pd.read_csv(DATOS / "registro.csv", parse_dates=["fecha_emision", "semana_base", "semana_objetivo"])
     ultimo = json.loads((DATOS / "ultimo.json").read_text(encoding="utf-8"))
-    return p, modelos, episodios, contexto, reg, ultimo
+    tie = pd.read_parquet(DATOS / "predicciones_tie.parquet")
+    return p, modelos, episodios, contexto, reg, ultimo, tie
 
 
 # La versión cambia cuando se regeneran los resultados: así la caché no sirve datos viejos.
-P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO = cargar(max(a.stat().st_mtime for a in DATOS.iterdir()))
+P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO, TIE = cargar(max(a.stat().st_mtime for a in DATOS.iterdir()))
+TIE_MODELOS = [c for c in TIE.columns if c not in ("semana_objetivo", "real", "base") and not c.startswith("cota|")]
+COLOR.update({"Regla XM (repetir s-1)": MUTED, "Regla con sábado a martes de s": INK2, "Ridge 14": "#2a78d6",
+              "Ridge 14 + sábado a martes de s": "#1baf7a",
+              "Ridge 14 + sábado a martes de s, con corrección de sesgo": "#eb6834"})
 NOMBRES = MODELOS.modelo.tolist()
 
 
@@ -140,6 +145,12 @@ def resumen():
     st.caption("Evaluación simulada 2018–2026: cada semana se pronosticó solo con lo que se sabía antes, "
                "reentrenando cada 4 semanas. Ingenuo = repetir el precio de la semana anterior.")
 
+    t = metricas_tie(filtrar(TIE, *PERIODOS["Evaluación 2018–2026"]))
+    mejor = t.iloc[0]
+    st.info(f"**Para la garantía TIE** (semana de sábado a viernes, calculada el viernes para dos semanas "
+            f"adelante) el mejor modelo erra **{mejor.MAE:.0f} COP/kWh**, {mejor['Mejora vs regla %']:.0f} % menos "
+            f"que la regla actual de XM. Ver la página *Garantía TIE*.")
+
     st.subheader("Últimos dos años: real frente a los modelos principales")
     reciente = P[P.semana_objetivo >= P.semana_objetivo.max() - pd.Timedelta(weeks=104)]
     st.plotly_chart(grafico_series(reciente, ["Ingenuo", "Ridge 14 (oficial)", "Ridge 14 + costo marginal 3 días"]),
@@ -152,6 +163,53 @@ def resumen():
 - **El costo marginal del despacho programado es la mejor información disponible**: con el de lunes a miércoles de la semana objetivo, que probablemente ya está publicado al emitir el miércoles en la tarde, el error baja a {cmg.MAE:.0f} COP/kWh. Sirve solo si la garantía se fija con la semana ya iniciada.
 - **Corregir el sesgo de volver de logaritmo a precio (Duan) baja el error y reduce cuánto se queda corto**, sin costo en la cota.
 - **Ningún modelo anticipa bien los saltos bruscos**: fallan sobre todo por pronosticar estabilidad.
+""")
+
+
+def metricas_tie(p):
+    filas = []
+    mae_regla = (p["Regla XM (repetir s-1)"] - p.real).abs().mean()
+    for m in TIE_MODELOS:
+        e, cubre = p[m] - p.real, p.real <= p[f"cota|{m}"]
+        filas.append({"Modelo": m, "Semanas": len(p), "MAE": e.abs().mean(), "RMSE": np.sqrt((e ** 2).mean()),
+                      "Error %": (e.abs() / p.real).mean() * 100, "Sesgo": e.mean(),
+                      "Mejora vs regla %": (1 - e.abs().mean() / mae_regla) * 100,
+                      "Cobertura cota 90 %": cubre.mean() * 100})
+    return pd.DataFrame(filas).sort_values("MAE")
+
+
+def garantia_tie():
+    st.title("Garantía TIE: el pronóstico que pide la regla")
+    st.markdown("""
+Según la Resolución CREG 004 de 2003 (art. 23), el ASIC calcula **cada viernes** el monto de garantía de la **semana s+2**
+(sábado a viernes) con los **precios horarios de bolsa de la semana s-1**, multiplicados por la máxima transferencia del enlace
+y menos el costo equivalente en energía. Después se corrige con dos ajustes: con precios reales (ajuste 1) y con la segunda
+liquidación, TX2 (ajuste 2).
+
+**La regla vigente es, en la práctica, un pronóstico ingenuo a tres semanas.** Aquí se compara contra modelos que usan la
+misma información disponible el viernes de cálculo.
+""")
+    periodo = st.selectbox("Periodo de evaluación", list(PERIODOS), index=0, key="per_tie")
+    p = filtrar(TIE, *PERIODOS[periodo])
+    t = metricas_tie(p)
+    st.dataframe(t, hide_index=True, use_container_width=True, column_config={
+        **FORMATO, "Mejora vs regla %": st.column_config.NumberColumn(format="%+.1f")})
+    st.caption(f"{len(p)} semanas objetivo, de {p.semana_objetivo.min():%d/%m/%Y} a {p.semana_objetivo.max():%d/%m/%Y}. "
+               "Precio: promedio horario simple de la semana (la máxima transferencia se aproxima constante). "
+               "‘Sábado a martes de s’: los días de la semana en curso ya publicados el viernes de cálculo.")
+
+    sel = st.multiselect("Modelos en el gráfico", TIE_MODELOS,
+                         default=["Regla XM (repetir s-1)", "Ridge 14 + sábado a martes de s, con corrección de sesgo"])
+    cota = st.radio("Mostrar la cota 90 % de", ["Ninguno"] + sel, horizontal=True, key="cota_tie")
+    st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), use_container_width=True)
+    st.markdown("""
+**Qué significa**
+- A tres semanas el error casi duplica el del pronóstico a una semana: el horizonte lo fija la regla, no el modelo.
+- **Sin cambiar de método**, usar los días ya publicados de la semana en curso en vez de solo s-1 reduce el error ~10 %.
+- Un Ridge con esos días y corrección de sesgo reduce ~15 % y casi elimina el sesgo a quedarse corto.
+- El costo marginal programado no sirve aquí: el viernes de cálculo faltan 8 días para que empiece la semana objetivo.
+- El monto también depende de la cantidad: se garantiza la máxima transferencia, no la real. En el ejemplo de XM
+  (febrero de 2025) la diferencia entre lo garantizado y lo liquidado vino sobre todo de ahí.
 """)
 
 
@@ -316,6 +374,7 @@ def metodologia():
 
 pg = st.navigation([
     st.Page(resumen, title="Resumen", icon="🏠", default=True),
+    st.Page(garantia_tie, title="Garantía TIE", icon="🛡️", url_path="garantia"),
     st.Page(capacidad, title="Capacidad predictiva", icon="📈", url_path="capacidad"),
     st.Page(estres, title="Episodios de estrés", icon="⚠️", url_path="estres"),
     st.Page(movimientos, title="Movimientos grandes", icon="↕️", url_path="movimientos"),

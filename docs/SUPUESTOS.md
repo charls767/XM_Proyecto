@@ -1,22 +1,35 @@
 # Supuestos de operación
 
-XM respondió que qué se pronostica y para qué lo define el proyecto, y que lo normativo se consulta por su CRM. Mientras llega esa respuesta, el proyecto trabaja con estos supuestos. Cada uno se eligió por ser el más cercano a cómo funciona hoy el mercado, no el más conveniente para el modelo.
+XM respondió que qué se pronostica y para qué lo define el proyecto. Después, el material de formación de XM sobre garantías (sesión 2 de Reafirmación 2025, "Garantías y mecanismos de cubrimiento del mercado") mostró la regla de la garantía TIE de la Resolución CREG 004 de 2003, artículo 23. Los supuestos siguen esa regla. Donde la regla no alcanza, se elige lo más cercano a cómo funciona hoy el mercado.
+
+## La regla (según el material de XM)
+
+- **Semana TIE:** de sábado a viernes.
+- **Cálculo:** cada viernes de la semana s, el ASIC proyecta el monto de la semana **s+2**.
+- **Proyección:** MSG = Σ (168 horas) MXT<sub>h</sub> × (PM<sub>s-1,h</sub> − CEE<sub>s-1</sub>). MXT es la máxima transferencia horaria del enlace y PM el precio horario de bolsa de la semana **s-1**.
+- **Precio de escasez:** si el precio supera el de escasez, el monto se divide en dos partes (MSG con el precio de escasez y MSG<sub>OEF</sub> con la diferencia). La suma sigue dependiendo del precio de bolsa.
+- **Ajuste 1:** con las transferencias reales y los precios reales de los primeros 5 días de s+2.
+- **Ajuste 2:** el viernes de s+3, con los precios de la segunda liquidación (**TX2**).
+- **Moneda:** el monto va en USD con la tasa de cambio, y el país importador lo consigna. Para exportaciones a Ecuador, deposita CENACE.
+
+## Supuestos del proyecto
 
 | Tema | Supuesto | Por qué |
 |---|---|---|
-| **Variable** | Precio de bolsa nacional promedio de la semana siguiente, ponderado por demanda | Es la referencia pública del mercado y entra en los cargos de exportación. Ponderar por demanda refleja el costo medio de la energía transada. |
-| **Usuario** | Quien estima la garantía semanal de los intercambios con Ecuador: el ASIC o el agente exportador | Es el caso planteado en la propuesta del proyecto. |
-| **Horizonte** | Una semana, de lunes a domingo | Ciclo semanal de las garantías. |
-| **Emisión** | Miércoles, con la semana base completa | El precio y las ofertas se publican con unos 3 días de rezago en la API. |
-| **Escenarios alternos** | Emisión el lunes con la semana base hasta el viernes (E9), o con la semana objetivo ya iniciada y su costo marginal programado (E12) | Si la garantía se fija antes o después, cambia el modelo conveniente. Se reportan los tres. |
-| **Asimetría** | Quedarse corto cuesta más que pasarse; se reporta una cota del 90 % | Una garantía insuficiente expone al mercado; una excesiva solo inmoviliza recursos. |
-| **Calificación** | Con el precio vigente; es provisional hasta la liquidación mensual (TXR/TXF) | XM indicó que TX1 y TX2 son preliminares y que las versiones finales salen cada mes. Con TX1 las métricas cambian ~1 %. |
-| **Datos faltantes** | Si faltan las ofertas, se registra el ingenuo (estado *respaldo*) y se informa aparte la variante sin ofertas | El registro no se reescribe después; la variante sirve de referencia. |
-| **Régimen actual** | El período de riesgo de desabastecimiento (desde el 7 de septiembre de 2026, con reglas vigentes hasta el 31 de mayo de 2027) se trata como excepción | Hay pocas semanas de ese régimen. El modelo se evalúa en 2018–2026 y se muestra aparte cómo le fue desde septiembre. |
-| **Uso del resultado** | Insumo para estimar la garantía, no la garantía misma | Falta la fórmula oficial (cantidad × precio × factor). |
+| **Variable** | Precio de bolsa promedio por hora de la semana TIE (sábado a viernes) | Es el precio de la fórmula. La máxima transferencia se aproxima constante en las 168 horas, así que el promedio es simple. |
+| **Horizonte** | De la semana s-1 a la semana s+2: tres semanas | Lo fija la regla. |
+| **Emisión** | Viernes de la semana s | Día de cálculo del ASIC. |
+| **Información disponible** | Semanas completas hasta s-1, y de sábado a martes de la semana s | Rezago observado de unos 3 días en la API. |
+| **Referencia a superar** | La regla vigente: repetir el precio de s-1 | Es la estimación que usa hoy el ASIC. |
+| **Calificación** | Con TX2 | Es la versión del ajuste 2. Las métricas usan el precio vigente; con TX1 cambian ~1 %. |
+| **Asimetría** | Quedarse corto cuesta más que pasarse; se reporta una cota del 90 % | Un faltante deja exposición hasta los ajustes; un exceso solo inmoviliza recursos 2 a 3 semanas. |
+| **Costo marginal programado** | No aplica a la garantía | El viernes de cálculo faltan 8 días para que empiece s+2. Se reporta aparte, para un pronóstico con la semana ya iniciada. |
+| **Pronóstico a una semana** | Se mantiene como referencia (lunes a domingo, ponderado por demanda) | Es el modelo registrado desde el 5 de noviembre de 2026 y sirve de comparación. |
+| **Régimen actual** | El período de riesgo de desabastecimiento (desde el 7 de septiembre de 2026, reglas hasta el 31 de mayo de 2027) se trata como excepción | Hay pocas semanas de ese régimen. |
+| **Uso del resultado** | Insumo para el precio de la garantía, no el monto | El monto también depende de la máxima transferencia, el CEE y la tasa de cambio. |
 
-## Qué cambiaría con la respuesta de XM
+## Qué falta confirmar
 
-- Si el precio de la garantía no es el de bolsa nacional, cambia la variable objetivo.
-- Si la garantía se fija con la semana objetivo ya iniciada, el candidato con costo marginal pasa a ser el principal.
-- Si hoy no se calcula garantía porque no hay exportaciones, el proyecto se presenta como pronóstico del precio de bolsa, con la garantía como aplicación.
+- Si la CREG 101 127 de 2026 cambió este artículo. El material es de 2025.
+- Si para exportaciones la fórmula es la misma. El material muestra el mismo formato de cálculo para exportación, pero no la fórmula.
+- Si el precio de la fórmula es el nacional o el de la liquidación TIE ("Precio Medio Total" en centUSD/kWh).

@@ -21,8 +21,12 @@ UMBRAL_ENOS = 0.5
 TIPOS_TERMICOS = {"TERMICA", "COGENERADOR"}
 
 
+# Semana de lunes a domingo ("W-SUN"). La tabla TIE usa de sábado a viernes ("W-FRI").
+PERIODO_SEMANA = "W-SUN"
+
+
 def _semana(fechas):
-    return fechas.dt.to_period("W-SUN").dt.start_time
+    return fechas.dt.to_period(PERIODO_SEMANA).dt.start_time
 
 
 # --- Precio y demanda -------------------------------------------------------
@@ -252,6 +256,55 @@ def tabla_semanal(recalcular=False, corregida=False):
     clases.to_csv(PROCESSED / "clasificacion_recursos.csv")
     auditar(datos).to_csv(PROCESSED / "auditoria.csv")
     DICCIONARIO.to_csv(PROCESSED / "diccionario_datos.csv")
+    return sem
+
+
+# --- Tabla alineada con la garantía TIE (E16) -----------------------------
+
+HORIZONTE_TIE = 3  # semana base s-1 → semana objetivo s+2 (CREG 004 de 2003, art. 23)
+DIAS_PARCIALES_TIE = 4  # sábado a martes de la semana s: publicados el viernes de cálculo
+
+
+def tabla_tie(recalcular=False):
+    """Tabla semanal de sábado a viernes para la garantía TIE, desde la caché local.
+
+    La regla calcula el viernes de la semana s el monto de la semana s+2 con los precios
+    horarios de la semana s-1. Cada fila es una semana base s-1 (etiquetada con su sábado):
+    - `precio`: promedio horario simple del precio de bolsa. La garantía pondera por la máxima
+      transferencia horaria del enlace, que se aproxima como constante.
+    - `precio_sig`: el mismo precio en la semana s+2, tres semanas después.
+    - `parcial_rel`: log del precio de sábado a martes de la semana s frente a s-1, lo que
+      ya está publicado el viernes de cálculo con el rezago observado de unos 3 días.
+    Las demás variables son las de siempre, calculadas sobre semanas de sábado a viernes.
+    """
+    global PERIODO_SEMANA
+    archivo = PROCESSED / "semanal_tie.parquet"
+    if archivo.exists() and not recalcular:
+        return pd.read_parquet(archivo)
+    datos = {n: xm.leer_cache(n) for n in xm.SERIES}
+    datos["capacidad"] = datos["capacidad"].drop_duplicates(["fecha", "codigo"], keep="last")
+    # Demanda constante: el precio queda como promedio horario simple.
+    uno = datos["demanda"][["fecha", "codigo"]].copy()
+    uno[xm.HORAS] = 1.0
+    datos_tie = {**datos, "demanda": uno}
+    previo, PERIODO_SEMANA = PERIODO_SEMANA, "W-FRI"
+    try:
+        sem, _ = construir(datos_tie, xm.listado_recursos())
+    finally:
+        PERIODO_SEMANA = previo
+
+    s = sem.index.to_series()
+    consecutiva = (s.shift(-HORIZONTE_TIE) - s) == pd.Timedelta(weeks=HORIZONTE_TIE)
+    sem["precio_sig"] = sem.precio.shift(-HORIZONTE_TIE).where(consecutiva)
+
+    h = xm.a_horario(datos["precio"])
+    diario = h.groupby(h.index.normalize()).mean()
+    inicio_s = sem.index + pd.Timedelta(weeks=1)
+    parcial = [diario.reindex(pd.date_range(i, periods=DIAS_PARCIALES_TIE)).mean() for i in inicio_s]
+    completos = [diario.reindex(pd.date_range(i, periods=DIAS_PARCIALES_TIE)).notna().all() for i in inicio_s]
+    sem["precio_parcial"] = np.where(completos, parcial, np.nan)
+    sem["parcial_rel"] = np.log(sem.precio_parcial / sem.precio)
+    sem.to_parquet(archivo)
     return sem
 
 
