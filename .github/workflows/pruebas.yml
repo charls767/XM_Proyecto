@@ -2,7 +2,7 @@ name: Pruebas
 
 on:
   push:
-    branches: [main]
+    branches: [main, app-streamlit]
   pull_request:
 
 jobs:

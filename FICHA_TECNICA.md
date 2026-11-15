@@ -33,7 +33,7 @@ El resto de esta ficha describe el primer planteamiento: el precio de la **seman
 
 ## Datos
 
-API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología. La demanda de los días más recientes puede venir incompleta; esos días se estiman con la generación, el tablero lo avisa y la semana no se califica hasta que esté completa.
+API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología. La demanda de los días más recientes puede venir incompleta; esos días se estiman con la generación y la semana no se califica hasta que esté completa.
 
 ## Qué tan bien funciona (evaluación simulada 2018–2026)
 
@@ -56,13 +56,13 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 ## Cuándo no confiar en él
 
 - **Semanas de salto.** Los cambios bruscos de precio no se anticipan. La cota cubre solo 7 de cada 10 de esas semanas.
-- **Estado "vigilancia" o "respaldo"** en el tablero. Hay datos atrasados, variables fuera de lo visto o el modelo no le gana al ingenuo recientemente.
+- **Estado "vigilancia" o "respaldo"** en la emisión. Hay datos atrasados, variables fuera de lo visto o el modelo no le gana al ingenuo recientemente.
 - **Regímenes nuevos.** Cambios regulatorios o de mercado que no estén en la historia de 2010–2026.
 - **Información incompleta.** Si al emitir solo se conoce la semana base hasta el viernes, el error sube a ~61–63 COP/kWh. En ese escenario conviene el modelo con el despacho programado del lunes (experimento E9).
 
 ## Limitaciones conocidas
 
-- La evaluación 2018–2026 es simulada y se usó para elegir entre 67 modelos, así que sus cifras son optimistas. La evidencia independiente es el registro de pronósticos (`registro/pronosticos.csv`), que empezó el 5 de noviembre de 2026.
+- La evaluación 2018–2026 es simulada y se usó para elegir entre 67 modelos, así que sus cifras son optimistas. La evidencia independiente es el registro de pronósticos: `registro/pronosticos.csv` para este modelo (5 y 12 de noviembre de 2026) y `registro/pronosticos_tie.csv` para la garantía TIE, desde el 20 de noviembre de 2026.
 - No se probaron fuentes externas a XM y NOAA, como pronósticos de aportes o mantenimientos programados.
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
@@ -78,7 +78,7 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 
 ## Mantenimiento
 
-- **Cada viernes en la tarde** (día de cálculo de la garantía TIE): `correr_semanal.bat`. Desde el 15 de noviembre de 2026 emite el pronóstico de la semana s+2 para la garantía TIE ([docs/SUPUESTOS.md](docs/SUPUESTOS.md), E16). El registro a una semana se conserva y se sigue calificando.
+- **Cada viernes después de las 20:00** (día de cálculo de la garantía TIE): `correr_semanal.bat`. Desde el 15 de noviembre de 2026 emite el pronóstico de la semana s+2 para la garantía TIE ([docs/SUPUESTOS.md](docs/SUPUESTOS.md), E16). El registro a una semana se conserva y se sigue calificando.
 - **Revisar:** si el estado sale en vigilancia dos semanas seguidas, si la cobertura de las últimas 26 semanas baja de 80 % o si el sesgo de esas semanas pasa de 5 % del precio con significancia (hoy: −7.6 %, p = 0.04).
 - **Anclaje:** el `.bat` hace commit y tag `registro-AAAA-MM-DD` de cada emisión; revisar la bitácora en `registro/logs/` si falla.
 - **Cambiar de modelo:** solo con evidencia del registro y una nueva versión en `src/config.py`, sin borrar las filas registradas con la anterior.

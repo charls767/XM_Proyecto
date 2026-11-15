@@ -2,7 +2,7 @@
 REM Emision semanal para la garantia TIE: actualiza datos de XM, emite y registra el pronostico
 REM de la semana s+2, califica los anteriores, regenera los resultados de la app y ancla el
 REM registro en git.
-REM Correr cada VIERNES (dia de calculo de la garantia, CREG 004 de 2003): ese dia ya estan
+REM Correr cada VIERNES despues de las 20:00 (dia de calculo de la garantia, CREG 004 de 2003): ya estan
 REM publicados la semana s-1 completa y los dias de sabado a martes de la semana s.
 REM La salida queda en registro\logs\AAAA-MM-DD.log.
 cd /d "%~dp0"
@@ -27,10 +27,10 @@ if errorlevel 1 (
     echo AVISO: git no esta disponible; el registro no quedo anclado.
     goto :fin
 )
-git add registro\pronosticos_tie.csv registro\snapshots_tie results\app >> "%LOG%" 2>&1
+git add registro\pronosticos_tie.csv registro\snapshots_tie registro\pronosticos.csv results\app >> "%LOG%" 2>&1
 git diff --cached --quiet -- registro results\app
 if errorlevel 1 (
-    git commit -m "Emision TIE %HOY%" -- registro\pronosticos_tie.csv registro\snapshots_tie results\app >> "%LOG%" 2>&1
+    git commit -m "Emision TIE %HOY%" -- registro\pronosticos_tie.csv registro\snapshots_tie registro\pronosticos.csv results\app >> "%LOG%" 2>&1
     git rev-parse -q --verify "refs/tags/registro-tie-%HOY%" >nul || git tag "registro-tie-%HOY%" >> "%LOG%" 2>&1
     echo Registro anclado en git: tag registro-tie-%HOY%
 ) else (

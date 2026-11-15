@@ -232,15 +232,21 @@ misma información disponible el viernes de cálculo.
                          default=[REGLA, REGISTRADO])
     cota = st.radio("Mostrar la cota 90 % de", ["Ninguno"] + sel, horizontal=True, key="cota_tie")
     st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), width="stretch")
-    st.markdown("""
-**Qué significa**
+    ti = t.set_index("Modelo")
+    reg, regla, simple = ti.loc[REGISTRADO], ti.loc[REGLA], ti.loc["Regla con sábado a martes de s"]
+    st.markdown(f"""
+**Qué significa** (periodo elegido)
 - A tres semanas el error casi duplica el del pronóstico a una semana: el horizonte lo fija la regla, no el modelo.
-- **Sin cambiar de método**, usar los días ya publicados de la semana en curso en vez de solo s-1 reduce el error ~10 %.
-- Un Ridge con esos días y corrección de sesgo reduce ~15 % y casi elimina el sesgo a quedarse corto.
+- **Sin cambiar de método**, usar los días ya publicados de la semana en curso en vez de solo s-1 cambia el error en {-simple['Mejora vs regla %']:+.0f} %.
+- El modelo registrado cambia el error en {-reg['Mejora vs regla %']:+.0f} % frente a la regla, pero **se queda corto en promedio**: sesgo de {reg.Sesgo:+.0f} COP/kWh, frente a {regla.Sesgo:+.0f} de la regla.
 - El costo marginal programado no sirve aquí: el viernes de cálculo faltan 8 días para que empiece la semana objetivo.
 - El monto también depende de la cantidad: se garantiza la máxima transferencia, no la real. En el ejemplo de XM
   (febrero de 2025) la diferencia entre lo garantizado y lo liquidado vino sobre todo de ahí.
 """)
+    st.warning("**Período de riesgo de desabastecimiento:** mientras rija la CREG 101 127 de 2026 (hasta el 31 de mayo de "
+               "2027), los cargos de exportación consideran el máximo entre el precio de bolsa TIE, el de la planta más "
+               "cara con arranque y parada, y el costo marginal del importador. En ese régimen el precio relevante puede no "
+               "ser el de bolsa que se pronostica aquí. Está pendiente de confirmar con XM.")
 
     st.subheader("Registro de pronósticos TIE")
     st.markdown("Cada viernes se registra el pronóstico de la semana s+2 junto a la regla de XM, antes de conocer el "
