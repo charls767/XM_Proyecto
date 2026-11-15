@@ -4,6 +4,7 @@ Uso local:  streamlit run app/streamlit_app.py
 Lee solo results/app/ (lo genera `python src/resultados_app.py`) y docs/SUPUESTOS.md.
 """
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -74,7 +75,8 @@ P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO, TIE = cargar(max(a.stat().st_mtime
 TIE_MODELOS = [c for c in TIE.columns if c not in ("semana_objetivo", "real", "base") and not c.startswith("cota|")]
 COLOR.update({"Regla XM (repetir s-1)": MUTED, "Regla con sábado a martes de s": INK2, "Ridge 14": "#2a78d6",
               "Ridge 14 + sábado a martes de s": "#1baf7a",
-              "Ridge 14 + sábado a martes de s, con corrección de sesgo": "#eb6834"})
+              "Ridge 14 + sábado a martes de s, con corrección de sesgo": "#6250d6",
+              "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)": "#eb6834"})
 NOMBRES = MODELOS.modelo.tolist()
 
 
@@ -128,42 +130,69 @@ def grafico_series(p, modelos, alto=420, cota=None):
 
 # --- Páginas ---------------------------------------------------------------------------------------
 
+def p_diebold_mariano(p, modelo, referencia):
+    """p de Diebold-Mariano con pérdida absoluta y varianza de Newey-West (como evaluation.py)."""
+    from scipy import stats
+    dl = ((p[modelo] - p.real).abs() - (p[referencia] - p.real).abs()).dropna().to_numpy()
+    n = len(dl)
+    rezagos = int(np.floor(4 * (n / 100) ** (2 / 9)))
+    u = dl - dl.mean()
+    v = (u @ u) / n
+    for k in range(1, rezagos + 1):
+        v += 2 * (1 - k / (rezagos + 1)) * (u[k:] @ u[:-k]) / n
+    est = dl.mean() / np.sqrt(v / n)
+    return float(2 * stats.t.sf(abs(est), n - 1))
+
+
+REGLA = "Regla XM (repetir s-1)"
+REGISTRADO = "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)"
+
+
 def resumen():
-    st.title("Pronóstico semanal del precio de bolsa")
-    st.caption("Caso XM–UNAL · precio promedio de la semana siguiente, ponderado por demanda · "
-               "prototipo académico, no validado para fijar garantías")
-    ev = metricas(filtrar(P, *PERIODOS["Evaluación 2018–2026"]), ["Ingenuo", *PRINCIPALES]).set_index("Modelo")
-    of, cmg = ev.loc["Ridge 14 (oficial)"], ev.loc["Ridge 14 + costo marginal 3 días"]
+    st.title("Precio de bolsa para la garantía TIE")
+    st.caption("Caso XM–UNAL · precio promedio horario de la semana TIE (sábado a viernes), calculado el viernes "
+               "para dos semanas adelante · prototipo académico, no validado para fijar garantías")
+    total = metricas_tie(filtrar(TIE, *PERIODOS["Evaluación 2018–2026"])).set_index("Modelo")
+    ultimo = TIE.tail(52)
+    anio = metricas_tie(ultimo).set_index("Modelo")
+    regla, mod, mod52, regla52 = total.loc[REGLA], total.loc[REGISTRADO], anio.loc[REGISTRADO], anio.loc[REGLA]
+    p52 = p_diebold_mariano(ultimo, REGISTRADO, REGLA)
 
     c = st.columns(4)
-    c[0].metric("Error medio del oficial (COP/kWh)", f"{of.MAE:.1f}",
-                f"{-of['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
-    c[1].metric("Error típico (% del precio)", f"{of['Error %']:.0f} %")
-    c[2].metric("Cobertura de la cota 90 %", f"{of['Cobertura cota 90 %']:.1f} %", "meta 90 %", delta_color="off")
-    c[3].metric("Con costo marginal, 3 días (COP/kWh)", f"{cmg.MAE:.1f}",
-                f"{-cmg['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
-    st.caption("Evaluación simulada 2018–2026: cada semana se pronosticó solo con lo que se sabía antes, "
-               "reentrenando cada 4 semanas. Ingenuo = repetir el precio de la semana anterior.")
+    c[0].metric("Regla actual de XM (COP/kWh)", f"{regla.MAE:.1f}", "error medio 2018–2026", delta_color="off")
+    c[1].metric("Modelo (COP/kWh)", f"{mod.MAE:.1f}", f"{-mod['Mejora vs regla %']:.1f} % frente a la regla",
+                delta_color="inverse")
+    c[2].metric("Cobertura de la cota 90 %", f"{mod['Cobertura cota 90 %']:.1f} %", "meta 90 %", delta_color="off")
+    c[3].metric("Último año: modelo / regla", f"{mod52.MAE:.0f} / {regla52.MAE:.0f}",
+                f"{-mod52['Mejora vs regla %']:.1f} % (p = {p52:.2f})", delta_color="off")
+    st.caption("Evaluación simulada: cada semana se pronosticó solo con lo que se sabía el viernes de cálculo, "
+               "reentrenando cada 4 semanas. Regla de XM = repetir el precio horario de la semana s-1 "
+               "(CREG 004 de 2003, art. 23).")
 
-    t = metricas_tie(filtrar(TIE, *PERIODOS["Evaluación 2018–2026"]))
-    mejor = t.iloc[0]
-    st.info(f"**Para la garantía TIE** (semana de sábado a viernes, calculada el viernes para dos semanas "
-            f"adelante) el mejor modelo erra **{mejor.MAE:.0f} COP/kWh**, {mejor['Mejora vs regla %']:.0f} % menos "
-            f"que la regla actual de XM. Ver la página *Garantía TIE*.")
-
-    st.subheader("Últimos dos años: real frente a los modelos principales")
-    reciente = P[P.semana_objetivo >= P.semana_objetivo.max() - pd.Timedelta(weeks=104)]
-    st.plotly_chart(grafico_series(reciente, ["Ingenuo", "Ridge 14 (oficial)", "Ridge 14 + costo marginal 3 días"]),
-                    use_container_width=True)
+    st.subheader("Últimos dos años: real frente a la regla y al modelo")
+    reciente = TIE[TIE.semana_objetivo >= TIE.semana_objetivo.max() - pd.Timedelta(weeks=104)]
+    st.plotly_chart(grafico_series(reciente, [REGLA, REGISTRADO]), width="stretch")
 
     st.subheader("Qué dicen los resultados")
     st.markdown(f"""
-- **El modelo oficial erra {of.MAE:.0f} COP/kWh por semana**, {of['Mejora vs ingenuo %']:.0f} % menos que repetir el precio anterior, y acierta si el precio sube o baja en {of['Acierta el sentido %']:.0f} % de las semanas.
-- **Su cota del 90 % cubre {of['Cobertura cota 90 %']:.0f} % de las semanas**, como se diseñó, pero solo ~70 % de las semanas de salto.
-- **El costo marginal del despacho programado es la mejor información disponible**: con el de lunes a miércoles de la semana objetivo, que probablemente ya está publicado al emitir el miércoles en la tarde, el error baja a {cmg.MAE:.0f} COP/kWh. Sirve solo si la garantía se fija con la semana ya iniciada.
-- **Corregir el sesgo de volver de logaritmo a precio (Duan) baja el error y reduce cuánto se queda corto**, sin costo en la cota.
-- **Ningún modelo anticipa bien los saltos bruscos**: fallan sobre todo por pronosticar estabilidad.
+- **La regla vigente es un pronóstico ingenuo a tres semanas**, y erra {regla.MAE:.0f} COP/kWh en promedio.
+- **El modelo erra {mod.MAE:.0f} COP/kWh, {mod['Mejora vs regla %']:.0f} % menos**, con diferencia significativa en 2018–2026. Usa los días de sábado a martes de la semana en curso, que ya están publicados el viernes; solo con eso, sin modelo, el error baja ~10 %.
+- **En el último año la ventaja se reduce** ({mod52.MAE:.0f} frente a {regla52.MAE:.0f}){" **y no es significativa**" if p52 >= 0.05 else ""} (p = {p52:.2f}), y el sesgo del modelo es {mod52.Sesgo:+.0f} COP/kWh. La emisión semanal vigila ese sesgo.
+- **No depende de las ofertas**: a tres semanas no aportan, y XM puede publicarlas con semanas de atraso.
+- **Ningún modelo anticipa bien los saltos bruscos**, y la cota es ancha: cuando cubre, queda muy por encima del precio.
 """)
+
+    st.subheader("Complemento: pronóstico a una semana")
+    ev = metricas(filtrar(P, *PERIODOS["Evaluación 2018–2026"]), ["Ingenuo", *PRINCIPALES]).set_index("Modelo")
+    of, cmg = ev.loc["Ridge 14 (oficial)"], ev.loc["Ridge 14 + costo marginal 3 días"]
+    c = st.columns(3)
+    c[0].metric("Ridge 14, semana siguiente (COP/kWh)", f"{of.MAE:.1f}",
+                f"{-of['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
+    c[1].metric("Con costo marginal, 3 días (COP/kWh)", f"{cmg.MAE:.1f}",
+                f"{-cmg['Mejora vs ingenuo %']:.1f} % frente al ingenuo", delta_color="inverse")
+    c[2].metric("Acierta si sube o baja", f"{of['Acierta el sentido %']:.0f} %")
+    st.caption("Semana de lunes a domingo, ponderada por demanda. No sirve para la garantía: el costo marginal de la "
+               "semana objetivo no existe el viernes de cálculo. Detalle en *Capacidad predictiva*.")
 
 
 def metricas_tie(p):
@@ -192,16 +221,16 @@ misma información disponible el viernes de cálculo.
     periodo = st.selectbox("Periodo de evaluación", list(PERIODOS), index=0, key="per_tie")
     p = filtrar(TIE, *PERIODOS[periodo])
     t = metricas_tie(p)
-    st.dataframe(t, hide_index=True, use_container_width=True, column_config={
+    st.dataframe(t, hide_index=True, width="stretch", column_config={
         **FORMATO, "Mejora vs regla %": st.column_config.NumberColumn(format="%+.1f")})
     st.caption(f"{len(p)} semanas objetivo, de {p.semana_objetivo.min():%d/%m/%Y} a {p.semana_objetivo.max():%d/%m/%Y}. "
                "Precio: promedio horario simple de la semana (la máxima transferencia se aproxima constante). "
                "‘Sábado a martes de s’: los días de la semana en curso ya publicados el viernes de cálculo.")
 
     sel = st.multiselect("Modelos en el gráfico", TIE_MODELOS,
-                         default=["Regla XM (repetir s-1)", "Ridge 14 + sábado a martes de s, con corrección de sesgo"])
+                         default=[REGLA, REGISTRADO])
     cota = st.radio("Mostrar la cota 90 % de", ["Ninguno"] + sel, horizontal=True, key="cota_tie")
-    st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), use_container_width=True)
+    st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), width="stretch")
     st.markdown("""
 **Qué significa**
 - A tres semanas el error casi duplica el del pronóstico a una semana: el horizonte lo fija la regla, no el modelo.
@@ -222,7 +251,7 @@ misma información disponible el viernes de cálculo.
         return
     r = pd.read_csv(archivo, parse_dates=["fecha_emision", "semana_objetivo"])
     st.dataframe(r[["fecha_emision", "semana_objetivo", "estado", "regla_xm", "pronostico", "cota90", "real",
-                    "error_regla", "error"]], hide_index=True, use_container_width=True, column_config={
+                    "error_regla", "error"]], hide_index=True, width="stretch", column_config={
         "fecha_emision": st.column_config.DateColumn("Emitido", format="DD/MM/YYYY"),
         "semana_objetivo": st.column_config.DateColumn("Semana objetivo (sábado)", format="DD/MM/YYYY"),
         "regla_xm": st.column_config.NumberColumn("Regla XM", format="%.1f"),
@@ -245,7 +274,7 @@ def capacidad():
 
     t = metricas(p, NOMBRES)
     st.subheader("Comparación de todos los modelos")
-    st.dataframe(t, hide_index=True, use_container_width=True, column_config=FORMATO)
+    st.dataframe(t, hide_index=True, width="stretch", column_config=FORMATO)
     st.caption("La cobertura solo aplica a los modelos con cota calibrada. "
                "Los modelos con costo marginal usan información de la semana objetivo ya iniciada.")
 
@@ -258,12 +287,12 @@ def capacidad():
     estilo(fig, 40 * len(t2) + 60, titulo_y=None).update_layout(hovermode="closest", showlegend=False)
     fig.update_xaxes(title="MAE (COP/kWh)", gridcolor=GRID, showgrid=True)
     fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.subheader("Real frente a pronóstico")
     cota = st.radio("Mostrar la cota 90 % de", ["Ninguno"] + [m for m in sel if f"cota|{m}" in P],
                     horizontal=True)
-    st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), use_container_width=True)
+    st.plotly_chart(grafico_series(p, sel, 460, None if cota == "Ninguno" else cota), width="stretch")
 
     st.subheader("Error por año")
     anual = p.assign(año=p.semana_objetivo.dt.year)
@@ -274,7 +303,7 @@ def capacidad():
                         line=dict(color=COLOR.get(m, INK2), width=2, dash="dash" if m == "Ingenuo" else None),
                         marker=dict(size=8))
     fig.update_traces(hovertemplate="%{y:.1f}")
-    st.plotly_chart(estilo(fig, 360, "MAE (COP/kWh)"), use_container_width=True)
+    st.plotly_chart(estilo(fig, 360, "MAE (COP/kWh)"), width="stretch")
 
 
 def estres():
@@ -288,8 +317,8 @@ def estres():
         st.info("Este episodio aún no tiene semanas evaluadas en el backtest.")
         return
     modelos = ["Ingenuo", *PRINCIPALES]
-    st.dataframe(metricas(p, modelos), hide_index=True, use_container_width=True, column_config=FORMATO)
-    st.plotly_chart(grafico_series(p, modelos, 440, "Ridge 14 (oficial)"), use_container_width=True)
+    st.dataframe(metricas(p, modelos), hide_index=True, width="stretch", column_config=FORMATO)
+    st.plotly_chart(grafico_series(p, modelos, 440, "Ridge 14 (oficial)"), width="stretch")
     if ep.startswith("Período de riesgo"):
         st.caption("Desde el 7 de septiembre de 2026 no hay exportaciones a Ecuador y rigen reglas temporales "
                    "(CREG 101 127). Son pocas semanas: no permiten concluir si el modelo sigue funcionando.")
@@ -316,7 +345,7 @@ def movimientos():
         text=tabla.values, texttemplate="%{text}", textfont=dict(size=16),
         hovertemplate="%{y} · %{x}: %{z} semanas<extra></extra>", xgap=2, ygap=2))
     fig.update_yaxes(autorange="reversed", title=None, gridcolor="rgba(0,0,0,0)")
-    st.plotly_chart(estilo(fig, 340, None).update_layout(hovermode="closest"), use_container_width=True)
+    st.plotly_chart(estilo(fig, 340, None).update_layout(hovermode="closest"), width="stretch")
 
     c = st.columns(3)
     for i, k in enumerate(["Sube", "Baja"]):
@@ -359,7 +388,7 @@ def explicacion():
                      zerolinecolor=BASE)
     fig.update_yaxes(title=None, gridcolor="rgba(0,0,0,0)")
     st.plotly_chart(estilo(fig, 470, None).update_layout(hovermode="closest", showlegend=False),
-                    use_container_width=True)
+                    width="stretch")
     st.caption("Rojo: empuja el precio hacia arriba. Azul: hacia abajo.")
 
     st.subheader("Registro de pronósticos a una semana (detenido)")
@@ -369,7 +398,7 @@ def explicacion():
                 "con una huella encadenada que impide editarlo después. Es la evidencia independiente del modelo.")
     r = REG[["fecha_emision", "semana_objetivo", "estado", "pronostico", "cota90", "real_provisional"]].copy()
     r["error_provisional"] = r.pronostico - r.real_provisional
-    st.dataframe(r, hide_index=True, use_container_width=True, column_config={
+    st.dataframe(r, hide_index=True, width="stretch", column_config={
         "fecha_emision": st.column_config.DateColumn("Emitido", format="DD/MM/YYYY"),
         "semana_objetivo": st.column_config.DateColumn("Semana objetivo", format="DD/MM/YYYY"),
         "pronostico": st.column_config.NumberColumn("Pronóstico", format="%.1f"),
@@ -383,25 +412,29 @@ def explicacion():
 def metodologia():
     st.title("Metodología y supuestos")
     st.markdown("""
-**Qué se pronostica.** El precio de bolsa nacional promedio de la semana siguiente (lunes a domingo), ponderado por demanda, y una cota superior que el precio real no debería superar en 9 de cada 10 semanas.
+**Qué se pronostica.** El precio de bolsa promedio horario de la semana TIE s+2 (sábado a viernes), calculado el viernes de la semana s, que es lo que pide la garantía de las transacciones internacionales (CREG 004 de 2003, art. 23). Con una cota superior que el precio real no debería superar en 9 de cada 10 semanas.
 
 **Datos.** API pública de XM: precio, demanda, aportes, embalse, capacidad, precios de oferta, generación y despacho programado, de 2010 a hoy.
 
-**Modelo oficial.** Regresión Ridge sobre el cambio logarítmico del precio con 14 variables: nivel y dinámica del precio, embalse, aportes, precios de oferta térmicos y no térmicos, y época del año. La cota se calibra con los errores de las últimas 104 semanas (conformal).
+**Modelo registrado.** Regresión Ridge sobre el cambio logarítmico del precio de s-1 a s+2. Usa 11 variables de la semana s-1 (nivel y dinámica del precio, embalse, aportes y época del año) y el precio de sábado a martes de la semana s. Las ofertas no se usan: a tres semanas no aportan. Corrige el sesgo de volver de logaritmo a precio (Duan). La cota se calibra con los errores de las últimas 104 semanas ya calificadas (conformal).
 
-**Evaluación.** Walk-forward: cada semana se pronostica solo con datos anteriores, reentrenando cada 4 semanas. Se compararon 67 configuraciones en 14 experimentos; el periodo 2022–2024 se usó para elegir y 2025–2026 como prueba final.
+**Evaluación.** Walk-forward: cada semana se pronostica solo con lo que se sabía el viernes de cálculo, reentrenando cada 4 semanas. Se probaron 16 experimentos; el periodo 2022–2024 se usó para elegir y 2025–2026 como prueba final. Desde el 20 de noviembre de 2026 cada pronóstico queda congelado en un registro antes de conocer el resultado.
+
+**Complemento.** El pronóstico de la semana siguiente (lunes a domingo, ponderado por demanda) fue el primer planteamiento del proyecto y se conserva como comparación.
 """)
     st.divider()
     st.markdown((RAIZ / "docs" / "SUPUESTOS.md").read_text(encoding="utf-8"))
 
 
+# APP_PAGINA permite abrir otra página por defecto (lo usan los tests para recorrerlas todas).
+_INICIAL = os.environ.get("APP_PAGINA", "")
 pg = st.navigation([
-    st.Page(resumen, title="Resumen", icon="🏠", default=True),
-    st.Page(garantia_tie, title="Garantía TIE", icon="🛡️", url_path="garantia"),
-    st.Page(capacidad, title="Capacidad predictiva", icon="📈", url_path="capacidad"),
-    st.Page(estres, title="Episodios de estrés", icon="⚠️", url_path="estres"),
-    st.Page(movimientos, title="Movimientos grandes", icon="↕️", url_path="movimientos"),
-    st.Page(explicacion, title="Pronóstico actual", icon="🔎", url_path="pronostico"),
-    st.Page(metodologia, title="Metodología y supuestos", icon="📄", url_path="metodologia"),
+    st.Page(resumen, title="Resumen", icon="🏠", default=_INICIAL == ""),
+    st.Page(garantia_tie, title="Garantía TIE", icon="🛡️", url_path="garantia", default=_INICIAL == "garantia"),
+    st.Page(capacidad, title="Capacidad predictiva", icon="📈", url_path="capacidad", default=_INICIAL == "capacidad"),
+    st.Page(estres, title="Episodios de estrés", icon="⚠️", url_path="estres", default=_INICIAL == "estres"),
+    st.Page(movimientos, title="Movimientos grandes", icon="↕️", url_path="movimientos", default=_INICIAL == "movimientos"),
+    st.Page(explicacion, title="Pronóstico actual", icon="🔎", url_path="pronostico", default=_INICIAL == "pronostico"),
+    st.Page(metodologia, title="Metodología y supuestos", icon="📄", url_path="metodologia", default=_INICIAL == "metodologia"),
 ])
 pg.run()

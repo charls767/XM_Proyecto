@@ -731,7 +731,9 @@ def configuraciones_e16():
             models.Duan("Ridge14_Duan", config.VARIABLES, models.ridge),
             models.Modelo("Regla XM + sáb-mar", columna_referencia="precio_parcial"),
             models.Modelo("Ridge14+parcial", vp, models.ridge),
-            models.Duan("Ridge14+parcial_Duan", vp, models.ridge)]
+            models.Duan("Ridge14+parcial_Duan", vp, models.ridge),
+            # El que se registra desde el 20-nov-2026: sin ofertas (XM las publica con atraso).
+            models.Duan("Registrado", config.VARIABLES_TIE, models.ridge)]
 
 
 def correr_e16():

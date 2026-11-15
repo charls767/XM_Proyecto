@@ -1,18 +1,22 @@
-# XM_Proyecto · Pronóstico semanal del precio de bolsa
+# XM_Proyecto · Precio de bolsa para la garantía TIE
 
-Modelo para anticipar, con una semana de antelación, el **precio de bolsa promedio del Mercado de Energía Mayorista (MEM) colombiano**, junto con una **cota superior de riesgo** y **alertas tempranas**. Es un insumo para estimar la garantía de los intercambios de energía con Ecuador (caso XM–UNAL).
+Modelo para anticipar el **precio de bolsa del Mercado de Energía Mayorista (MEM) colombiano** que entra en la **garantía de las transacciones internacionales de electricidad (TIE)** con Ecuador, con una **cota superior de riesgo** (caso XM–UNAL).
 
-Cada semana el proceso descarga los datos de XM, revisa su calidad, emite el pronóstico con su explicación, lo guarda en un registro que no se puede modificar y actualiza un tablero.
+La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problema: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los **precios horarios de la semana s-1**. Esa regla es, en la práctica, un pronóstico ingenuo a tres semanas. Este proyecto compara contra ella un modelo que usa la misma información disponible el viernes. El detalle está en [docs/SUPUESTOS.md](docs/SUPUESTOS.md).
 
-| En una mirada (evaluación 2018–2026) | |
+| En una mirada (semanas objetivo 2018–2026, E16) | |
 |---|---|
-| Error medio con la semana base completa | 54 COP/kWh, **19 % menos** que repetir el precio de la semana anterior |
-| Error medio si se emite el lunes (datos hasta el viernes) | 61–63 COP/kWh, **14–16 % menos** que el ingenuo |
-| Error típico | ~15 % del precio |
-| Cota al 90 % | El precio real quedó por debajo en **90 %** de las semanas |
-| Límite conocido | En las semanas de saltos bruscos la cota cubre solo ~70 % |
+| Regla de XM (repetir el precio de s-1) | 115 COP/kWh de error medio |
+| Modelo registrado | 98 COP/kWh, **15 % menos** que la regla (p < 0.001) |
+| Último año | 120 frente a 127: la ventaja se reduce y **no es significativa** |
+| Cota al 90 % | El precio real quedó por debajo en **90 %** de las semanas, pero la cota es ancha |
+| Pronóstico a una semana (complemento) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
 
-> Prototipo académico; no es una publicación oficial de XM. La evaluación 2018–2026 es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas: en 2025–2026 la ventaja frente al ingenuo no es significativa. La evidencia independiente es el [registro de pronósticos](registro/pronosticos.csv), que empezó el 5 de noviembre de 2026. Ver la [auditoría](docs/AUDITORIA.md). **No usarlo para fijar garantías sin esa validación y sin la regla de XM.**
+**La app** ([app/streamlit_app.py](app/streamlit_app.py)) muestra la comparación con la regla, la capacidad predictiva de 13 modelos, los episodios de estrés y el registro.
+
+> Prototipo académico; no es una publicación oficial de XM. La evaluación es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas. La evidencia independiente es el [registro TIE](registro/), que empieza el 20 de noviembre de 2026. Ver las auditorías: [5 de noviembre](docs/AUDITORIA.md), [10 de noviembre](docs/AUDITORIA_2026-11-10.md) y [15 de noviembre](docs/AUDITORIA_2026-11-15.md). **No usarlo para fijar garantías sin esa validación.**
+
+Las secciones siguientes explican el modelo a una semana, que fue el primer planteamiento. El modelo TIE usa la misma familia (Ridge sobre el cambio del precio), con 11 de esas variables más el precio de sábado a martes de la semana en curso.
 
 ---
 
@@ -166,13 +170,17 @@ Para probar sin registrar: `python src/semanal_tie.py --seco --fecha 2026-11-13`
 
 El registro a una semana (`registro/pronosticos.csv`, [src/semanal.py](src/semanal.py)) se conserva como evidencia: sus filas no se borran y se siguen calificando.
 
-### Ver el tablero
+### Ver la app
 
 ```bash
-python -m http.server 8000 --directory dashboard
+python src/resultados_app.py
 ```
 
-Luego abre http://localhost:8000. También funciona abriendo `dashboard/index.html` directamente en el navegador.
+```bash
+streamlit run app/streamlit_app.py
+```
+
+El primer comando reúne en `results/app/` los resultados que muestra la app (la emisión semanal también lo hace). La app solo lee esa carpeta, así que no consulta la API de XM al abrirse. El tablero HTML anterior (`dashboard/`) ya no se regenera.
 
 ### Reproducir la evaluación
 

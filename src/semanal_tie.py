@@ -11,6 +11,9 @@ viernes) se calcula la garantía de la semana s+2 con los precios horarios de la
 - Modelo: Ridge con 11 variables de s-1 (sin ofertas) y el precio de sábado a martes de s,
   con corrección de sesgo de Duan y cota conformal del 90 % (E16).
 - Respaldo: si faltan los días de s, el mismo Ridge sin ellos; si falta la semana s-1, no se emite.
+- Vigilancia: hidrología atrasada, variables fuera de lo visto, o en las últimas 52 semanas calificadas
+  un error mayor que la regla, cobertura bajo 80 % o sesgo significativo (lo pide la auditoría del
+  15 de noviembre de 2026, hallazgo A1). La vigilancia no cambia el pronóstico: avisa.
 
 Cada emisión agrega una fila a `registro/pronosticos_tie.csv` encadenada con SHA-256, y un snapshot
 en `registro/snapshots_tie/`. Una semana ya registrada no se reescribe; solo se completan después
@@ -31,6 +34,7 @@ import config
 import data_pipeline as dp
 import feature_engineering as fe
 import models
+import monitoreo
 import semanal
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -53,22 +57,44 @@ def semanas(fecha_emision):
 
 
 def _pronosticar(d, base, variables):
-    """Ridge con Duan entrenado con las filas cuyo objetivo ya se conoce, y su cota conformal."""
-    modelo = models.Duan("tie", variables, models.ridge)
+    """Ridge con Duan entrenado con las filas cuyo objetivo ya se conoce, su cota conformal y
+    el historial fuera de muestra para el monitoreo.
+
+    Devuelve el pronóstico, la cota, los datos para reproducirlo sin reentrenar y el historial.
+    """
     completas = d.dropna(subset=variables + ["y"])
     entren = completas[completas.index < base - pd.Timedelta(weeks=dp.HORIZONTE_TIE - 1)]
-    pred = float(modelo.ajustar_predecir(entren, d.loc[[base]])[0])
-    # Errores fuera de muestra con el mismo esquema que E16, para calibrar la cota.
-    hist = d.dropna(subset=variables + ["y"])
-    r = bt.backtest(hist, [modelo], inicio=config.INICIO_BACKTEST, cada=4, embargo=dp.HORIZONTE_TIE - 1)
+    est = models.ridge().fit(entren[variables], entren.y)
+    factor = float(np.mean(np.exp(entren.y.to_numpy() - est.predict(entren[variables]))))
+    precio_base = float(d.at[base, "precio"])
+    pred = precio_base * float(np.exp(est.predict(d.loc[[base], variables])[0])) * factor
+
+    # Errores fuera de muestra con el mismo esquema que E16, para calibrar la cota y monitorear.
+    modelo = models.Duan("tie", variables, models.ridge)
+    r = bt.backtest(completas, [modelo], inicio=config.INICIO_BACKTEST, cada=4, embargo=dp.HORIZONTE_TIE - 1)
     w = bt.ancho(r)
     w = w[w.index < base]
-    fila = pd.DataFrame({"real": [np.nan], "tie": [pred]}, index=[base])
-    h = pd.concat([w[["real", "tie"]], fila])
-    cota = float(cal.conformal(h.real, h.tie, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL,
-                               rezago=dp.HORIZONTE_TIE).iloc[-1])
-    est = models.ridge().fit(entren[variables], entren.y)
-    return pred, cota, est, len(entren)
+    h = pd.concat([pd.DataFrame({"real": w.real, "prediccion": w.tie, "ingenuo": w.base}),
+                   pd.DataFrame({"real": [np.nan], "prediccion": [pred], "ingenuo": [precio_base]}, index=[base])])
+    h["cota"] = cal.conformal(h.real, h.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL,
+                              rezago=dp.HORIZONTE_TIE)
+    cota = float(h.cota.iloc[-1])
+    esc, reg = est[0], est[-1]
+    reproduccion = {"variables": list(variables), "media": [float(m) for m in esc.mean_],
+                    "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
+                    "coeficientes": [float(c) for c in reg.coef_], "alpha": float(reg.alpha_),
+                    "factor_duan": factor, "margen_log": float(np.log(cota / pred)),
+                    "n_entrenamiento": len(entren), "entrenamiento_hasta": f"{entren.index.max():%Y-%m-%d}"}
+    return pred, cota, reproduccion, h.iloc[:-1]
+
+
+def reproducir(snapshot):
+    """Pronóstico y cota a partir de un snapshot TIE, sin datos ni reentrenar."""
+    m = snapshot["reproduccion"]
+    x = np.array([snapshot["variables"][v] for v in m["variables"]])
+    z = (x - np.array(m["media"])) / np.array(m["escala"])
+    pred = snapshot["precio_base"] * float(np.exp(m["intercepto"] + z @ np.array(m["coeficientes"]))) * m["factor_duan"]
+    return pred, pred * float(np.exp(m["margen_log"]))
 
 
 def emitir(fecha_emision=None, actualizar=True, guardar=True):
@@ -90,9 +116,30 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         variables = [v for v in config.VARIABLES_TIE_RESPALDO if pd.notna(d.at[base, v])]
         estado = "respaldo"
         motivos.append(f"Faltan: {', '.join(faltan)}")
-    if any(f < base + pd.Timedelta(days=6) for k, f in fechas.items() if k in ("precio", "aportes", "volumen_pct")):
-        motivos.append("Series atrasadas: " + ", ".join(f"{k} {f:%Y-%m-%d}" for k, f in fechas.items()))
-    pred, cota, est, n = _pronosticar(d, base, variables)
+    # Hidrología al día: el viernes debería llegar al menos al martes de la semana s.
+    limite = s + pd.Timedelta(days=dp.DIAS_PARCIALES_TIE - 1)
+    atrasadas = [f"{k} hasta {fechas[k]:%Y-%m-%d}" for k in ("aportes", "volumen_pct")
+                 if k in fechas and pd.notna(fechas[k]) and fechas[k] < limite]
+    if atrasadas:
+        motivos.append("Series atrasadas: " + ", ".join(atrasadas))
+    pred, cota, reproduccion, hist = _pronosticar(d, base, variables)
+    rango = monitoreo.fuera_de_rango(d, base, variables)
+    if (rango.nivel == "extrapolacion").any():
+        motivos.append("Variables fuera de todo lo visto en la historia: "
+                       + ", ".join(rango.loc[rango.nivel == "extrapolacion", "nombre"]))
+    desempeno = monitoreo.desempeno_reciente(hist, semanas=52)
+    if desempeno.get("semanas", 0) >= 8:
+        if desempeno["razon_mae"] > config.RAZON_MAE_MAXIMA:
+            motivos.append(f"En las últimas {desempeno['semanas']} semanas el modelo erró más que la regla de XM")
+        if desempeno["cobertura"] < config.COBERTURA_MINIMA:
+            motivos.append(f"La cota cubrió solo el {desempeno['cobertura']:.0%} de las últimas {desempeno['semanas']} semanas")
+        if monitoreo.sesgo_significativo(desempeno):
+            lado = "se quedó corto" if desempeno["sesgo"] < 0 else "se pasó"
+            motivos.append(f"En las últimas {desempeno['semanas']} semanas el modelo {lado} en promedio "
+                           f"{abs(desempeno['sesgo']):,.1f} COP/kWh ({abs(desempeno['sesgo_pct']):.0f} % del precio), "
+                           f"de forma significativa (p = {desempeno['p_sesgo']:.2f})")
+    if estado == "normal" and motivos:
+        estado = "vigilancia"
     fila = d.loc[base]
     r = {
         "fecha_emision": fecha_emision, "semana_calculo": s, "semana_base": base, "semana_objetivo": objetivo,
@@ -100,10 +147,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "estado": estado, "motivos": motivos, "datos_hasta": fechas,
         "precio_base": float(fila.precio), "precio_parcial": float(fila.precio_parcial) if pd.notna(fila.precio_parcial) else None,
         "regla_xm": float(fila.precio), "pronostico": pred, "cambio_pct": (pred / fila.precio - 1) * 100, "cota90": cota,
-        "variables": {v: float(fila[v]) for v in variables},
-        "modelo": {"variables": variables, "intercepto": float(est[-1].intercept_),
-                   "coeficientes": [float(c) for c in est[-1].coef_], "alpha": float(est[-1].alpha_),
-                   "n_entrenamiento": n},
+        "variables": {v: float(fila[v]) for v in variables}, "reproduccion": reproduccion,
+        "desempeno_reciente": desempeno, "fuera_de_rango": rango.to_dict("records"),
     }
     if guardar:
         registrar(r)

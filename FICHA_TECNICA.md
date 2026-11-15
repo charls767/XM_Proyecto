@@ -1,12 +1,25 @@
-# Ficha técnica: pronóstico semanal del precio de bolsa (PAE-XM)
+# Ficha técnica: precio de bolsa para la garantía TIE (PAE-XM)
 
-**Versión:** `ridge14-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** noviembre de 2026
+**Versión registrada:** `tie-ridge11-parcial-duan-conformal104-v1` (desde el 20-nov-2026) · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
 
 ## Para qué sirve
 
-Estima el precio de bolsa promedio de la **semana siguiente**, ponderado por demanda, y una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas. Es un insumo para estimar la garantía de los intercambios de energía con Ecuador.
+Estima el **precio de bolsa promedio horario de la semana TIE s+2** (sábado a viernes), calculado el viernes de la semana s, que es el precio que entra en la garantía de las transacciones internacionales con Ecuador (CREG 004 de 2003, art. 23). Incluye una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas. Se compara siempre con la regla de XM, que repite el precio de la semana s-1.
 
-**No sirve para:** pronosticar más de una semana adelante, pronosticar precios horarios, calcular la garantía completa (falta la regla de XM) ni anticipar saltos bruscos de precio.
+| Garantía TIE (semanas objetivo 2018–2026, E16) | |
+|---|---|
+| Regla de XM | 115.3 COP/kWh de error medio |
+| Modelo registrado | 98.3 COP/kWh, 14.8 % menos (p < 0.001); sesgo −16 |
+| Último año | 120 frente a 127, sin significancia (p = 0.40) |
+| Cota 90 % | Cubre 90.5 %; cuando cubre, excede al precio real en 85 % |
+
+**Modelo:** Ridge sobre log(P<sub>s+2</sub>/P<sub>s-1</sub>) con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo de Duan. Respaldo sin los días de s; vigilancia si en 52 semanas erra más que la regla, la cota cubre menos de 80 % o el sesgo es significativo. Detalle en [docs/SUPUESTOS.md](docs/SUPUESTOS.md) y [E16](docs/EXPERIMENTOS.md).
+
+**No sirve para:** calcular el monto completo (también dependen la máxima transferencia, el CEE y la tasa de cambio), pronosticar precios horarios ni anticipar saltos bruscos.
+
+## El pronóstico a una semana (complemento)
+
+El resto de esta ficha describe el primer planteamiento: el precio de la **semana siguiente** (lunes a domingo, ponderado por demanda), versión `ridge14-conformal104-v1`, registrado del 5 al 12 de noviembre de 2026. Se conserva como comparación.
 
 ## Qué hace
 

@@ -62,4 +62,5 @@ NOMBRES = {
     "brecha_oferta_nt": "Oferta no térmica frente al precio",
     "sen_semana": "Época del año (seno)",
     "cos_semana": "Época del año (coseno)",
+    "parcial_rel": "Precio de sábado a martes de la semana en curso",
 }

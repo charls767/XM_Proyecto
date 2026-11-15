@@ -558,6 +558,9 @@ Semanas objetivo de 2018 a 2026 (461). Resultados en `results/E16_resumen.csv`.
 | Ridge 14 con Duan | 105.2 | 8.8 % (p = 0.01) | −10.2 | 90.7 % |
 | Ridge 14 + sábado a martes | 98.3 | 14.8 % | −23.6 | 90.2 % |
 | Ridge 14 + sábado a martes con Duan | 98.2 | 14.8 % (p < 0.001) | −7.5 | 90.5 % |
+| **Registrado:** 11 variables sin ofertas + sábado a martes, con Duan | 98.3 | 14.8 % (p < 0.001) | −16.1 | 90.5 % |
+
+El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambia el error, y evita caer en respaldo cuando XM las publica con atraso, como en noviembre de 2026. En las últimas 52 semanas erra 120 frente a 127 de la regla (p = 0.40): la ventaja reciente no es significativa.
 
 - **El horizonte duplica el error:** a una semana el ingenuo erra 66.7; a tres, 115.3.
 - **La ganancia más simple:** usar los días ya publicados de la semana en curso en vez de solo s-1 baja el error 10 %, sin modelo.

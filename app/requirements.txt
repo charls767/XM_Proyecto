@@ -3,3 +3,4 @@ plotly==7.1.0
 pandas==3.0.3
 numpy==2.4.6
 pyarrow==26.0.1
+scipy==1.17.1
