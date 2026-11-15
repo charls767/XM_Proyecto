@@ -133,6 +133,9 @@ def main():
     p = predicciones()
     p.to_parquet(SALIDA / "predicciones.parquet")
     predicciones_tie().to_parquet(SALIDA / "predicciones_tie.parquet")
+    reg_tie = RAIZ / "registro" / "pronosticos_tie.csv"
+    if reg_tie.exists():
+        (SALIDA / "registro_tie.csv").write_bytes(reg_tie.read_bytes())
     catalogo().to_csv(SALIDA / "modelos.csv", index=False)
     pd.DataFrame([{"episodio": k, "inicio": a, "fin": b} for k, (a, b) in EPISODIOS.items()]).to_csv(
         SALIDA / "episodios.csv", index=False)

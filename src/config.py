@@ -21,6 +21,11 @@ VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
 # conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
 # Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
 VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
+# Garantía TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
+# tres semanas y XM puede publicarlas con semanas de atraso) y con los días de sábado a martes de s.
+VERSION_TIE = "tie-ridge11-parcial-duan-conformal104-v1"
+VARIABLES_TIE = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]] + ["parcial_rel"]
+VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
 DIAS_CMG_CANDIDATO = 2
 VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura

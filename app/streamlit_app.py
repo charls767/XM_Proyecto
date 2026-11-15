@@ -212,6 +212,27 @@ misma información disponible el viernes de cálculo.
   (febrero de 2025) la diferencia entre lo garantizado y lo liquidado vino sobre todo de ahí.
 """)
 
+    st.subheader("Registro de pronósticos TIE")
+    st.markdown("Cada viernes se registra el pronóstico de la semana s+2 junto a la regla de XM, antes de conocer el "
+                "resultado y con una huella encadenada que impide editarlo. Modelo: Ridge sin variables de oferta "
+                "(no aportan a tres semanas) más los días de sábado a martes, con corrección de sesgo.")
+    archivo = DATOS / "registro_tie.csv"
+    if not archivo.exists():
+        st.info("La primera emisión TIE será el viernes 20 de noviembre de 2026, para la semana del 28 de noviembre al 4 de diciembre.")
+        return
+    r = pd.read_csv(archivo, parse_dates=["fecha_emision", "semana_objetivo"])
+    st.dataframe(r[["fecha_emision", "semana_objetivo", "estado", "regla_xm", "pronostico", "cota90", "real",
+                    "error_regla", "error"]], hide_index=True, use_container_width=True, column_config={
+        "fecha_emision": st.column_config.DateColumn("Emitido", format="DD/MM/YYYY"),
+        "semana_objetivo": st.column_config.DateColumn("Semana objetivo (sábado)", format="DD/MM/YYYY"),
+        "regla_xm": st.column_config.NumberColumn("Regla XM", format="%.1f"),
+        "pronostico": st.column_config.NumberColumn("Modelo", format="%.1f"),
+        "cota90": st.column_config.NumberColumn("Cota 90 %", format="%.1f"),
+        "real": st.column_config.NumberColumn("Real", format="%.1f"),
+        "error_regla": st.column_config.NumberColumn("Error regla", format="%+.1f"),
+        "error": st.column_config.NumberColumn("Error modelo", format="%+.1f"),
+    })
+
 
 def capacidad():
     st.title("Capacidad predictiva")
@@ -341,7 +362,9 @@ def explicacion():
                     use_container_width=True)
     st.caption("Rojo: empuja el precio hacia arriba. Azul: hacia abajo.")
 
-    st.subheader("Registro de pronósticos reales")
+    st.subheader("Registro de pronósticos a una semana (detenido)")
+    st.caption("Este registro se detuvo el 15 de noviembre de 2026: desde entonces se registra el pronóstico de la "
+               "garantía TIE, los viernes (ver la página Garantía TIE). Sus filas se conservan y se califican.")
     st.markdown("Desde el 5 de noviembre de 2026 cada pronóstico queda congelado antes de conocer el resultado, "
                 "con una huella encadenada que impide editarlo después. Es la evidencia independiente del modelo.")
     r = REG[["fecha_emision", "semana_objetivo", "estado", "pronostico", "cota90", "real_provisional"]].copy()

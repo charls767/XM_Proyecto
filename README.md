@@ -146,15 +146,27 @@ pip install -r requirements.txt
 python -m pytest -q tests
 ```
 
-### Emisión semanal (cada miércoles)
+### Emisión semanal para la garantía TIE (cada viernes)
 
 ```bash
 correr_semanal.bat
 ```
 
-El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Al final hace un commit del registro, los snapshots y el tablero, con el tag `registro-AAAA-MM-DD`: así la huella encadenada queda anclada fuera del CSV. El commit va a la rama activa y no se empuja. La salida completa queda en `registro/logs/AAAA-MM-DD.log`, fuera de git. Cada snapshot guarda los coeficientes, el escalador, los márgenes de la cota y huellas de los datos de entrenamiento, así que `semanal.reproducir` reconstruye el pronóstico aunque XM revise los datos. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
+Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE (CREG 004 de 2003, art. 23; ver [docs/SUPUESTOS.md](docs/SUPUESTOS.md)). El viernes de la semana s, [src/semanal_tie.py](src/semanal_tie.py) pronostica el precio promedio horario de la semana s+2, de sábado a viernes. Lo registra junto a la regla de XM, que repite el precio de s-1.
 
-**Por qué el miércoles:** la API publica el precio con unos 3 días de rezago, así que el domingo queda disponible hacia el miércoles. Si se corre antes, la semana no está completa y no se emite nada nuevo. Por eso, hoy el pronóstico sale cuando la semana objetivo ya empezó, aunque no usa ningún dato de ella. Si XM confirma una emisión más temprana, el modelo adecuado es Ridge 14 + despacho programado (ver [E9](docs/EXPERIMENTOS.md)).
+- **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo y cota del 90 % (E16).
+- **Respaldo:** si faltan los días de s, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
+- **Registro:** `registro/pronosticos_tie.csv`, encadenado con SHA-256, con snapshots en `registro/snapshots_tie/`.
+
+El script también califica las emisiones anteriores (incluidas las del registro a una semana, que ya no emite) y regenera `results/app/`. Al final hace un commit con el tag `registro-tie-AAAA-MM-DD`; no lo empuja. La salida queda en `registro/logs/AAAA-MM-DD.log`.
+
+Para probar sin registrar: `python src/semanal_tie.py --seco --fecha 2026-11-13`.
+
+Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, viernes en la tarde → Iniciar un programa → `correr_semanal.bat`.
+
+**Por qué el viernes:** es el día de cálculo del ASIC. Con unos 3 días de rezago de la API, ese día ya están la semana s-1 completa y los días de sábado a martes de s.
+
+El registro a una semana (`registro/pronosticos.csv`, [src/semanal.py](src/semanal.py)) se conserva como evidencia: sus filas no se borran y se siguen calificando.
 
 ### Ver el tablero
 
