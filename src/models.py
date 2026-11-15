@@ -36,6 +36,25 @@ def ridge():
     return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-2, 3, 30)))
 
 
+def ridge_temporal():
+    """Ridge con alpha elegido por validación temporal (5 cortes) en vez de leave-one-out."""
+    return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-2, 3, 30), cv=TimeSeriesSplit(5),
+                                                   scoring="neg_mean_squared_error"))
+
+
+class Duan(Modelo):
+    """Corrige el sesgo de volver de log a precio: exp(ŷ) estima la mediana, no la media.
+
+    Multiplica por el factor de Duan, el promedio de exp(residuo) del entrenamiento del bloque,
+    así que solo usa datos anteriores a la emisión.
+    """
+
+    def ajustar_predecir(self, entren, prueba):
+        est = self.fabrica().fit(entren[self.variables], entren.y)
+        factor = np.mean(np.exp(entren.y.to_numpy() - est.predict(entren[self.variables])))
+        return prueba.precio.to_numpy() * np.exp(est.predict(prueba[self.variables])) * factor
+
+
 def elasticnet():
     """Penalización y mezcla L1/L2 elegidas con validación temporal interna (5 cortes)."""
     return make_pipeline(StandardScaler(), ElasticNetCV(

@@ -21,6 +21,16 @@ VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
 # conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
 # Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
 VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
+# Garantía TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
+# tres semanas y XM puede publicarlas con semanas de atraso) y con los días de sábado a martes de s.
+VERSION_TIE = "tie-ridge11-parcial-duan-conformal104-v1"
+VARIABLES_TIE = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]] + ["parcial_rel"]
+VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
+# Candidato en paralelo desde el 20-nov-2026: más la hidrología de sábado a jueves de s y el precio
+# del martes. En el backtest erró 94.2 frente a 98.3 (p = 0.02), pero no ganó en todos los periodos:
+# lo decide el registro con la misma regla de 26 semanas que los candidatos anteriores.
+VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-hidro-martes-duan-conformal104-v1"
+VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
 DIAS_CMG_CANDIDATO = 2
 VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura
@@ -57,4 +67,8 @@ NOMBRES = {
     "brecha_oferta_nt": "Oferta no térmica frente al precio",
     "sen_semana": "Época del año (seno)",
     "cos_semana": "Época del año (coseno)",
+    "parcial_rel": "Precio de sábado a martes de la semana en curso",
+    "parcial_ultimo_rel": "Precio del martes frente a sábado-martes",
+    "aportes_s": "Aportes de sábado a jueves frente a la media",
+    "embalse_s_cambio": "Cambio del embalse hasta el jueves",
 }

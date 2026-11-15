@@ -17,3 +17,7 @@ results/*.txt
 
 # Bitácoras de la emisión semanal
 registro/logs/
+
+# Informe y diapositivas: se entregan aparte, no van en el repositorio
+/entregables/
+/informe/

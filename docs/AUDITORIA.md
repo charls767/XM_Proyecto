@@ -68,6 +68,7 @@ Dos matices al leer esta tabla:
 
 **5. Sesgo sistemático a quedarse corto: −12.5 COP/kWh (p = 0.002).**
 Tiene una causa matemática: Ridge ajusta el logaritmo, y exp(ŷ) estima la mediana, no la media. El factor de Duan, calculado solo con errores pasados, lleva el sesgo a +1.1, a cambio de subir el MAE de 54.05 a 54.45. **No se aplicó:** cambia el modelo oficial y su conveniencia depende de la regla de la garantía.
+*Actualización (15-nov-2026):* E15 calculó el factor dentro de cada bloque de entrenamiento, en vez de con errores fuera de muestra, y ahí sí mejora: el MAE baja de 54.0 a 53.4 (p = 0.04) y el sesgo de −12.9 a −8.3. El modelo de la garantía TIE lo usa (E16).
 
 **6. Los datos históricos no son los que existían en su momento.**
 El backtest usa los valores de hoy, ya revisados. Se midió el efecto solo para el precio (TX1: ~1 % de MAE). Hidrología, ofertas y disponibilidad no tienen versiones anteriores. Además, la clasificación térmica usa el listado de plantas de hoy (fuera del listado: 2.6 % de la generación en 2010, 0 % en 2026), y `AporEnerMediHist` salta cerca de 30 % a finales de 2022, algo que hay que aclarar con XM. Las versiones reales solo existen desde el 5 de noviembre de 2026, en `registro/snapshots/`.

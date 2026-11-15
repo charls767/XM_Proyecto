@@ -1,18 +1,22 @@
-# XM_Proyecto · Pronóstico semanal del precio de bolsa
+# XM_Proyecto · Precio de bolsa para la garantía TIE
 
-Modelo para anticipar, con una semana de antelación, el **precio de bolsa promedio del Mercado de Energía Mayorista (MEM) colombiano**, junto con una **cota superior de riesgo** y **alertas tempranas**. Es un insumo para estimar la garantía de los intercambios de energía con Ecuador (caso XM–UNAL).
+Modelo para anticipar el **precio de bolsa del Mercado de Energía Mayorista (MEM) colombiano** que entra en la **garantía de las transacciones internacionales de electricidad (TIE)** con Ecuador, con una **cota superior de riesgo** (caso XM–UNAL).
 
-Cada semana el proceso descarga los datos de XM, revisa su calidad, emite el pronóstico con su explicación, lo guarda en un registro que no se puede modificar y actualiza un tablero.
+La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problema: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los **precios horarios de la semana s-1**. Esa regla es, en la práctica, un pronóstico ingenuo a tres semanas. Este proyecto compara contra ella un modelo que usa la misma información disponible el viernes. El detalle está en [docs/SUPUESTOS.md](docs/SUPUESTOS.md).
 
-| En una mirada (evaluación 2018–2026) | |
+| En una mirada (semanas objetivo 2018–2026, E16) | |
 |---|---|
-| Error medio con la semana base completa | 54 COP/kWh, **19 % menos** que repetir el precio de la semana anterior |
-| Error medio si se emite el lunes (datos hasta el viernes) | 61–63 COP/kWh, **14–16 % menos** que el ingenuo |
-| Error típico | ~15 % del precio |
-| Cota al 90 % | El precio real quedó por debajo en **90 %** de las semanas |
-| Límite conocido | En las semanas de saltos bruscos la cota cubre solo ~70 % |
+| Regla de XM (repetir el precio de s-1) | 115 COP/kWh de error medio |
+| Modelo registrado | 98 COP/kWh, **15 % menos** que la regla (p < 0.001) |
+| Último año | 120 frente a 127: la ventaja se reduce y **no es significativa** |
+| Cota al 90 % | El precio real quedó por debajo en **90 %** de las semanas, pero la cota es ancha |
+| Pronóstico a una semana (complemento) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
 
-> Prototipo académico; no es una publicación oficial de XM. La evaluación 2018–2026 es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas: en 2025–2026 la ventaja frente al ingenuo no es significativa. La evidencia independiente es el [registro de pronósticos](registro/pronosticos.csv), que empezó el 5 de noviembre de 2026. Ver la [auditoría](docs/AUDITORIA.md). **No usarlo para fijar garantías sin esa validación y sin la regla de XM.**
+**La app** ([app/streamlit_app.py](app/streamlit_app.py)) muestra la comparación con la regla, la capacidad predictiva de 13 modelos, los episodios de estrés y el registro.
+
+> Prototipo académico; no es una publicación oficial de XM. La evaluación es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas. La evidencia independiente es el [registro TIE](registro/), que empieza el 20 de noviembre de 2026. Ver las auditorías: [5 de noviembre](docs/AUDITORIA.md), [10 de noviembre](docs/AUDITORIA_2026-11-10.md) y [15 de noviembre](docs/AUDITORIA_2026-11-15.md). **No usarlo para fijar garantías sin esa validación.**
+
+Las secciones siguientes explican el modelo a una semana, que fue el primer planteamiento. El modelo TIE usa la misma familia (Ridge sobre el cambio del precio), con 11 de esas variables más el precio de sábado a martes de la semana en curso.
 
 ---
 
@@ -98,7 +102,7 @@ El **margen** es el error que el modelo solo superó en el 10 % de las últimas 
 | Exceso de la cota | Cuánto sobra la cota cuando cubre | ≤ 40 % | 37 % ✓ |
 | Cobertura en semanas de salto | Cobertura en el 20 % de semanas con mayor cambio | ≥ 85 % | 70 % ✗ |
 
-En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *No cumple*) y se puede ver para las últimas 26 semanas, el último año, el estrés de 2022–2024 o desde 2018.
+En la app, la página *Capacidad predictiva* muestra estas métricas para cada periodo de evaluación.
 
 ### 7. Los tres estados
 
@@ -111,7 +115,7 @@ En el tablero cada métrica tiene un semáforo con texto (*Cumple*, *Vigilar*, *
 ### 8. Cuándo no confiar en él
 
 - En **saltos bruscos de precio**, que no se anticipan. En las semanas en que el precio sube se queda corto 58 COP/kWh en promedio (el ingenuo, 69) y la cota cubre 81 %.
-- Con el **embalse bajo 45 %**, donde no hay evidencia de que supere al ingenuo (mejora de 3,5 %, con intervalo de −16 % a +21 % en 44 semanas). El tablero lo avisa.
+- Con el **embalse bajo 45 %**, donde no hay evidencia de que supere al ingenuo (mejora de 3,5 %, con intervalo de −16 % a +21 % en 44 semanas).
 - En **regímenes nunca vistos**, por cambios regulatorios o condiciones fuera del rango 2010–2026.
 - Si al emitir solo se conoce la semana hasta el viernes: el error sube ~16 % (ver la [bitácora, E9](docs/EXPERIMENTOS.md)).
 
@@ -121,13 +125,13 @@ La [ficha técnica](FICHA_TECNICA.md) resume todo esto en una página.
 
 Se compararon LightGBM, XGBoost, SARIMAX, ARIMA, ElasticNet, un modelo en dos etapas, LEAR diario y variables en frecuencia (STFT y armónicos). El mejor candidato es un ensamble de Ridge 14 con LEAR: erra 3 % menos (52,6 frente a 54,1 COP/kWh), pero al corregir por los 67 modelos probados esa mejora ya no es significativa (p = 0,52 para el mejor de todos), así que aún debe validarse con pronósticos reales. Detalle en la [bitácora](docs/EXPERIMENTOS.md) y la [auditoría](docs/AUDITORIA.md).
 
-### Modelo candidato en paralelo
+### Candidatos del registro a una semana (ya no emite)
 
-Desde la próxima emisión, `src/semanal.py` también calcula y registra el ensamble **Ridge 14 + LEAR directo** (`candidato_*` en `registro/pronosticos.csv`), con su propia cota. No cambia el pronóstico oficial, y una falla suya no detiene la emisión. Las filas anteriores no se llenan hacia atrás, para que la comparación sea independiente.
+Mientras emitió (5 y 12 de noviembre de 2026), `src/semanal.py` también calculaba y registraba el ensamble **Ridge 14 + LEAR directo** (`candidato_*` en `registro/pronosticos.csv`), con su propia cota. No cambia el pronóstico oficial, y una falla suya no detiene la emisión. Las filas anteriores no se llenan hacia atrás, para que la comparación sea independiente.
 
-**Regla fijada de antemano:** a las 12 semanas calificadas se hace una primera lectura, solo informativa. A las 26, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. El tablero muestra el avance.
+**Regla fijada de antemano:** a las 12 semanas calificadas se hace una primera lectura, solo informativa. A las 26, el candidato reemplaza al oficial si su error medio es menor y la cobertura de su cota no baja de 85 %. Como ese registro dejó de emitir, la regla se aplica ahora al candidato TIE (ver la emisión semanal).
 
-**Segundo candidato, desde el 10 de noviembre de 2026:** Ridge 14 más el costo marginal del despacho programado (`CostMargDesp`) del lunes y el martes de la semana objetivo (`candidato_cmg_*`, versión `ridge14-cmg2d-conformal104-v1`). XM lo publica antes de cada día, así que con la emisión del miércoles esos dos días ya se conocen. En la evaluación simulada erró 39,3 COP/kWh frente a 53,9 de Ridge 14 (E12). Cada snapshot guarda los valores horarios tal como estaban publicados al emitir, para verificar después que la historia de la API no se revisó. Si el costo marginal no está publicado, no se emite el candidato y la emisión oficial sigue.
+**Segundo candidato (registro a una semana):** Ridge 14 más el costo marginal del despacho programado (`CostMargDesp`) del lunes y el martes de la semana objetivo (`candidato_cmg_*`, versión `ridge14-cmg2d-conformal104-v1`). XM lo publica antes de cada día, así que con la emisión del miércoles esos dos días ya se conocen. En la evaluación simulada erró 39,3 COP/kWh frente a 53,9 de Ridge 14 (E12). Cada snapshot guarda los valores horarios tal como estaban publicados al emitir, para verificar después que la historia de la API no se revisó. Si el costo marginal no está publicado, no se emite el candidato y la emisión oficial sigue.
 
 Se decide con la misma regla y el mismo calendario, más una condición: **solo puede reemplazar al oficial si XM confirma que la garantía puede fijarse con la semana objetivo ya iniciada** y que los dos días están publicados a la hora de emisión. Si no, su resultado solo cuantifica cuánto vale esperar a esa información.
 
@@ -146,23 +150,38 @@ pip install -r requirements.txt
 python -m pytest -q tests
 ```
 
-### Emisión semanal (cada miércoles)
+### Emisión semanal para la garantía TIE (viernes después de las 20:00)
 
 ```bash
 correr_semanal.bat
 ```
 
-El script actualiza los datos, emite y registra el pronóstico, califica los anteriores y regenera el tablero. Al final hace un commit del registro, los snapshots y el tablero, con el tag `registro-AAAA-MM-DD`: así la huella encadenada queda anclada fuera del CSV. El commit va a la rama activa y no se empuja. La salida completa queda en `registro/logs/AAAA-MM-DD.log`, fuera de git. Cada snapshot guarda los coeficientes, el escalador, los márgenes de la cota y huellas de los datos de entrenamiento, así que `semanal.reproducir` reconstruye el pronóstico aunque XM revise los datos. Para programarlo: Programador de tareas de Windows → Crear tarea básica → Semanal, miércoles en la tarde → Iniciar un programa → `correr_semanal.bat`.
+Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE (CREG 004 de 2003, art. 23; ver [docs/SUPUESTOS.md](docs/SUPUESTOS.md)). El viernes de la semana s, [src/semanal_tie.py](src/semanal_tie.py) pronostica el precio promedio horario de la semana s+2, de sábado a viernes. Lo registra junto a la regla de XM, que repite el precio de s-1.
 
-**Por qué el miércoles:** la API publica el precio con unos 3 días de rezago, así que el domingo queda disponible hacia el miércoles. Si se corre antes, la semana no está completa y no se emite nada nuevo. Por eso, hoy el pronóstico sale cuando la semana objetivo ya empezó, aunque no usa ningún dato de ella. Si XM confirma una emisión más temprana, el modelo adecuado es Ridge 14 + despacho programado (ver [E9](docs/EXPERIMENTOS.md)).
+- **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo y cota del 90 % (E16).
+- **Respaldo:** si faltan los días de s, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
+- **Candidato en paralelo:** el mismo modelo más la hidrología de sábado a jueves de s y el precio del martes. En el backtest erra 94.2 frente a 98.3, pero no gana en todos los periodos. Se registra a su lado, y con 26 semanas calificadas reemplaza al modelo si erra menos y su cota cubre al menos 85 %.
+- **Registro:** `registro/pronosticos_tie.csv`, encadenado con SHA-256, con snapshots en `registro/snapshots_tie/`.
 
-### Ver el tablero
+El script también califica las emisiones anteriores (incluidas las del registro a una semana, que ya no emite) y regenera `results/app/`. Al final hace un commit con el tag `registro-tie-AAAA-MM-DD`; no lo empuja. La salida queda en `registro/logs/AAAA-MM-DD.log`.
+
+Para probar sin registrar: `python src/semanal_tie.py --seco --fecha 2026-11-13`.
+
+**Por qué el viernes en la noche:** es el día de cálculo del ASIC. La API publica el precio con unos 3 días de rezago y la hidrología con 1: el precio del martes y la hidrología del jueves aparecen hacia el viernes en la tarde o la noche. Si se emite antes, el modelo cae a respaldo y el candidato no se calcula.
+
+El registro a una semana (`registro/pronosticos.csv`, [src/semanal.py](src/semanal.py)) se conserva como evidencia: sus filas no se borran y se siguen calificando.
+
+### Ver la app
 
 ```bash
-python -m http.server 8000 --directory dashboard
+python src/resultados_app.py
 ```
 
-Luego abre http://localhost:8000. También funciona abriendo `dashboard/index.html` directamente en el navegador.
+```bash
+streamlit run app/streamlit_app.py
+```
+
+El primer comando reúne en `results/app/` los resultados que muestra la app (la emisión semanal también lo hace). La app solo lee esa carpeta, así que no consulta la API de XM al abrirse. El tablero HTML anterior (`dashboard/`) ya no se regenera.
 
 ### Reproducir la evaluación
 
@@ -179,14 +198,20 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 ```
 ├── README.md                 este documento
 ├── FICHA_TECNICA.md          el modelo en una página
-├── docs/AUDITORIA.md         auditoría metodológica: riesgos, evidencia y correcciones
-├── docs/AUDITORIA_2026-11-10.md  segunda auditoría: desempeño reciente, hora de emisión y operación
-├── docs/EXPERIMENTOS.md      bitácora de experimentos E1–E11, con tablas y decisiones
-├── correr_semanal.bat        emisión semanal completa
+├── docs/SUPUESTOS.md         la regla de la garantía TIE y los supuestos del proyecto
+├── docs/PREGUNTAS_XM.md      preguntas a XM y lo que ya respondieron
+├── docs/EXPERIMENTOS.md      bitácora de experimentos E0–E16, con tablas y decisiones
+├── docs/AUDITORIA*.md        auditorías del 5, 10 y 15 de noviembre (dos el 15)
+├── correr_semanal.bat        emisión semanal TIE (viernes después de las 20:00)
 ├── requirements.txt          dependencias fijas (Python 3.11)
+├── app/
+│   ├── streamlit_app.py      app de resultados (7 páginas)
+│   └── requirements.txt      dependencias mínimas para Streamlit Cloud
 ├── src/
-│   ├── config.py             modelo en operación, cota y umbrales del monitoreo
-│   ├── semanal.py            emisión: datos, controles, pronóstico, explicación, registro, calificación
+│   ├── config.py             modelos en operación (TIE y candidato), cota y umbrales del monitoreo
+│   ├── semanal_tie.py        emisión TIE: datos, pronóstico s+2, candidato, registro, calificación, reproducción
+│   ├── resultados_app.py     reúne en results/app/ lo que muestra la app
+│   ├── semanal.py            emisión a una semana (ya no emite; califica y reproduce su registro)
 │   ├── monitoreo.py          controles de calidad, rango histórico, desempeño reciente y estado
 │   ├── xm_client.py          descarga desde XM con pydataxm (o consulta directa) y caché mensual
 │   ├── data_pipeline.py      tabla semanal y variantes usadas en los experimentos
@@ -202,8 +227,8 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 │   ├── trazabilidad.py       registro de corridas (commit, datos, versiones)
 │   ├── tuning.py             hiperparámetros con datos anteriores a 2018
 │   └── graficas.py           frontera de las cotas (E7)
-├── dashboard/                plantilla, generador e index.html del tablero
-├── registro/                 pronósticos emitidos (inmutables) y snapshots de cada emisión
+├── dashboard/                tablero HTML anterior (ya no se regenera)
+├── registro/                 pronósticos emitidos (inmutables) y snapshots: pronosticos_tie.csv y el registro a una semana
 ├── results/                  resultados de los experimentos
 ├── data/                     caché de la API de XM, ONI de NOAA y tablas semanales
 ├── tests/                    reproducción, no fuga de información, calibración, alertas y operación

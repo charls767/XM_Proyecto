@@ -31,6 +31,9 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E12 | `e12` | ¿Ayuda el costo marginal del despacho programado de los primeros días de la semana objetivo? | Sí: con lunes a miércoles el error baja 38 % frente a Ridge 14, significativo tras corregir por búsqueda. Falta confirmar con XM la hora de publicación y si la garantía se fija con la semana ya empezada. |
 | E13 | `e13` | ¿Mejora un ARIMA? ¿Aportan variables en frecuencia (STFT, armónicos)? | No. ARIMA puro queda casi en el ingenuo; STFT no aporta. El segundo armónico anual mejora 0.8 en selección, pero no pasa la corrección por búsqueda (p = 0.71). |
 | E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
+| E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
+| E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
+| E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -515,6 +518,87 @@ Conclusiones:
 - **Ninguno corrige el sesgo del último año**: los tres se quedan cortos en un año de precios al alza.
 
 **Decisión de E14:** nada cambia en la operación. Los tres modelos siguen en paralelo y se deciden con el registro. El tablero muestra esta comparación y las matrices.
+
+## E15: costo marginal de 3 días, corrección de sesgo y alpha temporal
+
+Un solo walk-forward, 2018–2026 (456 semanas), semana base completa. Resultados en `results/E15_resumen.csv`.
+
+| Modelo | MAE | Sesgo | Cobertura cota | Cobertura en saltos |
+|---|---|---|---|---|
+| Ingenuo | 66.7 | −1.2 | 89.9 % | 56.5 % |
+| Ridge 14 (oficial) | 54.0 | −12.9 | 90.1 % | 69.6 % |
+| Ridge 14 con Duan | 53.4 | −8.3 | 90.1 % | 69.6 % |
+| Ridge 14 con alpha temporal | 54.4 | −12.9 | 90.4 % | 68.5 % |
+| Ridge 14 + CMg 2 días | 39.3 | −9.4 | 91.0 % | 75.0 % |
+| Ridge 14 + CMg 2 días con Duan | 39.1 | −6.6 | 91.0 % | 75.0 % |
+| Ridge 14 + CMg 3 días | 33.4 | −9.1 | 91.2 % | 76.1 % |
+| Ridge 14 + CMg 3 días con Duan | 33.2 | −6.9 | 91.2 % | 76.1 % |
+
+- **Costo marginal de 3 días:** erra 5.9 COP/kWh menos que con 2 días (IC 95 % de −8.7 a −3.6, p < 0.001) y 20.5 menos que el oficial. Al emitir el miércoles en la tarde, el del miércoles probablemente ya está publicado: el jueves 12 de noviembre de 2026 a las 22:06 aún no estaba el del viernes, así que XM lo publica tarde la víspera o el mismo día. Falta confirmar la hora.
+- **Duan dentro de cada bloque:** el factor es el promedio de exp(residuo) del entrenamiento, así que no usa datos futuros. Baja el MAE 0.6 (IC de −1.2 a −0.1, p = 0.04) y el sesgo de −12.9 a −8.3. La auditoría había probado el factor con errores fuera de muestra y subía el MAE; calcularlo dentro del bloque funciona mejor.
+- **Alpha con validación temporal:** erra 0.4 más (p = 0.06). El alpha elegido por leave-one-out es estable (8.5–18.9, mediana 12.7) y se mantiene.
+- **Sin corrección por búsqueda:** son 3 comparaciones fijadas de antemano, no una búsqueda amplia.
+
+## E16: pronóstico alineado con la garantía TIE
+
+La regla (CREG 004 de 2003, art. 23, según el material de formación de XM) calcula el viernes de la semana s el monto de la semana s+2 con los precios horarios de s-1. Tabla en `dp.tabla_tie()`:
+- **Semanas:** de sábado a viernes.
+- **Precio:** promedio horario simple, porque la máxima transferencia se aproxima constante.
+- **Objetivo:** tres semanas después de la semana base.
+- **Embargo de 2 semanas:** la fila r tiene objetivo r+3, que aún no se conoce al emitir s.
+- **Cota:** conformal con rezago 3.
+- **`parcial_rel`:** precio de sábado a martes de la semana s frente a s-1, ya publicado el viernes.
+
+Semanas objetivo de 2018 a 2026 (461). Resultados en `results/E16_resumen.csv`.
+
+| Modelo | MAE | Mejora vs. regla | Sesgo | Cobertura cota |
+|---|---|---|---|---|
+| Regla XM (repetir s-1) | 115.3 | — | −2.4 | 91.3 % |
+| Regla con sábado a martes de s | 103.3 | 10.4 % | −8.9 | 90.0 % |
+| Ridge 14 | 105.2 | 8.7 % (p = 0.03) | −28.4 | 90.7 % |
+| Ridge 14 con Duan | 105.2 | 8.8 % (p = 0.01) | −10.2 | 90.7 % |
+| Ridge 14 + sábado a martes | 98.3 | 14.8 % | −23.6 | 90.2 % |
+| Ridge 14 + sábado a martes con Duan | 98.2 | 14.8 % (p < 0.001) | −7.5 | 90.5 % |
+| **Registrado:** 11 variables sin ofertas + sábado a martes, con Duan | 98.3 | 14.8 % (p < 0.001) | −16.1 | 90.5 % |
+
+| **Candidato en paralelo:** registrado + hidrología de sábado a jueves de s + precio del martes | 94.2 | 18.3 % (p < 0.001) | −17.6 | 90.0 % |
+
+**Candidato (15-nov-2026).** Usa información que el viernes ya está publicada: aportes frente a la media y cambio del embalse de sábado a jueves de la semana s (la hidrología se publica con un día de rezago), y el precio del martes frente al de sábado a martes.
+
+| Variante (461 semanas) | 2018–26 | Final 2025–26 | Últimas 52 | p frente al registrado |
+|---|---|---|---|---|
+| Registrado | 98.3 | 104.5 | 119.9 | — |
+| + hidrología de s | 94.9 | 106.8 | 125.6 | 0.03 |
+| + martes | 96.7 | 101.3 | 112.7 | 0.14 |
+| + las dos (candidato) | 94.2 | 104.5 | 120.2 | 0.02 |
+| LightGBM | 103.7 | 104.2 | 131.4 | — |
+
+La mejora es significativa en el promedio largo, pero no en la prueba final ni en el último año. Además, se eligió entre 6 variantes después de ver esos periodos. Por eso no reemplaza al registrado: se registra a su lado y, con 26 semanas calificadas, lo reemplaza si erra menos y su cota cubre al menos 85 %.
+
+El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambia el error, y evita caer en respaldo cuando XM las publica con atraso, como en noviembre de 2026. En las últimas 52 semanas erra 120 frente a 127 de la regla (p = 0.40): la ventaja reciente no es significativa.
+
+- **El horizonte duplica el error:** a una semana el ingenuo erra 66.7; a tres, 115.3.
+- **La ganancia más simple:** usar los días ya publicados de la semana en curso en vez de solo s-1 baja el error 10 %, sin modelo.
+- **El mejor modelo** combina esos días con Ridge 14 y la corrección de Duan. El sesgo baja de −23.6 a −7.5.
+- **La cota es ancha:** cuando cubre, excede al precio real en 88 %.
+- **El costo marginal programado** no está disponible para s+2 el viernes de cálculo, así que no se probó.
+- **Sin corrección por búsqueda:** son 5 comparaciones fijadas de antemano.
+
+## E17: corrección de sesgo adaptativa (resultado negativo)
+
+**Hipótesis (diagnóstico del 15 de noviembre de 2026):** el modelo TIE registrado se queda corto en el último año (−19 COP/kWh). Corregirlo con el error reciente debería reducir el error.
+
+**Cómo:** al pronóstico registrado se le aplica el factor exp(media de log(real/pronóstico)) de las últimas k semanas ya calificadas, con rezago 3. Se calcula sobre `E16_ancho`, sin reentrenar. Resultados en `results/E17_resumen.csv`.
+
+| Variante (461 semanas) | MAE | Sesgo | Final 2025–26 | Últimas 52 | Sesgo últimas 52 | p frente al registrado |
+|---|---|---|---|---|---|---|
+| Regla XM | 115.3 | −2.4 | 122.1 | 127.0 | −20.6 | — |
+| Registrado | 98.3 | −16.1 | 104.5 | 119.9 | −19.1 | — |
+| Adaptativo, 13 semanas | 106.0 | +12.0 | 116.4 | 137.9 | +35.0 | 0.16 |
+| Adaptativo, 26 semanas | 106.0 | +4.1 | 124.4 | 148.9 | +18.1 | 0.06 |
+| Adaptativo, 52 semanas | 99.2 | −5.5 | 108.2 | 122.2 | −19.7 | 0.60 |
+
+**Conclusión: no se adopta ni se registra en paralelo.** La corrección empeora el error en todos los periodos, incluido el último año. El sesgo no persiste lo suficiente: con tres semanas de rezago, la corrección llega tarde y se pasa al otro lado (+35 en las últimas 52 semanas con k = 13). El sesgo reciente se seguirá vigilando en la emisión, sin corregirlo.
 
 ## Correcciones de la auditoría a las cifras anteriores
 

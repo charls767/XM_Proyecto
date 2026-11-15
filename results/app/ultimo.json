@@ -1,0 +1,112 @@
+{
+ "explicacion": {
+  "semana_base": "2026-10-26",
+  "precio_base": 510.85911979396997,
+  "pronostico": 418.9273761014291,
+  "intercepto": 0.0013243432083168763,
+  "aportes": [
+   {
+    "variable": "log_precio",
+    "nombre": "Nivel del precio",
+    "aporte_log": -0.0317330330981859,
+    "valor": 6.236093857073386
+   },
+   {
+    "variable": "momentum",
+    "nombre": "Cambio frente a la semana anterior",
+    "aporte_log": 0.017009871367434027,
+    "valor": -0.10641535079779285
+   },
+   {
+    "variable": "cv_diario",
+    "nombre": "Variación diaria del precio",
+    "aporte_log": 0.03634151776337287,
+    "valor": 0.18762741032514535
+   },
+   {
+    "variable": "ultimo_dia_rel",
+    "nombre": "Precio del último día frente al promedio semanal",
+    "aporte_log": -0.22194864747013754,
+    "valor": -0.40524567292504116
+   },
+   {
+    "variable": "max_h_rel",
+    "nombre": "Pico horario frente al promedio",
+    "aporte_log": 0.031852174634947855,
+    "valor": 1.0803687549872054
+   },
+   {
+    "variable": "embalse_cierre",
+    "nombre": "Nivel del embalse",
+    "aporte_log": -0.019847910755281375,
+    "valor": 0.7759
+   },
+   {
+    "variable": "embalse_cambio",
+    "nombre": "Cambio semanal del embalse",
+    "aporte_log": -0.026310317152328403,
+    "valor": 0.008950000000000014
+   },
+   {
+    "variable": "aportes_pct_media",
+    "nombre": "Aportes de la semana frente a la media",
+    "aporte_log": 0.018007221548115366,
+    "valor": 0.609484800677197
+   },
+   {
+    "variable": "aportes_pct_media_4s",
+    "nombre": "Aportes de 4 semanas frente a la media",
+    "aporte_log": -0.047162148186879964,
+    "valor": 0.6114838967860186
+   },
+   {
+    "variable": "log_oferta_termica",
+    "nombre": "Precio de oferta térmico",
+    "aporte_log": 0.06280638274481547,
+    "valor": 6.772083219422865
+   },
+   {
+    "variable": "log_oferta_no_termica",
+    "nombre": "Precio de oferta no térmico",
+    "aporte_log": -0.01319781888020801,
+    "valor": 5.595547666140779
+   },
+   {
+    "variable": "brecha_oferta_nt",
+    "nombre": "Oferta no térmica frente al precio",
+    "aporte_log": -0.05042980028593655,
+    "valor": -0.6405461909326071
+   },
+   {
+    "variable": "sen_semana",
+    "nombre": "Época del año (seno)",
+    "aporte_log": 0.06325131608324021,
+    "valor": -0.833263145893403
+   },
+   {
+    "variable": "cos_semana",
+    "nombre": "Época del año (coseno)",
+    "aporte_log": -0.018359430422245783,
+    "valor": 0.5528765953590633
+   }
+  ]
+ },
+ "sin_ofertas": {
+  "semana_base": "2026-11-02",
+  "precio_base": 373.4442776349012,
+  "pronostico": 330.238948451877,
+  "variables": [
+   "log_precio",
+   "momentum",
+   "cv_diario",
+   "ultimo_dia_rel",
+   "max_h_rel",
+   "embalse_cierre",
+   "embalse_cambio",
+   "aportes_pct_media",
+   "aportes_pct_media_4s",
+   "sen_semana",
+   "cos_semana"
+  ]
+ }
+}

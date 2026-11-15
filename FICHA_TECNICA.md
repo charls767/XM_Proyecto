@@ -1,12 +1,25 @@
-# Ficha técnica: pronóstico semanal del precio de bolsa (PAE-XM)
+# Ficha técnica: precio de bolsa para la garantía TIE (PAE-XM)
 
-**Versión:** `ridge14-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** noviembre de 2026
+**Versión registrada:** `tie-ridge11-parcial-duan-conformal104-v1` (desde el 20-nov-2026) · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
 
 ## Para qué sirve
 
-Estima el precio de bolsa promedio de la **semana siguiente**, ponderado por demanda, y una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas. Es un insumo para estimar la garantía de los intercambios de energía con Ecuador.
+Estima el **precio de bolsa promedio horario de la semana TIE s+2** (sábado a viernes), calculado el viernes de la semana s, que es el precio que entra en la garantía de las transacciones internacionales con Ecuador (CREG 004 de 2003, art. 23). Incluye una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas. Se compara siempre con la regla de XM, que repite el precio de la semana s-1.
 
-**No sirve para:** pronosticar más de una semana adelante, pronosticar precios horarios, calcular la garantía completa (falta la regla de XM) ni anticipar saltos bruscos de precio.
+| Garantía TIE (semanas objetivo 2018–2026, E16) | |
+|---|---|
+| Regla de XM | 115.3 COP/kWh de error medio |
+| Modelo registrado | 98.3 COP/kWh, 14.8 % menos (p < 0.001); sesgo −16 |
+| Último año | 120 frente a 127, sin significancia (p = 0.40) |
+| Cota 90 % | Cubre 90.5 %; cuando cubre, excede al precio real en 85 % |
+
+**Modelo:** Ridge sobre log(P<sub>s+2</sub>/P<sub>s-1</sub>) con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo de Duan. Respaldo sin los días de s; vigilancia si en 52 semanas erra más que la regla, la cota cubre menos de 80 % o el sesgo es significativo. Detalle en [docs/SUPUESTOS.md](docs/SUPUESTOS.md) y [E16](docs/EXPERIMENTOS.md).
+
+**No sirve para:** calcular el monto completo (también dependen la máxima transferencia, el CEE y la tasa de cambio), pronosticar precios horarios ni anticipar saltos bruscos.
+
+## El pronóstico a una semana (complemento)
+
+El resto de esta ficha describe el primer planteamiento: el precio de la **semana siguiente** (lunes a domingo, ponderado por demanda), versión `ridge14-conformal104-v1`, registrado del 5 al 12 de noviembre de 2026. Se conserva como comparación.
 
 ## Qué hace
 
@@ -20,7 +33,7 @@ Estima el precio de bolsa promedio de la **semana siguiente**, ponderado por dem
 
 ## Datos
 
-API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología. La demanda de los días más recientes puede venir incompleta; esos días se estiman con la generación, el tablero lo avisa y la semana no se califica hasta que esté completa.
+API pública de XM (vía `pydataxm`): precio de bolsa, demanda comercial, aportes, embalse, capacidad efectiva, precios de oferta y generación por recurso, de 2010 a hoy. Rezagos de publicación observados en la API: unos 3 días para el precio y las ofertas, 1 día para la hidrología. La demanda de los días más recientes puede venir incompleta; esos días se estiman con la generación y la semana no se califica hasta que esté completa.
 
 ## Qué tan bien funciona (evaluación simulada 2018–2026)
 
@@ -43,13 +56,13 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 ## Cuándo no confiar en él
 
 - **Semanas de salto.** Los cambios bruscos de precio no se anticipan. La cota cubre solo 7 de cada 10 de esas semanas.
-- **Estado "vigilancia" o "respaldo"** en el tablero. Hay datos atrasados, variables fuera de lo visto o el modelo no le gana al ingenuo recientemente.
+- **Estado "vigilancia" o "respaldo"** en la emisión. Hay datos atrasados, variables fuera de lo visto o el modelo no le gana al ingenuo recientemente.
 - **Regímenes nuevos.** Cambios regulatorios o de mercado que no estén en la historia de 2010–2026.
 - **Información incompleta.** Si al emitir solo se conoce la semana base hasta el viernes, el error sube a ~61–63 COP/kWh. En ese escenario conviene el modelo con el despacho programado del lunes (experimento E9).
 
 ## Limitaciones conocidas
 
-- La evaluación 2018–2026 es simulada y se usó para elegir entre 67 modelos, así que sus cifras son optimistas. La evidencia independiente es el registro de pronósticos (`registro/pronosticos.csv`), que empezó el 5 de noviembre de 2026.
+- La evaluación 2018–2026 es simulada y se usó para elegir entre 67 modelos, así que sus cifras son optimistas. La evidencia independiente es el registro de pronósticos: `registro/pronosticos.csv` para este modelo (5 y 12 de noviembre de 2026) y `registro/pronosticos_tie.csv` para la garantía TIE, desde el 20 de noviembre de 2026.
 - No se probaron fuentes externas a XM y NOAA, como pronósticos de aportes o mantenimientos programados.
 - Las métricas usan el precio vigente; con la versión TX1 son ~1 % peores.
 - Un ensamble de Ridge, LightGBM y SARIMAX erró ~2 % menos en 2018–2026, sin significancia en el periodo de selección. Se prefirió Ridge por simplicidad y explicación exacta (E5/E6).
@@ -65,7 +78,7 @@ Por régimen: con el embalse bajo 45 % no hay evidencia de que supere al ingenuo
 
 ## Mantenimiento
 
-- **Cada miércoles en la tarde** (por el rezago de publicación del precio): `correr_semanal.bat`.
+- **Cada viernes después de las 20:00** (día de cálculo de la garantía TIE): `correr_semanal.bat`. Desde el 15 de noviembre de 2026 emite el pronóstico de la semana s+2 para la garantía TIE ([docs/SUPUESTOS.md](docs/SUPUESTOS.md), E16). El registro a una semana se conserva y se sigue calificando.
 - **Revisar:** si el estado sale en vigilancia dos semanas seguidas, si la cobertura de las últimas 26 semanas baja de 80 % o si el sesgo de esas semanas pasa de 5 % del precio con significancia (hoy: −7.6 %, p = 0.04).
 - **Anclaje:** el `.bat` hace commit y tag `registro-AAAA-MM-DD` de cada emisión; revisar la bitácora en `registro/logs/` si falla.
 - **Cambiar de modelo:** solo con evidencia del registro y una nueva versión en `src/config.py`, sin borrar las filas registradas con la anterior.

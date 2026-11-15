@@ -665,6 +665,159 @@ def resumen_e14(w):
     return t, cms, alerta
 
 
+def configuraciones_e15():
+    """Ridge 14 y Ridge 14 + costo marginal (2 y 3 días), cada uno con y sin la corrección de Duan,
+    y el oficial con alpha elegido por validación temporal en vez de leave-one-out."""
+    v2 = config.VARIABLES + ["cmg_2d_rel", "cmg_brecha"]
+    v3 = config.VARIABLES + ["cmg_3d_rel", "cmg_brecha"]
+    return [models.Modelo("Ingenuo"),
+            models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+            models.Modelo("Ridge14_alpha_temporal", config.VARIABLES, models.ridge_temporal),
+            models.Duan("Ridge14_Duan", config.VARIABLES, models.ridge),
+            models.Modelo("Ridge14+cmg2d", v2, models.ridge),
+            models.Duan("Ridge14+cmg2d_Duan", v2, models.ridge),
+            models.Modelo("Ridge14+cmg3d", v3, models.ridge),
+            models.Duan("Ridge14+cmg3d_Duan", v3, models.ridge)]
+
+
+def correr_e15():
+    """E15: costo marginal de 3 días, corrección de sesgo de Duan y alpha con validación temporal.
+
+    Todos en un mismo walk-forward (mismas semanas y reentrenamientos), con la semana base completa.
+    """
+    d = fe.preparar(dp.tabla_e12())
+    m = configuraciones_e15()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas)
+    bt.guardar(r, "E15")
+    w = bt.ancho(r)
+    for c in [x.nombre for x in m]:
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL)
+    w.to_parquet(bt.RESULTADOS / "E15_ancho.parquet")
+    return w
+
+
+def resumen_e15(w):
+    """Error, sesgo y cota por modelo; diferencias contra el oficial y de 3 contra 2 días."""
+    w = w[w.index >= INICIO_EVALUACION].dropna(subset=["real"])
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=1))
+    alta = ev.alta_variabilidad_ex_post(w)
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "MAE": e.abs().mean(), "sesgo": e.mean(),
+                "sesgo_%": (e / w.real).mean() * 100, "quedarse_corto_%": (e < 0).mean() * 100,
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                "cobertura": cubre.mean(), "cobertura_saltos": cubre[alta].mean(),
+                "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        for ref in ("Ridge14", "Ridge14+cmg2d"):
+            if m not in ("Ingenuo", ref):
+                lo, hi = ev.ic_diferencia_mae(w, m, ref)
+                fila.update({f"dif_vs_{ref}": e.abs().mean() - (w[ref] - w.real).abs().mean(),
+                             f"IC95_inf_vs_{ref}": lo, f"IC95_sup_vs_{ref}": hi,
+                             f"p_DM_vs_{ref}": ev.diebold_mariano(w, m, ref)[1]})
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E15_resumen.csv")
+    return t
+
+
+def configuraciones_e16():
+    """La regla de XM (repetir s-1) frente a Ridge 14, con y sin Duan y con los días de la semana s."""
+    vp = config.VARIABLES + ["parcial_rel"]
+    return [models.Modelo("Regla XM"),
+            models.Modelo("Ridge14", config.VARIABLES, models.ridge),
+            models.Duan("Ridge14_Duan", config.VARIABLES, models.ridge),
+            models.Modelo("Regla XM + sáb-mar", columna_referencia="precio_parcial"),
+            models.Modelo("Ridge14+parcial", vp, models.ridge),
+            models.Duan("Ridge14+parcial_Duan", vp, models.ridge),
+            # El que se registra desde el 20-nov-2026: sin ofertas (XM las publica con atraso).
+            models.Duan("Registrado", config.VARIABLES_TIE, models.ridge),
+            # Candidato en paralelo desde el 20-nov-2026: hidrología de sábado a jueves y martes.
+            models.Duan("Candidato", config.VARIABLES_TIE_CANDIDATO, models.ridge)]
+
+
+def correr_e16():
+    """E16: pronóstico alineado con la garantía TIE (CREG 004 de 2003, art. 23).
+
+    Semana de sábado a viernes, precio horario promedio y horizonte s-1 → s+2. Al emitir el
+    viernes de la semana s solo se conocen completas las semanas hasta s-1: la fila r tiene
+    objetivo r+3, así que se entrena con filas r ≤ s-1-3 (embargo de 2 semanas) y la cota usa
+    errores con rezago 3.
+    """
+    d = fe.preparar(dp.tabla_tie(recalcular=True))
+    m = configuraciones_e16()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y", "precio_parcial"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas,
+                    embargo=dp.HORIZONTE_TIE - 1)
+    r["semana_objetivo"] = r.semana_base + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    r["fecha_emision"] = r.semana_base + pd.Timedelta(days=13)  # viernes de la semana s
+    r["periodo"] = bt.periodo(r.semana_objetivo)
+    bt.guardar(r, "E16")
+    w = bt.ancho(r)
+    for c in [x.nombre for x in m]:
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE)
+    w.to_parquet(bt.RESULTADOS / "E16_ancho.parquet")
+    return w
+
+
+def resumen_e16(w):
+    """Error, sesgo y cota por modelo frente a la regla de XM, en semanas objetivo 2018–2026."""
+    obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    mae_regla = (w["Regla XM"] - w.real).abs().mean()
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "semanas": int(e.notna().sum()), "MAE": e.abs().mean(),
+                "mejora_vs_regla_%": (1 - e.abs().mean() / mae_regla) * 100, "sesgo": e.mean(),
+                "quedarse_corto_%": (e < 0).mean() * 100,
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                "cobertura": cubre.mean(), "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        if m != "Regla XM":
+            lo, hi = ev.ic_diferencia_mae(w, m, "Regla XM")
+            fila.update(dif_vs_regla=e.abs().mean() - mae_regla, IC95_inf=lo, IC95_sup=hi,
+                        p_DM=ev.diebold_mariano(w, m, "Regla XM")[1])
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E16_resumen.csv")
+    return t
+
+
+def correr_e17():
+    """E17: corrección de sesgo adaptativa sobre el modelo TIE registrado (sobre E16_ancho).
+
+    pred · exp(media de log(real/pred) en las últimas k semanas ya calificadas), con rezago 3:
+    al emitir la fila i solo se conocen los reales hasta la fila i-3. Con menos de 8 semanas no corrige.
+    """
+    import numpy as np
+
+    w = pd.read_parquet(bt.RESULTADOS / "E16_ancho.parquet")
+    s = np.log(w.real / w.Registrado).to_numpy()
+    for k in (13, 26, 52):
+        f = np.zeros(len(s))
+        for i in range(len(s)):
+            prev = s[max(0, i - dp.HORIZONTE_TIE + 1 - k):i - dp.HORIZONTE_TIE + 1]
+            prev = prev[~np.isnan(prev)]
+            f[i] = prev.mean() if len(prev) >= 8 else 0.0
+        w[f"Adaptativo_{k}s"] = w.Registrado * np.exp(f)
+    x = w[(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE) >= INICIO_EVALUACION) & w.real.notna()]
+    per = bt.periodo(x.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    u = x.tail(52)
+    filas = []
+    for c in ["Regla XM", "Registrado", "Adaptativo_13s", "Adaptativo_26s", "Adaptativo_52s"]:
+        e = x[c] - x.real
+        filas.append({"modelo": c, "MAE": e.abs().mean(), "sesgo": e.mean(), "MAE_final": e[per == "final"].abs().mean(),
+                      "MAE_52s": (u[c] - u.real).abs().mean(), "sesgo_52s": (u[c] - u.real).mean(),
+                      "p_DM_vs_registrado": ev.diebold_mariano(x, c, "Registrado")[1] if c != "Registrado" else np.nan})
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E17_resumen.csv")
+    return t
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -708,6 +861,12 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e17":
+        print(correr_e17().to_string())
+    elif comando == "e16":
+        print(resumen_e16(correr_e16()).T.to_string())
+    elif comando == "e15":
+        print(resumen_e15(correr_e15()).T.to_string())
     elif comando == "e10":
         correr_e10()
         print(pd.read_csv(bt.RESULTADOS / "E10_estres.csv").to_string(index=False))
