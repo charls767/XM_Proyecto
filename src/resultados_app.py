@@ -76,7 +76,8 @@ TIE = {"Regla XM": "Regla XM (repetir s-1)", "Regla XM + sáb-mar": "Regla con s
        "Ridge14": "Ridge 14", "Ridge14_Duan": "Ridge 14 con corrección de sesgo",
        "Ridge14+parcial": "Ridge 14 + sábado a martes de s",
        "Ridge14+parcial_Duan": "Ridge 14 + sábado a martes de s, con corrección de sesgo",
-       "Registrado": "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)"}
+       "Registrado": "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)",
+       "Candidato": "Candidato en paralelo (+ hidrología hasta el jueves y martes)"}
 
 
 def predicciones_tie():

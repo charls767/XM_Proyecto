@@ -76,7 +76,8 @@ TIE_MODELOS = [c for c in TIE.columns if c not in ("semana_objetivo", "real", "b
 COLOR.update({"Regla XM (repetir s-1)": MUTED, "Regla con sábado a martes de s": INK2, "Ridge 14": "#2a78d6",
               "Ridge 14 + sábado a martes de s": "#1baf7a",
               "Ridge 14 + sábado a martes de s, con corrección de sesgo": "#6250d6",
-              "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)": "#eb6834"})
+              "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)": "#eb6834",
+              "Candidato en paralelo (+ hidrología hasta el jueves y martes)": "#1baf7a"})
 NOMBRES = MODELOS.modelo.tolist()
 
 
@@ -244,14 +245,16 @@ misma información disponible el viernes de cálculo.
     st.subheader("Registro de pronósticos TIE")
     st.markdown("Cada viernes se registra el pronóstico de la semana s+2 junto a la regla de XM, antes de conocer el "
                 "resultado y con una huella encadenada que impide editarlo. Modelo: Ridge sin variables de oferta "
-                "(no aportan a tres semanas) más los días de sábado a martes, con corrección de sesgo.")
+                "(no aportan a tres semanas) más los días de sábado a martes, con corrección de sesgo. "
+                "A su lado se registra un candidato que suma la hidrología de sábado a jueves y el precio del martes: "
+                "con 26 semanas calificadas lo reemplaza si erra menos y su cota cubre al menos 85 %.")
     archivo = DATOS / "registro_tie.csv"
     if not archivo.exists():
         st.info("La primera emisión TIE será el viernes 20 de noviembre de 2026, para la semana del 28 de noviembre al 4 de diciembre.")
         return
     r = pd.read_csv(archivo, parse_dates=["fecha_emision", "semana_objetivo"])
     st.dataframe(r[["fecha_emision", "semana_objetivo", "estado", "regla_xm", "pronostico", "cota90", "real",
-                    "error_regla", "error"]], hide_index=True, width="stretch", column_config={
+                    "error_regla", "error", "candidato_pronostico", "candidato_error"]], hide_index=True, width="stretch", column_config={
         "fecha_emision": st.column_config.DateColumn("Emitido", format="DD/MM/YYYY"),
         "semana_objetivo": st.column_config.DateColumn("Semana objetivo (sábado)", format="DD/MM/YYYY"),
         "regla_xm": st.column_config.NumberColumn("Regla XM", format="%.1f"),
@@ -260,6 +263,8 @@ misma información disponible el viernes de cálculo.
         "real": st.column_config.NumberColumn("Real", format="%.1f"),
         "error_regla": st.column_config.NumberColumn("Error regla", format="%+.1f"),
         "error": st.column_config.NumberColumn("Error modelo", format="%+.1f"),
+        "candidato_pronostico": st.column_config.NumberColumn("Candidato", format="%.1f"),
+        "candidato_error": st.column_config.NumberColumn("Error candidato", format="%+.1f"),
     })
 
 

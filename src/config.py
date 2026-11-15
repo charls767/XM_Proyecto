@@ -26,6 +26,11 @@ VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
 VERSION_TIE = "tie-ridge11-parcial-duan-conformal104-v1"
 VARIABLES_TIE = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]] + ["parcial_rel"]
 VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
+# Candidato en paralelo desde el 20-nov-2026: más la hidrología de sábado a jueves de s y el precio
+# del martes. En el backtest erró 94.2 frente a 98.3 (p = 0.02), pero no ganó en todos los periodos:
+# lo decide el registro con la misma regla de 26 semanas que los candidatos anteriores.
+VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-hidro-martes-duan-conformal104-v1"
+VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
 DIAS_CMG_CANDIDATO = 2
 VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura
@@ -63,4 +68,7 @@ NOMBRES = {
     "sen_semana": "Época del año (seno)",
     "cos_semana": "Época del año (coseno)",
     "parcial_rel": "Precio de sábado a martes de la semana en curso",
+    "parcial_ultimo_rel": "Precio del martes frente a sábado-martes",
+    "aportes_s": "Aportes de sábado a jueves frente a la media",
+    "embalse_s_cambio": "Cambio del embalse hasta el jueves",
 }

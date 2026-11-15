@@ -11,6 +11,9 @@ viernes) se calcula la garantía de la semana s+2 con los precios horarios de la
 - Modelo: Ridge con 11 variables de s-1 (sin ofertas) y el precio de sábado a martes de s,
   con corrección de sesgo de Duan y cota conformal del 90 % (E16).
 - Respaldo: si faltan los días de s, el mismo Ridge sin ellos; si falta la semana s-1, no se emite.
+- Candidato en paralelo: el mismo modelo más la hidrología de sábado a jueves de s y el precio del
+  martes. Se registra a su lado y lo decide el registro: con 26 semanas calificadas reemplaza al
+  modelo si erra menos y su cota cubre al menos 85 %.
 - Vigilancia: hidrología atrasada, variables fuera de lo visto, o en las últimas 52 semanas calificadas
   un error mayor que la regla, cobertura bajo 80 % o sesgo significativo (lo pide la auditoría del
   15 de noviembre de 2026, hallazgo A1). La vigilancia no cambia el pronóstico: avisa.
@@ -44,9 +47,12 @@ FECHAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo", "
           "fecha_calificacion"]
 COLUMNAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo", "version_modelo", "estado",
             "motivos", "datos_precio_hasta", "precio_base", "precio_parcial", "regla_xm", "pronostico",
-            "cambio_pct", "cota90", "real", "error", "error_regla", "cubierto", "fecha_calificacion", "huella"]
+            "cambio_pct", "cota90", "real", "error", "error_regla", "cubierto", "fecha_calificacion",
+            "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto",
+            "huella"]
 SELLADAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo", "version_modelo", "estado",
-            "motivos", "precio_base", "precio_parcial", "regla_xm", "pronostico", "cota90"]
+            "motivos", "precio_base", "precio_parcial", "regla_xm", "pronostico", "cota90",
+            "candidato_version", "candidato_pronostico", "candidato_cota90"]
 
 
 def semanas(fecha_emision):
@@ -150,6 +156,19 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         "variables": {v: float(fila[v]) for v in variables}, "reproduccion": reproduccion,
         "desempeno_reciente": desempeno, "fuera_de_rango": rango.to_dict("records"),
     }
+    # Candidato en paralelo: no cambia el pronóstico registrado y una falla suya no detiene la emisión.
+    r["candidato"] = None
+    faltan_c = [v for v in config.VARIABLES_TIE_CANDIDATO if pd.isna(d.at[base, v])]
+    if faltan_c:
+        print(f"Candidato sin calcular: faltan {', '.join(faltan_c)}", flush=True)
+    else:
+        try:
+            p_c, c_c, rep_c, _ = _pronosticar(d, base, config.VARIABLES_TIE_CANDIDATO)
+            r["candidato"] = {"version": config.VERSION_TIE_CANDIDATO, "pronostico": p_c, "cota90": c_c,
+                              "variables": {v: float(fila[v]) for v in config.VARIABLES_TIE_CANDIDATO},
+                              "reproduccion": rep_c}
+        except Exception as e:
+            print(f"No se pudo calcular el candidato: {e}", flush=True)
     if guardar:
         registrar(r)
         calificar(d)
@@ -172,7 +191,7 @@ def _leer_registro():
     if not ARCHIVO.exists():
         return pd.DataFrame(columns=COLUMNAS)
     reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
-    return reg.astype({c: object for c in ("motivos", "huella", "cubierto")})
+    return reg.astype({c: object for c in ("motivos", "huella", "cubierto", "candidato_version", "candidato_cubierto")})
 
 
 def _escribir(reg):
@@ -205,6 +224,9 @@ def registrar(r):
                  "precio_parcial": round(r["precio_parcial"], 2) if r["precio_parcial"] is not None else np.nan,
                  "regla_xm": round(r["regla_xm"], 2), "pronostico": round(r["pronostico"], 2),
                  "cambio_pct": round(r["cambio_pct"], 2), "cota90": round(r["cota90"], 2)})
+    if cand := r.get("candidato"):
+        fila.update({"candidato_version": cand["version"], "candidato_pronostico": round(cand["pronostico"], 2),
+                     "candidato_cota90": round(cand["cota90"], 2)})
     anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
     fila["huella"] = huella(fila, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
@@ -230,6 +252,10 @@ def calificar(d=None):
         reg.loc[pendientes, "error"] = np.round(reg.loc[pendientes, "pronostico"] - real, 2)
         reg.loc[pendientes, "error_regla"] = np.round(reg.loc[pendientes, "regla_xm"] - real, 2)
         reg.loc[pendientes, "cubierto"] = real <= reg.loc[pendientes, "cota90"]
+        reales = pd.Series(real, index=reg.index[pendientes])
+        con = reales.index[reg.loc[reales.index, "candidato_pronostico"].notna()]
+        reg.loc[con, "candidato_error"] = (reg.loc[con, "candidato_pronostico"] - reales[con]).round(2)
+        reg.loc[con, "candidato_cubierto"] = reales[con] <= reg.loc[con, "candidato_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones TIE")
@@ -247,3 +273,6 @@ if __name__ == "__main__":
     print(f"Semana TIE {r['semana_objetivo']:%Y-%m-%d} a {r['semana_objetivo'] + pd.Timedelta(days=6):%Y-%m-%d}: "
           f"{r['pronostico']:,.1f} COP/kWh ({r['cambio_pct']:+.1f} %), cota 90 % {r['cota90']:,.1f}; "
           f"regla XM {r['regla_xm']:,.1f}")
+    if r["candidato"]:
+        print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, "
+              f"cota 90 % {r['candidato']['cota90']:,.1f}")

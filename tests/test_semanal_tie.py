@@ -35,6 +35,12 @@ def test_emision_en_seco_se_reproduce_desde_el_snapshot():
     pred, cota = st.reproducir({"variables": r["variables"], "precio_base": r["precio_base"],
                                 "reproduccion": r["reproduccion"]})
     assert abs(pred - r["pronostico"]) < 1e-6 and abs(cota - r["cota90"]) < 1e-6
+    # El candidato en paralelo también se reproduce desde lo que guarda.
+    c = r["candidato"]
+    assert c is not None
+    pred_c, cota_c = st.reproducir({"variables": c["variables"], "precio_base": r["precio_base"],
+                                    "reproduccion": c["reproduccion"]})
+    assert abs(pred_c - c["pronostico"]) < 1e-6 and abs(cota_c - c["cota90"]) < 1e-6
 
 
 def test_registro_detecta_alteracion(tmp_path, monkeypatch):

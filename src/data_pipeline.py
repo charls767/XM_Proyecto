@@ -263,6 +263,7 @@ def tabla_semanal(recalcular=False, corregida=False):
 
 HORIZONTE_TIE = 3  # semana base s-1 → semana objetivo s+2 (CREG 004 de 2003, art. 23)
 DIAS_PARCIALES_TIE = 4  # sábado a martes de la semana s: publicados el viernes de cálculo
+DIAS_HIDRO_TIE = 6  # sábado a jueves de la semana s: la hidrología se publica con un día de rezago
 
 
 def tabla_tie(recalcular=False):
@@ -304,6 +305,21 @@ def tabla_tie(recalcular=False):
     completos = [diario.reindex(pd.date_range(i, periods=DIAS_PARCIALES_TIE)).notna().all() for i in inicio_s]
     sem["precio_parcial"] = np.where(completos, parcial, np.nan)
     sem["parcial_rel"] = np.log(sem.precio_parcial / sem.precio)
+    # Candidato TIE: martes frente a sábado-martes, y la hidrología de sábado a jueves de s
+    # (la hidrología se publica con un día de rezago, así que el viernes llega al jueves).
+    martes = diario.reindex(inicio_s + pd.Timedelta(days=DIAS_PARCIALES_TIE - 1)).to_numpy()
+    sem["parcial_ultimo_rel"] = np.log(martes / sem.precio_parcial)
+    a = datos["aportes"].groupby("fecha").valor.sum()
+    m = datos["aportes_media"].groupby("fecha").valor.sum()
+    v = datos["volumen_pct"].groupby("fecha").valor.mean()
+    aportes_s, embalse_s = [], []
+    for i in inicio_s:
+        dias = pd.date_range(i, periods=DIAS_HIDRO_TIE)
+        aa, mm, vv = a.reindex(dias), m.reindex(dias), v.reindex(dias)
+        aportes_s.append(aa.sum() / mm.sum() if aa.notna().all() and mm.notna().all() else np.nan)
+        embalse_s.append(vv.iloc[-1])
+    sem["aportes_s"] = aportes_s
+    sem["embalse_s_cambio"] = np.array(embalse_s, dtype=float) - sem.embalse_cierre
     sem.to_parquet(archivo)
     return sem
 

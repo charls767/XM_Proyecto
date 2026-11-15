@@ -160,6 +160,7 @@ Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE 
 
 - **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo y cota del 90 % (E16).
 - **Respaldo:** si faltan los días de s, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
+- **Candidato en paralelo:** el mismo modelo más la hidrología de sábado a jueves de s y el precio del martes. En el backtest erra 94.2 frente a 98.3, pero no gana en todos los periodos. Se registra a su lado, y con 26 semanas calificadas reemplaza al modelo si erra menos y su cota cubre al menos 85 %.
 - **Registro:** `registro/pronosticos_tie.csv`, encadenado con SHA-256, con snapshots en `registro/snapshots_tie/`.
 
 El script también califica las emisiones anteriores (incluidas las del registro a una semana, que ya no emite) y regenera `results/app/`. Al final hace un commit con el tag `registro-tie-AAAA-MM-DD`; no lo empuja. La salida queda en `registro/logs/AAAA-MM-DD.log`.

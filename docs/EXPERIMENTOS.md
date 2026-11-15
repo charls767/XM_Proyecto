@@ -560,6 +560,20 @@ Semanas objetivo de 2018 a 2026 (461). Resultados en `results/E16_resumen.csv`.
 | Ridge 14 + sábado a martes con Duan | 98.2 | 14.8 % (p < 0.001) | −7.5 | 90.5 % |
 | **Registrado:** 11 variables sin ofertas + sábado a martes, con Duan | 98.3 | 14.8 % (p < 0.001) | −16.1 | 90.5 % |
 
+| **Candidato en paralelo:** registrado + hidrología de sábado a jueves de s + precio del martes | 94.2 | 18.3 % (p < 0.001) | −17.6 | 90.0 % |
+
+**Candidato (15-nov-2026).** Usa información que el viernes ya está publicada: aportes frente a la media y cambio del embalse de sábado a jueves de la semana s (la hidrología se publica con un día de rezago), y el precio del martes frente al de sábado a martes.
+
+| Variante (461 semanas) | 2018–26 | Final 2025–26 | Últimas 52 | p frente al registrado |
+|---|---|---|---|---|
+| Registrado | 98.3 | 104.5 | 119.9 | — |
+| + hidrología de s | 94.9 | 106.8 | 125.6 | 0.03 |
+| + martes | 96.7 | 101.3 | 112.7 | 0.14 |
+| + las dos (candidato) | 94.2 | 104.5 | 120.2 | 0.02 |
+| LightGBM | 103.7 | 104.2 | 131.4 | — |
+
+La mejora es significativa en el promedio largo, pero no en la prueba final ni en el último año. Además, se eligió entre 6 variantes después de ver esos periodos. Por eso no reemplaza al registrado: se registra a su lado y, con 26 semanas calificadas, lo reemplaza si erra menos y su cota cubre al menos 85 %.
+
 El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambia el error, y evita caer en respaldo cuando XM las publica con atraso, como en noviembre de 2026. En las últimas 52 semanas erra 120 frente a 127 de la regla (p = 0.40): la ventaja reciente no es significativa.
 
 - **El horizonte duplica el error:** a una semana el ingenuo erra 66.7; a tres, 115.3.

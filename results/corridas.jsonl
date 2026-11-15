@@ -8,3 +8,4 @@
 {"fecha": "2026-11-12T22:06:14", "comando": "e15", "opciones": [], "commit": "917252a", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
 {"fecha": "2026-11-15T17:20:26", "comando": "e16", "opciones": [], "commit": "bad1997", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
 {"fecha": "2026-11-15T17:42:47", "comando": "e16", "opciones": [], "commit": "f4a99fc", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
+{"fecha": "2026-11-15T17:57:52", "comando": "e16", "opciones": [], "commit": "6a0e2f0", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
