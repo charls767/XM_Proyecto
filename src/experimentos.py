@@ -787,6 +787,37 @@ def resumen_e16(w):
     return t
 
 
+def correr_e17():
+    """E17: corrección de sesgo adaptativa sobre el modelo TIE registrado (sobre E16_ancho).
+
+    pred · exp(media de log(real/pred) en las últimas k semanas ya calificadas), con rezago 3:
+    al emitir la fila i solo se conocen los reales hasta la fila i-3. Con menos de 8 semanas no corrige.
+    """
+    import numpy as np
+
+    w = pd.read_parquet(bt.RESULTADOS / "E16_ancho.parquet")
+    s = np.log(w.real / w.Registrado).to_numpy()
+    for k in (13, 26, 52):
+        f = np.zeros(len(s))
+        for i in range(len(s)):
+            prev = s[max(0, i - dp.HORIZONTE_TIE + 1 - k):i - dp.HORIZONTE_TIE + 1]
+            prev = prev[~np.isnan(prev)]
+            f[i] = prev.mean() if len(prev) >= 8 else 0.0
+        w[f"Adaptativo_{k}s"] = w.Registrado * np.exp(f)
+    x = w[(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE) >= INICIO_EVALUACION) & w.real.notna()]
+    per = bt.periodo(x.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    u = x.tail(52)
+    filas = []
+    for c in ["Regla XM", "Registrado", "Adaptativo_13s", "Adaptativo_26s", "Adaptativo_52s"]:
+        e = x[c] - x.real
+        filas.append({"modelo": c, "MAE": e.abs().mean(), "sesgo": e.mean(), "MAE_final": e[per == "final"].abs().mean(),
+                      "MAE_52s": (u[c] - u.real).abs().mean(), "sesgo_52s": (u[c] - u.real).mean(),
+                      "p_DM_vs_registrado": ev.diebold_mariano(x, c, "Registrado")[1] if c != "Registrado" else np.nan})
+    t = pd.DataFrame(filas).set_index("modelo")
+    t.to_csv(bt.RESULTADOS / "E17_resumen.csv")
+    return t
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -830,6 +861,8 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e17":
+        print(correr_e17().to_string())
     elif comando == "e16":
         print(resumen_e16(correr_e16()).T.to_string())
     elif comando == "e15":

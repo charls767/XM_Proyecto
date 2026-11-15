@@ -93,6 +93,33 @@ def predicciones_tie():
     return p
 
 
+def ultimo_tie():
+    """Pronóstico TIE ilustrativo con los datos de hoy, sin registrar (emisión en seco).
+
+    Usa la semana base más reciente que ya tiene sus días de sábado a martes publicados; la emisión
+    oficial es la del registro, los viernes. Incluye el aporte de cada variable al cambio pronosticado.
+    """
+    import semanal_tie
+    t = dp.tabla_tie(recalcular=True)
+    listas = t.dropna(subset=["precio", "precio_parcial"]).index
+    if listas.empty:
+        return None
+    base = listas.max()
+    r = semanal_tie.emitir(base + pd.Timedelta(days=13), actualizar=False, guardar=False)
+    rep = r["reproduccion"]
+    x = np.array([r["variables"][v] for v in rep["variables"]])
+    aporte = np.array(rep["coeficientes"]) * (x - np.array(rep["media"])) / np.array(rep["escala"])
+    return {
+        "fecha_calculo": f"{r['fecha_emision']:%Y-%m-%d}", "semana_base": f"{r['semana_base']:%Y-%m-%d}",
+        "semana_objetivo": f"{r['semana_objetivo']:%Y-%m-%d}", "estado": r["estado"], "motivos": r["motivos"],
+        "regla_xm": r["regla_xm"], "pronostico": r["pronostico"], "cota90": r["cota90"],
+        "candidato": r["candidato"]["pronostico"] if r["candidato"] else None,
+        "factor_duan": rep["factor_duan"], "intercepto": rep["intercepto"],
+        "aportes": [{"variable": v, "nombre": config.NOMBRES.get(v, v), "aporte_log": float(a), "valor": float(r["variables"][v])}
+                    for v, a in zip(rep["variables"], aporte)],
+    }
+
+
 def catalogo():
     return pd.DataFrame([{"modelo": n, "familia": f, "descripcion": d, "tiene_cota": n in COTAS}
                          for _, _, n, f, d in MODELOS])
@@ -135,6 +162,8 @@ def main():
     p = predicciones()
     p.to_parquet(SALIDA / "predicciones.parquet")
     predicciones_tie().to_parquet(SALIDA / "predicciones_tie.parquet")
+    with open(SALIDA / "ultimo_tie.json", "w", encoding="utf-8") as f:
+        json.dump(ultimo_tie(), f, ensure_ascii=False, indent=1)
     reg_tie = RAIZ / "registro" / "pronosticos_tie.csv"
     if reg_tie.exists():
         (SALIDA / "registro_tie.csv").write_bytes(reg_tie.read_bytes())

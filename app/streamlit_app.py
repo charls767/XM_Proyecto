@@ -317,19 +317,32 @@ def capacidad():
     st.plotly_chart(estilo(fig, 360, "MAE (COP/kWh)"), width="stretch")
 
 
+VERSIONES = ["Garantía TIE (s+2)", "A una semana (complemento)"]
+CANDIDATO = "Candidato en paralelo (+ hidrología hasta el jueves y martes)"
+
+
 def estres():
     st.title("Episodios de estrés")
     st.markdown("Semanas en que el precio se dispara o el sistema está bajo presión hídrica. "
                 "Es donde más importa no quedarse corto.")
-    ep = st.selectbox("Episodio", EPISODIOS.episodio.tolist())
+    c1, c2 = st.columns([2, 1])
+    ep = c1.selectbox("Episodio", EPISODIOS.episodio.tolist())
+    version = c2.radio("Pronóstico", VERSIONES, key="ver_estres")
     fila = EPISODIOS.set_index("episodio").loc[ep]
-    p = filtrar(P, fila.inicio, fila.fin)
+    tie = version == VERSIONES[0]
+    p = filtrar(TIE if tie else P, fila.inicio, fila.fin)
     if p.empty:
         st.info("Este episodio aún no tiene semanas evaluadas en el backtest.")
         return
-    modelos = ["Ingenuo", *PRINCIPALES]
-    st.dataframe(metricas(p, modelos), hide_index=True, width="stretch", column_config=FORMATO)
-    st.plotly_chart(grafico_series(p, modelos, 440, "Ridge 14 (oficial)"), width="stretch")
+    if tie:
+        modelos = [REGLA, REGISTRADO, CANDIDATO]
+        st.dataframe(metricas_tie(p).set_index("Modelo").loc[modelos].reset_index(), hide_index=True, width="stretch",
+                     column_config={**FORMATO, "Mejora vs regla %": st.column_config.NumberColumn(format="%+.1f")})
+        st.plotly_chart(grafico_series(p, modelos, 440, REGISTRADO), width="stretch")
+    else:
+        modelos = ["Ingenuo", *PRINCIPALES]
+        st.dataframe(metricas(p, modelos), hide_index=True, width="stretch", column_config=FORMATO)
+        st.plotly_chart(grafico_series(p, modelos, 440, "Ridge 14 (oficial)"), width="stretch")
     if ep.startswith("Período de riesgo"):
         st.caption("Desde el 7 de septiembre de 2026 no hay exportaciones a Ecuador y rigen reglas temporales "
                    "(CREG 101 127). Son pocas semanas: no permiten concluir si el modelo sigue funcionando.")
@@ -339,10 +352,20 @@ def movimientos():
     st.title("¿Anticipa los movimientos grandes?")
     st.markdown("Cada semana se clasifica según el cambio del precio frente a la semana base: **Baja** (cae más de "
                 "20 %), **Estable** o **Sube** (sube 25 % o más). Se compara la clase real con la pronosticada.")
-    c1, c2 = st.columns(2)
-    m = c1.selectbox("Modelo", [n for n in NOMBRES if n != "Ingenuo"], index=NOMBRES.index("Ridge 14 (oficial)") - 1)
+    c0, c1, c2 = st.columns(3)
+    version = c0.radio("Pronóstico", VERSIONES, key="ver_mov")
+    if version == VERSIONES[0]:
+        opciones = [n for n in TIE_MODELOS if n != REGLA]
+        m = c1.selectbox("Modelo", opciones, index=opciones.index(REGISTRADO))
+        datos = TIE
+        st.caption("En la garantía TIE el cambio se mide de la semana s-1 a la s+2. La regla de XM no pronostica "
+                   "cambio: todas sus semanas quedan como Estable.")
+    else:
+        opciones = [n for n in NOMBRES if n != "Ingenuo"]
+        m = c1.selectbox("Modelo", opciones, index=opciones.index("Ridge 14 (oficial)"))
+        datos = P
     periodo = c2.selectbox("Periodo", list(PERIODOS), index=0, key="per_mov")
-    p = filtrar(P, *PERIODOS[periodo]).dropna(subset=[m])
+    p = filtrar(datos, *PERIODOS[periodo]).dropna(subset=[m])
 
     def clase(x):
         return pd.cut(np.log(x / p.base), [-np.inf, UMBRAL_BAJA, UMBRAL_SUBE, np.inf], right=False,
@@ -371,6 +394,44 @@ def movimientos():
 
 def explicacion():
     st.title("Pronóstico de la semana y su explicación")
+    archivo_reg = DATOS / "registro_tie.csv"
+    ut = json.loads((DATOS / "ultimo_tie.json").read_text(encoding="utf-8")) if (DATOS / "ultimo_tie.json").exists() else None
+    st.subheader("Garantía TIE")
+    if archivo_reg.exists():
+        r = pd.read_csv(archivo_reg, parse_dates=["fecha_emision", "semana_objetivo"]).iloc[-1]
+        st.markdown(f"**Última emisión registrada:** {r.fecha_emision:%d/%m/%Y}, para la semana del "
+                    f"{r.semana_objetivo:%d/%m/%Y} al {r.semana_objetivo + pd.Timedelta(days=6):%d/%m/%Y}.")
+        c = st.columns(4)
+        c[0].metric("Regla XM (COP/kWh)", f"{r.regla_xm:,.1f}")
+        c[1].metric("Modelo (COP/kWh)", f"{r.pronostico:,.1f}", f"{r.cambio_pct:+.1f} %", delta_color="off")
+        c[2].metric("Cota 90 % (COP/kWh)", f"{r.cota90:,.1f}")
+        c[3].metric("Estado", str(r.estado).capitalize())
+    if ut:
+        st.markdown(f"**Pronóstico ilustrativo con los datos de hoy** (no registrado): calculado como si fuera el viernes "
+                    f"{pd.Timestamp(ut['fecha_calculo']):%d/%m/%Y}, para la semana del "
+                    f"{pd.Timestamp(ut['semana_objetivo']):%d/%m/%Y} al "
+                    f"{pd.Timestamp(ut['semana_objetivo']) + pd.Timedelta(days=6):%d/%m/%Y}. "
+                    "La emisión oficial se registra los viernes.")
+        c = st.columns(4)
+        c[0].metric("Regla XM (COP/kWh)", f"{ut['regla_xm']:,.1f}")
+        c[1].metric("Modelo (COP/kWh)", f"{ut['pronostico']:,.1f}",
+                    f"{(ut['pronostico'] / ut['regla_xm'] - 1) * 100:+.1f} % frente a la regla", delta_color="off")
+        c[2].metric("Cota 90 % (COP/kWh)", f"{ut['cota90']:,.1f}")
+        c[3].metric("Candidato (COP/kWh)", f"{ut['candidato']:,.1f}" if ut["candidato"] else "—")
+        a = pd.DataFrame(ut["aportes"]).assign(pct=lambda x: (np.exp(x.aporte_log) - 1) * 100)
+        a = a.reindex(a.pct.abs().sort_values().index)
+        fig = go.Figure(go.Bar(x=a.pct, y=a.nombre, orientation="h",
+                               marker=dict(color=np.where(a.pct >= 0, "#e34948", "#2a78d6")),
+                               hovertemplate="%{y}: %{x:+.1f} %<extra></extra>"))
+        fig.update_xaxes(title="Aporte al cambio del precio de s-1 a s+2 (%)", gridcolor=GRID, showgrid=True,
+                         zeroline=True, zerolinecolor=BASE)
+        fig.update_yaxes(title=None, gridcolor="rgba(0,0,0,0)")
+        st.plotly_chart(estilo(fig, 440, None).update_layout(hovermode="closest", showlegend=False), width="stretch")
+        st.caption(f"Rojo: empuja el precio hacia arriba. Azul: hacia abajo. Los aportes son frente a una semana promedio; "
+                   f"la corrección de sesgo multiplica el resultado por {ut['factor_duan']:.3f}.")
+
+    st.divider()
+    st.subheader("Pronóstico a una semana (complemento, registro detenido)")
     ult = REG.iloc[-1]
     c = st.columns(4)
     c[0].metric("Semana objetivo", f"{ult.semana_objetivo:%d/%m/%Y}")
@@ -385,7 +446,7 @@ def explicacion():
                    f"({(so['pronostico'] / so['precio_base'] - 1) * 100:+.1f} %). Esta variante no está en el registro.")
 
     ex = ULTIMO["explicacion"]
-    st.subheader(f"Qué explica el último pronóstico completo (semana base {pd.Timestamp(ex['semana_base']):%d/%m/%Y})")
+    st.markdown(f"**Qué explica el último pronóstico a una semana completo** (semana base {pd.Timestamp(ex['semana_base']):%d/%m/%Y})")
     st.markdown(f"Precio base **{ex['precio_base']:,.1f}** → pronóstico **{ex['pronostico']:,.1f} COP/kWh** "
                 f"({(ex['pronostico'] / ex['precio_base'] - 1) * 100:+.1f} %). Como el modelo es lineal, el cambio "
                 "pronosticado se reparte exactamente entre las variables, frente a una semana promedio.")
@@ -402,7 +463,7 @@ def explicacion():
                     width="stretch")
     st.caption("Rojo: empuja el precio hacia arriba. Azul: hacia abajo.")
 
-    st.subheader("Registro de pronósticos a una semana (detenido)")
+    st.markdown("**Registro de pronósticos a una semana (detenido)**")
     st.caption("Este registro se detuvo el 15 de noviembre de 2026: desde entonces se registra el pronóstico de la "
                "garantía TIE, los viernes (ver la página Garantía TIE). Sus filas se conservan y se califican.")
     st.markdown("Desde el 5 de noviembre de 2026 cada pronóstico queda congelado antes de conocer el resultado, "

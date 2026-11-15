@@ -33,6 +33,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
 | E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
+| E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -582,6 +583,22 @@ El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambi
 - **La cota es ancha:** cuando cubre, excede al precio real en 88 %.
 - **El costo marginal programado** no está disponible para s+2 el viernes de cálculo, así que no se probó.
 - **Sin corrección por búsqueda:** son 5 comparaciones fijadas de antemano.
+
+## E17: corrección de sesgo adaptativa (resultado negativo)
+
+**Hipótesis (diagnóstico del 15 de noviembre de 2026):** el modelo TIE registrado se queda corto en el último año (−19 COP/kWh). Corregirlo con el error reciente debería reducir el error.
+
+**Cómo:** al pronóstico registrado se le aplica el factor exp(media de log(real/pronóstico)) de las últimas k semanas ya calificadas, con rezago 3. Se calcula sobre `E16_ancho`, sin reentrenar. Resultados en `results/E17_resumen.csv`.
+
+| Variante (461 semanas) | MAE | Sesgo | Final 2025–26 | Últimas 52 | Sesgo últimas 52 | p frente al registrado |
+|---|---|---|---|---|---|---|
+| Regla XM | 115.3 | −2.4 | 122.1 | 127.0 | −20.6 | — |
+| Registrado | 98.3 | −16.1 | 104.5 | 119.9 | −19.1 | — |
+| Adaptativo, 13 semanas | 106.0 | +12.0 | 116.4 | 137.9 | +35.0 | 0.16 |
+| Adaptativo, 26 semanas | 106.0 | +4.1 | 124.4 | 148.9 | +18.1 | 0.06 |
+| Adaptativo, 52 semanas | 99.2 | −5.5 | 108.2 | 122.2 | −19.7 | 0.60 |
+
+**Conclusión: no se adopta ni se registra en paralelo.** La corrección empeora el error en todos los periodos, incluido el último año. El sesgo no persiste lo suficiente: con tres semanas de rezago, la corrección llega tarde y se pasa al otro lado (+35 en las últimas 52 semanas con k = 13). El sesgo reciente se seguirá vigilando en la emisión, sin corregirlo.
 
 ## Correcciones de la auditoría a las cifras anteriores
 

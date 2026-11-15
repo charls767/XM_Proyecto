@@ -1,0 +1,87 @@
+{
+ "fecha_calculo": "2026-11-13",
+ "semana_base": "2026-10-31",
+ "semana_objetivo": "2026-11-21",
+ "estado": "normal",
+ "motivos": [],
+ "regla_xm": 388.9446916666667,
+ "pronostico": 397.46066721062334,
+ "cota90": 710.123096294612,
+ "candidato": 391.7153588097758,
+ "factor_duan": 1.064186373634152,
+ "intercepto": 0.004129098458757481,
+ "aportes": [
+  {
+   "variable": "log_precio",
+   "nombre": "Nivel del precio",
+   "aporte_log": -0.06366157057860246,
+   "valor": 5.963437152704313
+  },
+  {
+   "variable": "momentum",
+   "nombre": "Cambio frente a la semana anterior",
+   "aporte_log": 0.08053460024244724,
+   "valor": -0.3164907566583567
+  },
+  {
+   "variable": "cv_diario",
+   "nombre": "Variación diaria del precio",
+   "aporte_log": -0.003719595108203544,
+   "valor": 0.0956139761794362
+  },
+  {
+   "variable": "ultimo_dia_rel",
+   "nombre": "Precio del último día frente al promedio semanal",
+   "aporte_log": 0.027949482994750717,
+   "valor": -0.09957022838197893
+  },
+  {
+   "variable": "max_h_rel",
+   "nombre": "Pico horario frente al promedio",
+   "aporte_log": 0.03069786421873661,
+   "valor": 1.5801466383930312
+  },
+  {
+   "variable": "embalse_cierre",
+   "nombre": "Nivel del embalse",
+   "aporte_log": 0.03338023370887664,
+   "valor": 0.78192
+  },
+  {
+   "variable": "embalse_cambio",
+   "nombre": "Cambio semanal del embalse",
+   "aporte_log": -0.02868116522852204,
+   "valor": 0.011019999999999919
+  },
+  {
+   "variable": "aportes_pct_media",
+   "nombre": "Aportes de la semana frente a la media",
+   "aporte_log": -0.022408069798397212,
+   "valor": 0.5497128234289709
+  },
+  {
+   "variable": "aportes_pct_media_4s",
+   "nombre": "Aportes de 4 semanas frente a la media",
+   "aporte_log": 0.012628777808689182,
+   "valor": 0.6118991317040997
+  },
+  {
+   "variable": "sen_semana",
+   "nombre": "Época del año (seno)",
+   "aporte_log": 0.03895086151109726,
+   "valor": -0.833263145893403
+  },
+  {
+   "variable": "cos_semana",
+   "nombre": "Época del año (coseno)",
+   "aporte_log": -0.029241283464917795,
+   "valor": 0.5528765953590633
+  },
+  {
+   "variable": "parcial_rel",
+   "nombre": "Precio de sábado a martes de la semana en curso",
+   "aporte_log": -0.12111094745424487,
+   "valor": -0.16502524378735492
+  }
+ ]
+}

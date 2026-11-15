@@ -44,7 +44,7 @@ La sesión 2 de Reafirmación 2025 ("Garantías y mecanismos de cubrimiento del 
 | 14 y 15. ¿Horizonte y hora? | Viernes, tres semanas después de la semana base |
 | 18. ¿Con qué versión calificar? | TX2, la del ajuste 2 |
 
-Siguen abiertas la 1 (vigencia sin exportaciones), la 9 (costo de equivocarse), la 21 (período de riesgo) y si la CREG 101 127 de 2026 cambió el artículo 23.
+Siguen abiertas la 1 (vigencia sin exportaciones), la 9 (costo de equivocarse), la 21 (período de riesgo) y si la CREG 101 127 de 2026 cambió el artículo 23. Las preguntas regulatorias que pueden cambiar el objetivo del modelo están redactadas para el CRM en [CONSULTA_CRM_XM.md](CONSULTA_CRM_XM.md).
 
 **Qué sigue:**
 - **El CRM de XM** es el canal formal para lo normativo. Prioridad: 6, 5, 9 y 21.

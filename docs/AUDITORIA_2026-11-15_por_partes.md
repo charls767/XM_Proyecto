@@ -51,7 +51,8 @@ Estado de la auditoría del 15 de noviembre: A2, M1, B1, B2 y B3 siguen corregid
 | P12-1 | **Corregido** | README: secciones del tablero y de los candidatos a una semana actualizadas; estructura con `semanal_tie.py`, `resultados_app.py`, `app/` y los documentos nuevos. Ficha sin menciones al tablero y con los dos registros |
 | P12-2 | **Corregido** | SUPUESTOS: información disponible con la hidrología del candidato; el pronóstico a una semana ya no figura como registrado |
 | P9-2 | **Corregido** | README, ficha y `.bat` indican emitir el viernes después de las 20:00 y explican por qué |
-| P10-2, P11-2, P11-3, P11-4, P8-1, P9-3 | Abiertos (Bajo) | Sin cambios |
+| P10-2 | **Corregido** | Estrés y Movimientos tienen selector con la versión TIE por defecto; Pronóstico actual muestra el registro TIE o un pronóstico TIE ilustrativo con su explicación por variables |
+| P11-2, P11-3, P11-4, P8-1, P9-3 | Abiertos (Bajo) | Sin cambios |
 
 ## 3. Hallazgos por parte
 
