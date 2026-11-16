@@ -13,8 +13,8 @@ Regla temporal común: semana TIE de sábado a viernes; cálculo el viernes de l
 | Categoría | Variable (columna) | Unidad | Fuente | Frecuencia | Tipo | Estado de validación |
 |---|---|---|---|---|---|---|
 | **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner` | Horaria → semanal | R | Componente económico de las obligaciones TIE en la bolsa colombiana; su relación exacta con la garantía es P. Backtest simulado E26 (113 semanas): −10.9 % frente a la regla, p = 0.044, evidencia débil. Casi sin compras de febrero a julio de 2026 y sin datos desde el 1-ago-2026 |
-| **Referencia** | Precio de bolsa nacional, promedio horario simple (`precio`) | COP/kWh | `PrecBolsNaci` (alternativa oficial diaria: `PPPrecBolsNaci`) | Horaria → semanal | R | Backtest simulado E16/E24 (461 semanas); registro desde el 20-nov-2026 |
-| **Complementario** | Precio promedio realizado de exportación (`precio_expo`; en COP, `precio_expo_cop`) | centUSD/kWh | `ExportMonedaUSD` / `ExpoEner` (en COP: `ExpoMoneda` / `ExpoEner`) | Horaria → semanal | R | Backtest simulado E19 (117 semanas con exportación), no significativo al 5 %; registro desde el 20-nov-2026 |
+| **Referencia** | Precio de bolsa nacional, promedio horario simple (`precio`) | COP/kWh | `PrecBolsNaci` (alternativa oficial diaria: `PPPrecBolsNaci`) | Horaria → semanal | R | Backtest simulado E16/E24 (461 semanas); registro previsto desde el 20-nov-2026 (aún sin emisiones) |
+| **Complementario** | Precio promedio realizado de exportación (`precio_expo`; en COP, `precio_expo_cop`) | centUSD/kWh | `ExportMonedaUSD` / `ExpoEner` (en COP: `ExpoMoneda` / `ExpoEner`) | Horaria → semanal | R | Backtest simulado E19 (117 semanas con exportación), no significativo al 5 %; registro previsto desde el 20-nov-2026 (aún sin emisiones) |
 
 ## 2. Catálogo oficial frente al uso del proyecto
 

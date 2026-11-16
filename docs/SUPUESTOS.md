@@ -55,6 +55,6 @@ En ese régimen, el precio que XM use para la garantía de exportación puede di
 ## Qué falta confirmar
 
 - Si la CREG 101 127 de 2026 cambió este artículo, y qué precio usa XM para la garantía mientras rija. El material es de 2025.
-- Si para exportaciones la fórmula es la misma. El material muestra el mismo formato de cálculo para exportación, pero no la fórmula.
+- Qué relación hay entre el PONE, el precio de bolsa TIE, las compras TIE en bolsa y la garantía (pregunta abierta; no hay serie pública que la documente). El material muestra el mismo formato de cálculo para exportación, pero no la fórmula.
 - Qué componentes tiene lo cobrado por exportar (`ExpoMoneda`) además del precio de bolsa TIE. Desde 2023 suele estar muy por encima de él, y en el período de riesgo llega a ser varias veces mayor (por ejemplo, 2,978 frente a 389 COP/kWh la semana del 31 de octubre de 2026). Que el precio de la fórmula sea el realizado de exportación es una **hipótesis** (E19) que los datos públicos no confirman: con el CEE oficial da 22.27 centUSD/kWh frente a 22.75 del ejemplo de XM (ver [VARIABLES_XM.md](VARIABLES_XM.md)).
 - Solo hay precio de exportación en las semanas en que se exportó: si en la semana s-1 no hubo exportaciones, la emisión no pronostica el precio de exportación y lo anota.
