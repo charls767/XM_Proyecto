@@ -1,6 +1,6 @@
 # Ficha técnica: precios para la garantía TIE (PAE-XM)
 
-**Versiones registradas (desde el 20-nov-2026):** precio de bolsa `tie-ridge11-parcial-cmg-duan-conformal104-v1` (objetivo de referencia) y precio realizado de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (objetivo complementario). El objetivo principal tiene modelo (`compra-tie-nacional-spread-s1-conformal104-v1`), pero hoy no se puede emitir · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 16 de noviembre de 2026
+**Versiones que se registrarán a partir de la primera emisión prevista (viernes 20-nov-2026):** precio de bolsa `tie-ridge11-parcial-cmg-duan-conformal104-v1` (objetivo de referencia) y precio realizado de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (objetivo complementario). El objetivo principal tiene modelo (`compra-tie-nacional-spread-s1-conformal104-v1`), pero hoy no se puede emitir · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 16 de noviembre de 2026
 
 **Objetivos** (`config.OBJETIVOS`; detalle en [docs/VARIABLES_XM.md](docs/VARIABLES_XM.md)). XM no publica el precio oficial de la garantía, así que los tres son variables reconstruidas a partir de series oficiales y ninguno está validado para fijar garantías:
 

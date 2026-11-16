@@ -249,7 +249,7 @@ def p1_resumen(pdf, tie, expo, ultimo, reg, datos_hasta, generado, m_bolsa, m_ex
         f"En el precio promedio realizado de exportación (reconstruido; no es el precio oficial de la garantía) la mejora es de {m_expo['mejora']:.0f} % y {confiable(m_expo['p'])}: hay pocas semanas con exportaciones. Es un candidato.",
         f"En el último año, precio de bolsa: {ult['modelo']:,.0f} frente a {ult['regla']:,.0f} COP/kWh; ¿es real?: {confiable(ult['p'])}." if ult else "",
         "Nadie anticipa los saltos bruscos de precio. Los triángulos rojos de las gráficas marcan las semanas en que el precio real superó el techo.",
-        "Prueba independiente: el registro de pronósticos congelados, desde el 20 de noviembre de 2026.",
+        "Prueba independiente: el registro de pronósticos congelados, previsto desde el 20 de noviembre de 2026.",
     ]
     fig.text(0.07, y, "Lo más importante", fontsize=11, weight="bold")
     y -= 0.022

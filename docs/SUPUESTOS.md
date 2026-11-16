@@ -1,8 +1,8 @@
 # Supuestos de operación
 
-XM respondió que qué se pronostica y para qué lo define el proyecto. Después, el material de formación de XM sobre garantías (sesión 2 de Reafirmación 2025, "Garantías y mecanismos de cubrimiento del mercado") mostró la regla de la garantía TIE de la Resolución CREG 004 de 2003, artículo 23. Los supuestos siguen esa regla. Donde la regla no alcanza, se elige lo más cercano a cómo funciona hoy el mercado.
+XM respondió que qué se pronostica y para qué lo define el proyecto. Después, el material de formación de XM sobre garantías (sesión 2 de Reafirmación 2025, "Garantías y mecanismos de cubrimiento del mercado") mostró la regla de la garantía TIE de la Resolución CREG 004 de 2003, artículo 23. Los supuestos siguen esa regla. Que siga vigente, y que se aplique igual a la exportación, no está confirmado: es una **limitación** del proyecto. Donde la regla no alcanza, se elige lo más cercano a cómo funciona hoy el mercado.
 
-## La regla (según el material de XM)
+## La regla (según el material de formación de XM de 2025; vigencia no confirmada)
 
 - **Semana TIE:** de sábado a viernes.
 - **Cálculo:** cada viernes de la semana s, el ASIC proyecta el monto de la semana **s+2**.
@@ -20,7 +20,7 @@ XM respondió que qué se pronostica y para qué lo define el proyecto. Después
 | **Horizonte** | De la semana s-1 a la semana s+2: tres semanas | Lo fija la regla. |
 | **Emisión** | Viernes de la semana s | Día de cálculo del ASIC. |
 | **Información disponible** | Semanas completas hasta s-1; el precio de sábado a martes de la semana s; el costo marginal del despacho programado de miércoles a viernes de s (E24); para el candidato en paralelo, también la hidrología de sábado a jueves de s | Rezago observado en la API: unos 3 días para el precio y 1 para la hidrología. El costo marginal programado de cada día se publica la víspera, tarde en la noche. Por eso se emite el viernes después de las 20:00. Las exportaciones (energía y moneda) se publican con el mismo rezago que el precio: el 15 de noviembre de 2026 las tres series llegaban al 12 de noviembre, igual que el precio. |
-| **Referencia a superar** | La regla vigente: repetir el precio de s-1 | Es la estimación que usa hoy el ASIC. |
+| **Referencia a superar** | La regla del material de XM: repetir el precio de s-1 | Es la estimación que describe el material de formación de XM. Que el ASIC la use hoy es un supuesto. |
 | **Calificación** | Con TX2 | Es la versión del ajuste 2. Las métricas usan el precio vigente; con TX1 cambian ~1 %. |
 | **Asimetría** | Quedarse corto cuesta más que pasarse; se reporta una cota del 90 % | Un faltante deja exposición hasta los ajustes; un exceso solo inmoviliza recursos 2 a 3 semanas. Según E22, la cota del 90 % conviene si quedarse corto cuesta unas 10 veces más que inmovilizar; con 3 a 5 veces conviene la del 80 %. El costo relativo lo debe fijar XM. |
 | **Costo marginal programado** | Se usa el de miércoles a viernes de la semana s (E24), no el de la semana objetivo | El de cada día se publica la víspera, así que el viernes de cálculo ya está el de la semana s. El de s+2 todavía no existe: faltan 8 días para que empiece. |
@@ -55,6 +55,6 @@ En ese régimen, el precio que XM use para la garantía de exportación puede di
 ## Qué falta confirmar
 
 - Si la CREG 101 127 de 2026 cambió este artículo, y qué precio usa XM para la garantía mientras rija. El material es de 2025.
-- Si para exportaciones la fórmula es la misma. El material muestra el mismo formato de cálculo para exportación, pero no la fórmula.
-- Qué componentes tiene lo cobrado por exportar (`ExpoMoneda`) además del precio de bolsa TIE. Desde 2023 suele estar muy por encima de él, y en el período de riesgo llega a ser varias veces mayor (por ejemplo, 2,978 frente a 389 COP/kWh la semana del 31 de octubre de 2026). Los datos públicos ya indican que el precio de la fórmula es el de exportación y no el nacional (E19); falta la confirmación formal de XM.
+- Qué relación hay entre el PONE, el precio de bolsa TIE, las compras TIE en bolsa y la garantía (pregunta abierta; no hay serie pública que la documente). El material muestra el mismo formato de cálculo para exportación, pero no la fórmula.
+- Qué componentes tiene lo cobrado por exportar (`ExpoMoneda`) además del precio de bolsa TIE. Desde 2023 suele estar muy por encima de él, y en el período de riesgo llega a ser varias veces mayor (por ejemplo, 2,978 frente a 389 COP/kWh la semana del 31 de octubre de 2026). Que el precio de la fórmula sea el realizado de exportación es una **hipótesis** (E19) que los datos públicos no confirman: con el CEE oficial da 22.27 centUSD/kWh frente a 22.75 del ejemplo de XM (ver [VARIABLES_XM.md](VARIABLES_XM.md)).
 - Solo hay precio de exportación en las semanas en que se exportó: si en la semana s-1 no hubo exportaciones, la emisión no pronostica el precio de exportación y lo anota.

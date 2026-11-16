@@ -14,7 +14,8 @@ sys.path.insert(0, str(RAIZ / "src"))
 import config  # noqa: E402
 
 ARCHIVOS = sorted(set(RAIZ.glob("src/*.py")) | set(RAIZ.glob("app/*.py"))
-                  | {RAIZ / f for f in ("README.md", "FICHA_TECNICA.md", "docs/SUPUESTOS.md", "docs/VARIABLES_XM.md")})
+                  | {RAIZ / f for f in ("README.md", "FICHA_TECNICA.md", "docs/SUPUESTOS.md", "docs/VARIABLES_XM.md",
+                                       "docs/EXPERIMENTOS.md", "docs/PREGUNTAS_XM.md", "docs/CONSULTA_CRM_XM.md")})
 
 
 def test_ningun_objetivo_es_oficial_ni_validado():
