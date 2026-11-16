@@ -921,9 +921,14 @@ def correr_e17():
 
 
 def configuraciones_e19():
-    """Modelos para el precio de exportación TIE (centUSD/kWh), semana s+2 desde s-1."""
-    vn = config.VARIABLES_TIE
-    vx = vn + fe.VARIABLES_EXPO
+    """Modelos para el precio de exportación TIE (centUSD/kWh), semana s+2 desde s-1.
+
+    Usa las variables nacionales sin el costo marginal (`VARIABLES_TIE_SIN_CMG`) y `config.VARIABLES_EXPO`,
+    las mismas de la emisión (semanal_tie). E24 agregó `cmg_s_rel` a `VARIABLES_TIE` solo para el precio
+    de bolsa; cuando E19 leía `VARIABLES_TIE`, el backtest dejó de evaluar el modelo registrado.
+    """
+    vn = config.VARIABLES_TIE_SIN_CMG
+    vx = config.VARIABLES_EXPO
     solo = ["log_precio_expo", "spread", "spread_4s", "expo_momentum", "expo_parcial_rel", "expo_parcial_falta",
             "parcial_rel", "log_energia_expo"]
     return [models.Modelo("Regla XM"),
