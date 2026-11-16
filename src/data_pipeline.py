@@ -264,6 +264,7 @@ def tabla_semanal(recalcular=False, corregida=False):
 HORIZONTE_TIE = 3  # semana base s-1 → semana objetivo s+2 (CREG 004 de 2003, art. 23)
 DIAS_PARCIALES_TIE = 4  # sábado a martes de la semana s: publicados el viernes de cálculo
 DIAS_HIDRO_TIE = 6  # sábado a jueves de la semana s: la hidrología se publica con un día de rezago
+DIAS_CMG_TIE = 3  # miércoles a viernes de la semana s: costo marginal programado, publicado la víspera
 
 
 def tabla_tie(recalcular=False):
@@ -320,6 +321,13 @@ def tabla_tie(recalcular=False):
         embalse_s.append(vv.iloc[-1])
     sem["aportes_s"] = aportes_s
     sem["embalse_s_cambio"] = np.array(embalse_s, dtype=float) - sem.embalse_cierre
+    # E24: costo marginal del despacho programado de miércoles a viernes de s. XM lo publica la víspera,
+    # así que el viernes de cálculo ya están los tres días. Mide hacia dónde va la semana en curso.
+    cm = xm.a_horario(datos["costo_marginal"])
+    cm_dia = cm.groupby(cm.index.normalize()).mean()
+    cmg = [cm_dia.reindex(pd.date_range(i + pd.Timedelta(days=4), periods=DIAS_CMG_TIE)) for i in inicio_s]
+    sem["cmg_s"] = [x.mean() if x.notna().all() else np.nan for x in cmg]
+    sem["cmg_s_rel"] = np.log(sem.cmg_s / sem.precio)
     sem.to_parquet(archivo)
     return sem
 

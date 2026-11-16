@@ -18,20 +18,20 @@ def test_semanas_de_la_regla():
 
 
 def test_emision_en_seco_se_reproduce_desde_el_snapshot():
-    """Emite con la caché local para el viernes 13-nov-2026, sin registrar, y reconstruye el
+    """Emite con la caché local para el viernes 6-nov-2026, sin registrar, y reconstruye el
     pronóstico y la cota solo con lo que guarda el snapshot."""
     import data_pipeline as dp
     if not (dp.RAW / "xm" / "precio" / "2026-11.parquet").exists():
         import pytest
         pytest.skip("falta la caché de precios de noviembre de 2026")
-    r = st.emitir("2026-11-13", actualizar=False, guardar=False)
-    assert r["semana_base"] == pd.Timestamp("2026-10-31")
-    assert r["semana_objetivo"] == pd.Timestamp("2026-11-21")
+    r = st.emitir("2026-11-06", actualizar=False, guardar=False)
+    assert r["semana_base"] == pd.Timestamp("2026-10-24")
+    assert r["semana_objetivo"] == pd.Timestamp("2026-11-14")
     assert r["estado"] in ("normal", "vigilancia", "respaldo")
     assert r["cota90"] > r["pronostico"] > 0
     # El entrenamiento solo usa filas cuyo objetivo ya terminó antes de la emisión.
     hasta = pd.Timestamp(r["reproduccion"]["entrenamiento_hasta"])
-    assert hasta + pd.Timedelta(weeks=3, days=6) < pd.Timestamp("2026-11-13")
+    assert hasta + pd.Timedelta(weeks=3, days=6) < pd.Timestamp("2026-11-06")
     pred, cota = st.reproducir({"variables": r["variables"], "precio_base": r["precio_base"],
                                 "reproduccion": r["reproduccion"]})
     assert abs(pred - r["pronostico"]) < 1e-6 and abs(cota - r["cota90"]) < 1e-6

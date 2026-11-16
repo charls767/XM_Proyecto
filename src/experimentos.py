@@ -733,8 +733,10 @@ def configuraciones_e16():
             models.Modelo("Ridge14+parcial", vp, models.ridge),
             models.Duan("Ridge14+parcial_Duan", vp, models.ridge),
             # El que se registra desde el 20-nov-2026: sin ofertas (XM las publica con atraso).
+            # E24: el registrado y el candidato incluyen desde el 16-nov-2026 el costo marginal programado
+            # de miércoles a viernes de s; se conservan las versiones anteriores para comparar.
+            models.Duan("Registrado sin CMg", config.VARIABLES_TIE_SIN_CMG, models.ridge),
             models.Duan("Registrado", config.VARIABLES_TIE, models.ridge),
-            # Candidato en paralelo desde el 20-nov-2026: hidrología de sábado a jueves y martes.
             models.Duan("Candidato", config.VARIABLES_TIE_CANDIDATO, models.ridge)]
 
 

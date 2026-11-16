@@ -2,12 +2,14 @@
  "fecha_calculo": "2026-11-13",
  "semana_base": "2026-10-31",
  "semana_objetivo": "2026-11-21",
- "estado": "normal",
- "motivos": [],
+ "estado": "respaldo",
+ "motivos": [
+  "Faltan: cmg_s_rel"
+ ],
  "regla_xm": 388.9446916666667,
  "pronostico": 397.46066721062334,
  "cota90": 710.123096294612,
- "candidato": 391.7153588097758,
+ "candidato": null,
  "factor_duan": 1.064186373634152,
  "intercepto": 0.004129098458757481,
  "aportes": [
