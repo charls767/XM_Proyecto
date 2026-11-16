@@ -215,7 +215,7 @@ def p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj):
         "regla y los compara siempre con ella. " + pr.NO_VALIDADO), ancho=116, tam=8.5, interlinea=0.0155)
     y -= 0.006
     fig.text(0.07, y, "Datos disponibles hasta: " + " · ".join(
-        f"{k} {v:%d/%m/%Y}" for k, v in datos_hasta.items() if v is not None), fontsize=8, color=isa.TEXTO_2)
+        f"{k} {v:%d/%m/%Y}" for k, v in datos_hasta.items() if v is not None), fontsize=7.5, color=isa.TEXTO_2)
 
     # Los tres objetivos: cifras del backtest simulado y estado de la evidencia.
     y -= 0.035
@@ -235,7 +235,7 @@ def p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj):
     y -= 0.105
     ax = fig.add_axes([0.07, y - 0.085, 0.86, 0.075])
     tabla(ax, estados, ["Objetivo", "Estado de la evidencia"], anchos=[0.3, 0.68], tam=7.5)
-    y -= 0.095
+    y -= 0.105
     y = parrafo(fig, 0.07, y, (
         "«Valor p (DM)»: prueba de Diebold-Mariano frente a la regla. No corrige por haber elegido entre variantes: "
         "E26 se eligió entre 9 y E19 entre unas 30. Errores promedio en la unidad de cada objetivo."), ancho=128,
@@ -382,7 +382,7 @@ Cómo leer las gráficas (ISA-101)
 
 Fuentes
 • {pr.FUENTES}
-• Detalle de métodos y experimentos: docs/EXPERIMENTOS.md, docs/SUPUESTOS.md, docs/VARIABLES_XM.md y las auditorías en docs/."""
+• Métodos y experimentos: docs/EXPERIMENTOS.md, docs/SUPUESTOS.md, docs/VARIABLES_XM.md y auditorías en docs/."""
     y = 0.915
     for bloque in texto.split("\n"):
         es_titulo = bloque and not bloque.startswith("•")
@@ -409,7 +409,7 @@ def generar(destino=None, generado=None, copiar=True):
     with PdfPages(destino) as pdf:
         p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj)
         o = pr.OBJETIVO["principal"]
-        p_precio(pdf, compra, modelos["principal"][1], f"Objetivo principal: {o['nombre']} ({o['experimento']})",
+        p_precio(pdf, compra, modelos["principal"][1], f"Principal: {o['nombre']} ({o['experimento']})",
                  "COP/kWh", 0, (
                      "Precio de las compras TIE en la bolsa colombiana: suma de CompBolsaTIEMoneda entre suma de "
                      "CompBolsaTIEEner de cada semana TIE (variable reconstruida a partir de series oficiales; "
@@ -418,7 +418,7 @@ def generar(destino=None, generado=None, copiar=True):
                      f"Estado de la evidencia: {o['estado'].lower()} (113 semanas; elegido entre 9 variantes). "
                      + pr.AVISOS_DISPONIBILIDAD[0]), 2, generado, puntos=True, desde=pd.Timestamp("2022-01-01"))
         o = pr.OBJETIVO["referencia"]
-        p_precio(pdf, tie, modelos["referencia"][1], f"Objetivo de referencia: {o['nombre']} ({o['experimento']})",
+        p_precio(pdf, tie, modelos["referencia"][1], f"Referencia: {o['nombre']} ({o['experimento']})",
                  "COP/kWh", 0, (
                      "El precio general de la energía en Colombia, promedio por hora de la semana TIE (sábado a "
                      "viernes). El modelo usa el precio y la hidrología de la semana s-1, los días de sábado a martes "
@@ -426,7 +426,7 @@ def generar(destino=None, generado=None, copiar=True):
                      f"Estado de la evidencia: {o['estado'].lower()}."), 3, generado,
                  desde=tie.semana_objetivo.max() - pd.Timedelta(weeks=104))
         o = pr.OBJETIVO["complementario"]
-        p_precio(pdf, expo, modelos["complementario"][1], f"Objetivo complementario: {o['nombre']} ({o['experimento']})",
+        p_precio(pdf, expo, modelos["complementario"][1], f"Complementario: {o['nombre']} ({o['experimento']})",
                  "centUSD/kWh", 2, (
                      "Lo que Ecuador paga por cada kWh que le vende Colombia: ExportMonedaUSD entre ExpoEner (precio "
                      "realizado y reconstruido; no es una cifra oficial de XM). Solo existe en las semanas con "
