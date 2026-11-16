@@ -15,3 +15,4 @@
 {"fecha": "2026-11-15T20:38:34", "comando": "e19", "opciones": [], "commit": "6556486", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
 {"fecha": "2026-11-15T22:01:27", "comando": "e16", "opciones": [], "commit": "1037720", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
 {"fecha": "2026-11-16T16:46:42", "comando": "e22", "opciones": [], "commit": "d1f4fdf", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}
+{"fecha": "2026-11-16T17:17:36", "comando": "e26", "opciones": [], "commit": "ee28d4b", "cambios_sin_guardar": true, "datos": "f8562cb1a0d1e118", "python": "3.11.15", "versiones": {"numpy": "2.4.6", "pandas": "3.0.3", "scikit-learn": "1.9.1"}}

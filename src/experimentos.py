@@ -789,6 +789,77 @@ def resumen_e16(w):
     return t
 
 
+def configuraciones_e26():
+    """Modelos para el objetivo principal: precio de las compras TIE en bolsa (COP/kWh), s+2 desde s-1.
+
+    Variantes fijadas antes de ver resultados. Se elige por el MAE del periodo de selección 2022–2024.
+    """
+    vn = config.VARIABLES_TIE
+    vc = vn + fe.VARIABLES_COMPRA
+    return [models.Modelo("Regla XM"),
+            models.Modelo("Regla sáb-mar", columna_referencia="regla_parcial"),
+            models.NacionalSpread("Nacional×spread s-1", vn, "spread_compra", en_usd=False),
+            models.NacionalSpread("Nacional×spread 4s", vn, "spread_compra_4s", en_usd=False),
+            models.Duan("Ridge compra", vc, models.ridge),
+            models.Modelo("Huber compra", vc, models.huber)]
+
+
+ENSAMBLES_E26 = {"Mitad Huber + mitad regla": ["Huber compra", "Regla XM"],
+                 "Mitad Ridge + mitad regla": ["Ridge compra", "Regla XM"],
+                 "Ens Nacional 4s + sáb-mar": ["Nacional×spread 4s", "Regla sáb-mar"]}
+
+
+def correr_e26():
+    """E26: pronóstico del objetivo principal (compras TIE en bolsa, COP/kWh; variable reconstruida).
+
+    Mismo esquema que E16 y E19: semana de sábado a viernes, base s-1, objetivo s+2, embargo de 2
+    semanas y cota con rezago 3. Solo semanas con al menos 1 GWh comprado en s-1 y en s+2; no hay datos
+    de compras TIE desde el 1-ago-2026.
+    """
+    d = fe.preparar_compra(dp.tabla_expo(recalcular=True))
+    m = configuraciones_e26()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y", "regla_parcial"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas, embargo=dp.HORIZONTE_TIE - 1)
+    r["semana_objetivo"] = r.semana_base + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    r["fecha_emision"] = r.semana_base + pd.Timedelta(days=13)
+    r["periodo"] = bt.periodo(r.semana_objetivo)
+    bt.guardar(r, "E26")
+    w = bt.ancho(r)
+    for nombre, partes in ENSAMBLES_E26.items():
+        w[nombre] = w[partes].mean(axis=1)
+    for c in [x.nombre for x in m] + list(ENSAMBLES_E26):
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE)
+    w.to_parquet(bt.RESULTADOS / "E26_ancho.parquet")
+    return w
+
+
+def resumen_e26(w):
+    """Error por periodo frente a la regla; el modelo se elige por el MAE del periodo de selección."""
+    obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "semanas": int(e.notna().sum()), "MAE": e.abs().mean(),
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                **{f"n_{p}": int((periodos == p).sum()) for p in ("seleccion", "final")},
+                "sesgo": e.mean(), "cobertura": cubre.mean(),
+                "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        if m != "Regla XM":
+            fila["p_DM"] = ev.diebold_mariano(w, m, "Regla XM")[1]
+            fila["p_DM_final"] = ev.diebold_mariano(w[periodos == "final"], m, "Regla XM")[1]
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    for p in ("seleccion", "final"):
+        t[f"mejora_{p}_%"] = (1 - t[f"MAE_{p}"] / t.at["Regla XM", f"MAE_{p}"]) * 100
+    t["mejora_%"] = (1 - t.MAE / t.at["Regla XM", "MAE"]) * 100
+    t = t.sort_values("MAE_seleccion")
+    t.to_csv(bt.RESULTADOS / "E26_resumen.csv")
+    return t
+
+
 def correr_e22():
     """E22: error en dinero de la garantía de exportación y nivel de la cota (sobre E19_ancho).
 
@@ -984,6 +1055,10 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e26":
+        t = resumen_e26(correr_e26())
+        print(t[["semanas", "MAE", "mejora_%", "MAE_seleccion", "mejora_seleccion_%", "MAE_final", "n_final",
+                 "mejora_final_%", "sesgo", "cobertura", "p_DM", "p_DM_final"]].round(3).to_string())
     elif comando == "e22":
         t, t2, n = correr_e22()
         print(f"{n} semanas con exportación (2018–2026); MXT constante:\n{t.round(1).to_string()}")

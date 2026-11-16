@@ -33,6 +33,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E14 | `e14` | ¿Cómo se comparan los tres modelos que se registran, en las mismas semanas? ¿Anticipan los movimientos grandes? | El candidato con costo marginal erra 27 % menos que el oficial y anticipa 42 % de las subidas de 25 % o más, frente a 17 %. Todos fallan sobre todo por anticipar estabilidad. |
 | E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
+| E26 | `e26` | ¿Qué tan bien se pronostica el objetivo principal, el precio de las compras TIE en bolsa (COP/kWh)? | El elegido por selección (precio nacional pronosticado × diferencial de s-1) erra 142.2 frente a 159.6 de la regla (−10.9 %, p = 0.044; 113 semanas). Evidencia débil: pocas semanas y 9 variantes. Sin compras TIE desde agosto de 2026. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
 | E24 | `e16` | ¿Mejora el costo marginal programado de miércoles a viernes de la semana en curso, publicado la víspera? | Sí, en el precio de bolsa: 93.7 frente a 98.3 (−4.6 %, p = 0.008), en selección y en la prueba final; adoptado. En exportación, −1.4 % sin significancia; no se usa. |
@@ -592,6 +593,27 @@ El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambi
 - **El costo marginal programado** no está disponible para s+2 el viernes de cálculo, así que no se probó.
 - **Sin corrección por búsqueda:** son 5 comparaciones fijadas de antemano.
 
+## E26: el objetivo principal, precio de las compras TIE en bolsa
+
+**Qué se pronostica.** El precio de las compras TIE en bolsa de la semana s+2, en COP/kWh: Σ `CompBolsaTIEMoneda` / Σ `CompBolsaTIEEner`, de sábado a viernes (variable reconstruida a partir de series oficiales; ver [VARIABLES_XM.md](VARIABLES_XM.md)). Es el componente económico de las obligaciones TIE en la bolsa colombiana. Mismo esquema que E16 y E19: base s-1, cálculo el viernes de s, embargo de 2 semanas y cota con rezago 3.
+
+**Muestra.** 113 semanas objetivo entre 2018 y enero de 2026 con al menos 1 GWh comprado en s-1 y en s+2 (backtest simulado; selección 2022–2024: 67 semanas; prueba final 2025–2026: 26). De febrero a julio de 2026 las compras fueron de 1 GWh o menos al mes, y desde el 1-ago-2026 XM no publica compras TIE aunque hubo exportaciones (96.11 GWh en agosto).
+
+| Modelo (variantes fijadas antes de ver resultados) | MAE | Selección 2022–24 | Final 2025–26 | Sesgo | Cobertura cota 90 % | p frente a la regla |
+|---|---|---|---|---|---|---|
+| Regla XM (repetir s-1) | 159.6 | 187.6 | 188.8 | −13.9 | 86.7 % | — |
+| Regla con sábado a martes de s | 153.9 | 187.5 | 165.0 | −12.5 | 84.1 % | 0.44 |
+| **Precio nacional × diferencial de s-1 (elegido)** | **142.2** | **174.8** | 148.7 | −40.4 | 87.6 % | **0.044** |
+| Precio nacional × diferencial de 4 semanas | 141.5 | 177.1 | 139.4 | −39.5 | 88.5 % | 0.024 |
+| Ridge con variables de compras | 144.9 | 182.7 | 142.1 | −47.8 | 87.6 % | 0.09 |
+| Huber con variables de compras | 146.2 | 189.4 | 129.9 | −72.6 | 86.7 % | 0.25 |
+| Mitad Huber + mitad regla | 148.3 | 182.4 | 158.1 | −43.3 | 87.6 % | 0.07 |
+| Mitad Ridge + mitad regla | 149.0 | 180.1 | 165.4 | −30.9 | 88.5 % | 0.02 |
+| Nacional 4s + sábado a martes | 144.7 | 179.2 | 148.5 | −26.0 | 85.8 % | 0.02 |
+
+- **El elegido** pronostica el precio de bolsa nacional de s+2 con el mismo Ridge con Duan del objetivo de referencia (variables `VARIABLES_TIE`) y lo multiplica por el diferencial log(compras TIE / nacional) de la semana s-1. Erra 10.9 % menos que la regla (6.9 % en selección, 21.2 % en la prueba final, p = 0.045 en esta).
+- **La evidencia es débil:** 113 semanas, elegido entre 9 variantes, y p = 0.044 no resiste una corrección por búsqueda. Se queda corto (−40 COP/kWh) y la cota cubre 87.6 % con un exceso de 107 %.
+- **Hoy no se puede emitir:** sin compras TIE en la semana base, la emisión anota una nota (no un motivo de vigilancia) y no registra el objetivo principal. Versión `compra-tie-nacional-spread-s1-conformal104-v1`.
 ## E17: corrección de sesgo adaptativa (resultado negativo)
 
 **Hipótesis (diagnóstico del 15 de noviembre de 2026):** el modelo TIE registrado se queda corto en el último año (−19 COP/kWh). Corregirlo con el error reciente debería reducir el error.

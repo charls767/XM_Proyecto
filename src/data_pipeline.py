@@ -421,6 +421,12 @@ def tabla_expo(recalcular=False):
                                                          == pd.Timedelta(weeks=HORIZONTE_TIE))
     # CEE oficial (COP/kWh, mensual) del mes en que termina la semana base, y en centUSD/kWh con la tasa
     # implícita de las exportaciones de esa semana (no es la TRM oficial).
+    # Sábado a martes de la semana s (publicado el viernes, como el resto de la liquidación) y diferencial
+    # frente al precio de bolsa nacional promedio horario de s-1 (variables del modelo principal, E26).
+    compra_parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, ce, cc, cc, corte_compra)
+    t["precio_compra_tie_parcial"] = compra_parcial.cop.where(compra_parcial.energia >= ENERGIA_MINIMA_PARCIAL_KWH).to_numpy()
+    t["spread_compra"] = np.log(t.precio_compra_tie_cop_kwh / t.precio)
+    t["spread_compra_4s"] = t.spread_compra.rolling(4, min_periods=1).mean()
     cee = xm.cee_mensual().set_index("mes").cee_cop_kwh
     t["cee_cop_kwh"] = cee.reindex((t.index + pd.Timedelta(days=6)).to_period("M").to_timestamp()).to_numpy()
     parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c, corte)

@@ -1,10 +1,10 @@
 # Ficha técnica: precios para la garantía TIE (PAE-XM)
 
-**Versiones registradas (desde el 20-nov-2026):** precio de bolsa `tie-ridge11-parcial-cmg-duan-conformal104-v1` (objetivo de referencia) y precio realizado de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (objetivo complementario). El objetivo principal aún no tiene modelo · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 16 de noviembre de 2026
+**Versiones registradas (desde el 20-nov-2026):** precio de bolsa `tie-ridge11-parcial-cmg-duan-conformal104-v1` (objetivo de referencia) y precio realizado de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (objetivo complementario). El objetivo principal tiene modelo (`compra-tie-nacional-spread-s1-conformal104-v1`), pero hoy no se puede emitir · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 16 de noviembre de 2026
 
 **Objetivos** (`config.OBJETIVOS`; detalle en [docs/VARIABLES_XM.md](docs/VARIABLES_XM.md)). XM no publica el precio oficial de la garantía, así que los tres son variables reconstruidas a partir de series oficiales y ninguno está validado para fijar garantías:
 
-- **Principal:** precio de las compras TIE en bolsa (`CompBolsaTIEMoneda` / `CompBolsaTIEEner`, COP/kWh), el componente económico de las obligaciones TIE en bolsa. Sin modelo todavía; XM no publica compras TIE desde el 1-ago-2026.
+- **Principal:** precio de las compras TIE en bolsa (`CompBolsaTIEMoneda` / `CompBolsaTIEEner`, COP/kWh), el componente económico de las obligaciones TIE en bolsa. Modelo E26 (`compra-tie-nacional-spread-s1-conformal104-v1`): 142.2 frente a 159.6 COP/kWh de la regla (−10.9 %, p = 0.044; 113 semanas, elegido entre 9 variantes: evidencia débil). No se puede emitir hoy: XM no publica compras TIE desde el 1-ago-2026.
 - **Referencia:** precio de bolsa nacional, promedio horario (`PrecBolsNaci`, COP/kWh).
 - **Complementario:** precio promedio realizado de exportación (`ExportMonedaUSD` / `ExpoEner`, centUSD/kWh). No es el precio oficial de la garantía.
 

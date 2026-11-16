@@ -12,7 +12,7 @@ Regla temporal común: semana TIE de sábado a viernes; cálculo el viernes de l
 
 | Categoría | Variable (columna) | Unidad | Fuente | Frecuencia | Tipo | Estado de validación |
 |---|---|---|---|---|---|---|
-| **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner` | Horaria → semanal | R | Sin modelo todavía. Componente económico de las obligaciones TIE en la bolsa colombiana; su relación exacta con la garantía es P. No hay datos desde el 1-ago-2026 |
+| **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner` | Horaria → semanal | R | Componente económico de las obligaciones TIE en la bolsa colombiana; su relación exacta con la garantía es P. Backtest simulado E26 (113 semanas): −10.9 % frente a la regla, p = 0.044, evidencia débil. Casi sin compras de febrero a julio de 2026 y sin datos desde el 1-ago-2026 |
 | **Referencia** | Precio de bolsa nacional, promedio horario simple (`precio`) | COP/kWh | `PrecBolsNaci` (alternativa oficial diaria: `PPPrecBolsNaci`) | Horaria → semanal | R | Backtest simulado E16/E24 (461 semanas); registro desde el 20-nov-2026 |
 | **Complementario** | Precio promedio realizado de exportación (`precio_expo`; en COP, `precio_expo_cop`) | centUSD/kWh | `ExportMonedaUSD` / `ExpoEner` (en COP: `ExpoMoneda` / `ExpoEner`) | Horaria → semanal | R | Backtest simulado E19 (117 semanas con exportación), no significativo al 5 %; registro desde el 20-nov-2026 |
 
@@ -59,7 +59,7 @@ Es la semana base del ejemplo de exportación de XM (cálculo del viernes 31 de 
 3. **(H)** Incluye más que el precio de bolsa TIE: 324.83 COP/kWh adicionales en esa semana. La composición es P.
 4. **(H)** Desde el 1-ago-2026 no hay compras ni ventas TIE en bolsa, pero sí exportaciones (96.11 GWh en agosto; 13.82 GWh del 15-oct al 14-nov). **(Hip)** Podrían estar ocurriendo por otro mecanismo (por ejemplo, contratos bilaterales), en el que la garantía de la CREG 004 de 2003 podría no aplicar.
 
-**Consecuencia para el proyecto.** El precio realizado de exportación pasa a ser el objetivo **complementario**. El **principal** es el componente económico de las obligaciones TIE en bolsa (compras TIE), que todavía no tiene modelo. No se reemplazó ninguna variable de los modelos: solo se agregaron columnas (`precio_compra_tie_cop_kwh`, `cee_cop_kwh`, `cee_centusd_kwh`, `precio_expo_neto_cee`) y la columna `precio_bolsa_tie` se sustituyó por la de compras, que es equivalente.
+**Consecuencia para el proyecto.** El precio realizado de exportación pasa a ser el objetivo **complementario**. El **principal** es el componente económico de las obligaciones TIE en bolsa (compras TIE), modelado en E26. No se reemplazó ninguna variable de los modelos: solo se agregaron columnas (`precio_compra_tie_cop_kwh`, `cee_cop_kwh`, `cee_centusd_kwh`, `precio_expo_neto_cee`) y la columna `precio_bolsa_tie` se sustituyó por la de compras, que es equivalente.
 
 ## 5. Preguntas para XM
 

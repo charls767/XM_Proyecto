@@ -140,6 +140,22 @@ def predicciones_expo():
     return p
 
 
+COMPRA = {"Regla XM": "Regla XM (repetir s-1)", "Nacional×spread s-1": "Modelo compras TIE (nacional × diferencial)"}
+
+
+def predicciones_compra():
+    """E26: objetivo principal, precio de las compras TIE en bolsa (COP/kWh), s+2 desde s-1."""
+    w = pd.read_parquet(RES / "E26_ancho.parquet")
+    p = w[["real", "base"]].copy()
+    for col, nombre in COMPRA.items():
+        p[nombre] = w[col]
+        p[f"cota|{nombre}"] = w[f"cota_{col}"]
+    p = p.dropna(subset=["real"])
+    p.index.name = "semana_base"
+    p.insert(0, "semana_objetivo", p.index + pd.Timedelta(weeks=3))
+    return p
+
+
 def catalogo():
     return pd.DataFrame([{"modelo": n, "familia": f, "descripcion": d, "tiene_cota": n in COTAS}
                          for _, _, n, f, d in MODELOS])
@@ -151,6 +167,7 @@ def main():
     p.to_parquet(SALIDA / "predicciones.parquet")
     predicciones_tie().to_parquet(SALIDA / "predicciones_tie.parquet")
     predicciones_expo().to_parquet(SALIDA / "predicciones_expo.parquet")
+    predicciones_compra().to_parquet(SALIDA / "predicciones_compra.parquet")
     te = dp.tabla_expo()
     te[["precio", "precio_expo_cop", "precio_expo", "energia_expo_gwh"]].to_parquet(SALIDA / "contexto_expo.parquet")
     with open(SALIDA / "ultimo_tie.json", "w", encoding="utf-8") as f:

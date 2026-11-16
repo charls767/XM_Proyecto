@@ -57,11 +57,14 @@ COLUMNAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo",
             "cambio_pct", "cota90", "real", "error", "error_regla", "cubierto", "fecha_calificacion",
             "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto",
             "expo_version", "expo_regla", "expo_pronostico", "expo_cota90", "expo_real", "expo_error",
-            "expo_error_regla", "expo_cubierto", "huella"]
+            "expo_error_regla", "expo_cubierto",
+            "compra_version", "compra_regla", "compra_pronostico", "compra_cota90", "compra_real", "compra_error",
+            "compra_error_regla", "compra_cubierto", "huella"]
 SELLADAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo", "version_modelo", "estado",
             "motivos", "precio_base", "precio_parcial", "regla_xm", "pronostico", "cota90",
             "candidato_version", "candidato_pronostico", "candidato_cota90",
-            "expo_version", "expo_regla", "expo_pronostico", "expo_cota90"]
+            "expo_version", "expo_regla", "expo_pronostico", "expo_cota90",
+            "compra_version", "compra_regla", "compra_pronostico", "compra_cota90"]
 
 
 def semanas(fecha_emision):
@@ -140,6 +143,58 @@ def pronosticar_expo(dx, base):
                              "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
                              "coeficientes": [float(c) for c in reg.coef_], "margen_log": float(np.log(cota / pred)),
                              "n_entrenamiento": len(entren), "entrenamiento_hasta": f"{entren.index.max():%Y-%m-%d}"}}
+
+
+def pronosticar_compra(dc, base):
+    """Objetivo principal (E26): precio de las compras TIE en bolsa de s+2, en COP/kWh (reconstruido).
+
+    Precio de bolsa nacional de s+2 (Ridge con Duan sobre VARIABLES_COMPRA_NACIONAL) × exp(diferencial de
+    compras TIE frente al nacional en s-1). `dc` es `fe.preparar_compra(dp.tabla_expo())`. Devuelve None
+    si en la semana base no hubo compras TIE (XM no las publica desde el 1-ago-2026).
+    """
+    if base not in dc.index or pd.isna(dc.at[base, "precio"]) or pd.isna(dc.at[base, config.COLUMNA_SPREAD_COMPRA]):
+        return None
+    vn = config.VARIABLES_COMPRA_NACIONAL
+    if dc.loc[base, vn].isna().any():
+        return None
+    modelo = models.NacionalSpread("compra", vn, config.COLUMNA_SPREAD_COMPRA, en_usd=False)
+    completas = dc.dropna(subset=modelo.variables + ["y"])
+    entren = completas[completas.index < base - pd.Timedelta(weeks=dp.HORIZONTE_TIE - 1)]
+    nal = entren.dropna(subset=vn + ["y_nacional"])
+    est = models.ridge().fit(nal[vn], nal.y_nacional)
+    factor = float(np.mean(np.exp(nal.y_nacional.to_numpy() - est.predict(nal[vn]))))
+    regla = float(dc.at[base, "precio"])
+    spread = float(dc.at[base, config.COLUMNA_SPREAD_COMPRA])
+    precio_nacional = float(dc.at[base, "precio_nacional"])
+    pred = precio_nacional * float(np.exp(est.predict(dc.loc[[base], vn])[0])) * factor * float(np.exp(spread))
+    r = bt.backtest(completas, [modelo], inicio=config.INICIO_BACKTEST, cada=4, embargo=dp.HORIZONTE_TIE - 1)
+    w = bt.ancho(r)
+    w = w[w.index < base]
+    h = pd.concat([pd.DataFrame({"real": w.real, "prediccion": w.compra, "ingenuo": w.base}),
+                   pd.DataFrame({"real": [np.nan], "prediccion": [pred], "ingenuo": [regla]}, index=[base])])
+    h["cota"] = cal.conformal(h.real, h.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL,
+                              rezago=dp.HORIZONTE_TIE)
+    cota = float(h.cota.iloc[-1])
+    esc, reg = est[0], est[-1]
+    return {"version": config.VERSION_COMPRA, "regla": regla, "pronostico": pred, "cota90": cota,
+            "desempeno_reciente": monitoreo.desempeno_reciente(h.iloc[:-1], semanas=52),
+            "variables": {v: float(dc.at[base, v]) for v in vn},
+            "reproduccion": {"variables": list(vn), "media": [float(m) for m in esc.mean_],
+                             "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
+                             "coeficientes": [float(c) for c in reg.coef_], "factor_duan": factor,
+                             "precio_nacional": precio_nacional, "spread": spread,
+                             "margen_log": float(np.log(cota / pred)), "n_entrenamiento": len(nal),
+                             "entrenamiento_hasta": f"{nal.index.max():%Y-%m-%d}"}}
+
+
+def reproducir_compra(compra):
+    """Pronóstico y cota del objetivo principal a partir de lo guardado, sin datos ni reentrenar."""
+    m = compra["reproduccion"]
+    x = np.array([compra["variables"][v] for v in m["variables"]])
+    z = (x - np.array(m["media"])) / np.array(m["escala"])
+    pred = (m["precio_nacional"] * float(np.exp(m["intercepto"] + z @ np.array(m["coeficientes"]))) * m["factor_duan"]
+            * float(np.exp(m["spread"])))
+    return pred, pred * float(np.exp(m["margen_log"]))
 
 
 def motivos_desempeno(desempeno, nombre, unidad):
@@ -256,6 +311,20 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         # El precio realizado de exportación (objetivo complementario) también puede poner la emisión en
         # vigilancia, igual que el precio de bolsa (objetivo de referencia).
         r["motivos"] += motivos_desempeno(r["expo"]["desempeno_reciente"], "Precio de exportación", "centUSD/kWh")
+    # Objetivo principal: precio de las compras TIE en bolsa (E26). XM no publica compras TIE desde el
+    # 1-ago-2026: mientras siga así, no hay precio base y solo se anota el motivo.
+    # Es una nota y no un motivo: mientras XM no publique compras TIE pasaría cada semana a vigilancia.
+    r["compra"], r["notas"] = None, []
+    try:
+        r["compra"] = pronosticar_compra(fe.preparar_compra(dp.tabla_expo()), base)
+        if r["compra"] is None:
+            corte = min(fechas.get(n, pd.NaT) for n in ("tie_compra_energia", "tie_compra_cop"))
+            r["notas"].append(f"Sin compras TIE en bolsa en la semana base (publicadas hasta {corte:%Y-%m-%d}): "
+                              "no se pronostica el objetivo principal")
+    except Exception as e:
+        print(f"No se pudo calcular el objetivo principal (compras TIE): {e}", flush=True)
+    if r["compra"]:
+        r["motivos"] += motivos_desempeno(r["compra"]["desempeno_reciente"], "Compras TIE en bolsa", "COP/kWh")
     if r["estado"] == "normal" and r["motivos"]:
         r["estado"] = "vigilancia"
     if guardar:
@@ -281,7 +350,8 @@ def _leer_registro():
         return pd.DataFrame(columns=COLUMNAS)
     reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
     return reg.astype({c: object for c in ("motivos", "huella", "cubierto", "candidato_version", "candidato_cubierto",
-                                           "expo_version", "expo_cubierto")})
+                                           "expo_version", "expo_cubierto",
+                                           "compra_version", "compra_cubierto")})
 
 
 def _escribir(reg):
@@ -320,6 +390,9 @@ def registrar(r):
     if expo := r.get("expo"):
         fila.update({"expo_version": expo["version"], "expo_regla": round(expo["regla"], 2),
                      "expo_pronostico": round(expo["pronostico"], 2), "expo_cota90": round(expo["cota90"], 2)})
+    if compra := r.get("compra"):
+        fila.update({"compra_version": compra["version"], "compra_regla": round(compra["regla"], 2),
+                     "compra_pronostico": round(compra["pronostico"], 2), "compra_cota90": round(compra["cota90"], 2)})
     anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
     fila["huella"] = huella(fila, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
@@ -357,6 +430,14 @@ def calificar(d=None):
         reg.loc[c2, "expo_error"] = (reg.loc[c2, "expo_pronostico"] - e2[c2]).round(3)
         reg.loc[c2, "expo_error_regla"] = (reg.loc[c2, "expo_regla"] - e2[c2]).round(3)
         reg.loc[c2, "expo_cubierto"] = e2[c2] <= reg.loc[c2, "expo_cota90"]
+        # Objetivo principal: precio real de las compras TIE en la semana objetivo, si las hubo.
+        compra = dp.tabla_expo().precio_compra_tie_cop_kwh.reindex(reg.loc[pendientes, "semana_objetivo"]).to_numpy()
+        reg.loc[pendientes, "compra_real"] = np.round(compra, 2)
+        e3 = pd.Series(compra, index=reales.index)
+        c3 = reales.index[reg.loc[reales.index, "compra_pronostico"].notna() & ~np.isnan(compra)]
+        reg.loc[c3, "compra_error"] = (reg.loc[c3, "compra_pronostico"] - e3[c3]).round(2)
+        reg.loc[c3, "compra_error_regla"] = (reg.loc[c3, "compra_regla"] - e3[c3]).round(2)
+        reg.loc[c3, "compra_cubierto"] = e3[c3] <= reg.loc[c3, "compra_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones TIE")
@@ -380,3 +461,8 @@ if __name__ == "__main__":
     if r["expo"]:
         print(f"Precio realizado de exportación (complementario, reconstruido): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
               f"cota 90 % {r['expo']['cota90']:,.2f}; regla XM {r['expo']['regla']:,.2f}")
+    if r.get("compra"):
+        print(f"Compras TIE en bolsa (principal, reconstruido): {r['compra']['pronostico']:,.1f} COP/kWh, "
+              f"cota 90 % {r['compra']['cota90']:,.1f}; regla XM {r['compra']['regla']:,.1f}")
+    for nota in r.get("notas", []):
+        print(f"Nota: {nota}")

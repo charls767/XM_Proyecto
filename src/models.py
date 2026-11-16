@@ -70,16 +70,18 @@ class NacionalSpread(Modelo):
     (el de s-1 o un promedio de 4 o 13 semanas).
     """
 
-    def __init__(self, nombre, variables, columna_spread="spread_4s"):
-        super().__init__(nombre, list(variables) + [columna_spread, "trm"], ridge)
-        self.vars_nal, self.col = list(variables), columna_spread
+    def __init__(self, nombre, variables, columna_spread="spread_4s", en_usd=True):
+        # en_usd=False (E26): el objetivo está en COP/kWh y no se convierte con la tasa implícita.
+        super().__init__(nombre, list(variables) + [columna_spread] + (["trm"] if en_usd else []), ridge)
+        self.vars_nal, self.col, self.en_usd = list(variables), columna_spread, en_usd
 
     def ajustar_predecir(self, entren, prueba):
         e = entren.dropna(subset=self.vars_nal + ["y_nacional"])
         est = ridge().fit(e[self.vars_nal], e.y_nacional)
         factor = np.mean(np.exp(e.y_nacional.to_numpy() - est.predict(e[self.vars_nal])))
         nal = prueba.precio_nacional.to_numpy() * np.exp(est.predict(prueba[self.vars_nal])) * factor
-        return nal * np.exp(prueba[self.col].to_numpy()) / prueba.trm.to_numpy() * 100
+        pred = nal * np.exp(prueba[self.col].to_numpy())
+        return pred / prueba.trm.to_numpy() * 100 if self.en_usd else pred
 
 
 def elasticnet():

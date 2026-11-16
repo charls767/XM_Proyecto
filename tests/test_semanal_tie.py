@@ -80,6 +80,24 @@ def test_regimen_de_exportacion_y_cota_sin_fuga():
     assert np.isclose(c1.iloc[-1], c2.iloc[-1])
 
 
+def test_objetivo_principal_compras_tie():
+    """E26: pronóstico de las compras TIE en bolsa (COP/kWh) reproducible; sin compras no hay pronóstico."""
+    import data_pipeline as dp
+    import feature_engineering as fe
+    import pytest
+    if not (dp.PROCESSED / "semanal_expo.parquet").exists():
+        pytest.skip("falta la tabla de exportación")
+    dc = fe.preparar_compra(dp.tabla_expo())
+    c = st.pronosticar_compra(dc, pd.Timestamp("2025-02-01"))
+    assert c is not None and c["cota90"] > c["pronostico"] > 0
+    hasta = pd.Timestamp(c["reproduccion"]["entrenamiento_hasta"])
+    assert hasta + pd.Timedelta(weeks=3, days=6) < pd.Timestamp("2025-02-14")  # viernes de cálculo
+    pred, cota = st.reproducir_compra(c)
+    assert abs(pred - c["pronostico"]) < 1e-6 and abs(cota - c["cota90"]) < 1e-6
+    # XM no publica compras TIE desde el 1-ago-2026.
+    assert st.pronosticar_compra(dc, pd.Timestamp("2026-10-31")) is None
+
+
 def test_registro_detecta_alteracion(tmp_path, monkeypatch):
     monkeypatch.setattr(st, "ARCHIVO", tmp_path / "pronosticos_tie.csv")
     monkeypatch.setattr(st, "REGISTRO", tmp_path)

@@ -38,6 +38,7 @@ NOMBRES_SIMPLES = {
     "Regla XM (repetir s-1)": REGLA,
     "Modelo registrado (sábado a martes + costo marginal mié-vie, con corrección de sesgo)": NUESTRO,
     "Modelo elegido (Huber + regla)": NUESTRO,
+    "Modelo compras TIE (nacional × diferencial)": NUESTRO,
     "Candidato en paralelo (+ hidrología hasta el jueves y martes)": PRUEBA,
     "Modelo anterior (sin costo marginal)": "Versión anterior de nuestro modelo",
     "Regla con sábado a martes de s": "Regla con los días más recientes",
@@ -104,7 +105,9 @@ def cargar(version):
     ctx_expo = pd.read_parquet(DATOS / "contexto_expo.parquet")
     reg_semana = pd.read_csv(DATOS / "registro.csv", parse_dates=["fecha_emision", "semana_objetivo"])
     ultimo = json.loads((DATOS / "ultimo_tie.json").read_text(encoding="utf-8"))
-    return tie, expo, semana, modelos, episodios, ctx_expo, reg_semana, ultimo
+    archivo_compra = DATOS / "predicciones_compra.parquet"
+    compra = pd.read_parquet(archivo_compra).rename(columns=_renombrar) if archivo_compra.exists() else None
+    return tie, expo, semana, modelos, episodios, ctx_expo, reg_semana, ultimo, compra
 
 
 def _renombrar(c):
@@ -113,7 +116,7 @@ def _renombrar(c):
     return NOMBRES_SIMPLES.get(c, c)
 
 
-TIE, EXPO, SEMANA, MODELOS, EPISODIOS, CTX_EXPO, REG_SEMANA, ULTIMO = cargar(
+TIE, EXPO, SEMANA, MODELOS, EPISODIOS, CTX_EXPO, REG_SEMANA, ULTIMO, COMPRA = cargar(
     max(a.stat().st_mtime for a in DATOS.iterdir()))
 
 
@@ -267,11 +270,16 @@ def inicio():
         st.caption("XM no publica el precio de la garantía. Ninguna de estas variables es el precio oficial de la "
                    "garantía, y ninguna está validada para fijarla.")
     expo, bolsa = filtrar(EXPO, PRINCIPAL), filtrar(TIE, PRINCIPAL)
-    for titulo, p, unidad, dec, texto in (
-            ("Precio realizado de exportación (reconstruido)", expo, "centavos de dólar por kWh", 2,
-             "Lo que Ecuador paga por cada kilovatio-hora."),
-            ("Precio de bolsa: el precio general del mercado colombiano", bolsa, "pesos por kWh", 0,
-             "El precio al que se compra y vende la energía en Colombia, hora por hora.")):
+    bloques = []
+    if COMPRA is not None:
+        bloques.append(("Objetivo principal: precio de las compras TIE en bolsa (reconstruido)", filtrar(COMPRA, PRINCIPAL),
+                        "pesos por kWh", 0, "Lo que se pagó en la bolsa colombiana por la energía para atender la "
+                        "exportación. XM no publica estas compras desde agosto de 2026, así que hoy no se puede pronosticar."))
+    bloques += [("Objetivo de referencia: precio de bolsa, el precio general del mercado colombiano", bolsa,
+                 "pesos por kWh", 0, "El precio al que se compra y vende la energía en Colombia, hora por hora."),
+                ("Objetivo complementario: precio realizado de exportación (reconstruido)", expo,
+                 "centavos de dólar por kWh", 2, "Lo que Ecuador paga por cada kilovatio-hora.")]
+    for titulo, p, unidad, dec, texto in bloques:
         st.subheader(titulo)
         st.caption(f"{texto} Errores promedio en {unidad}, de 2018 a 2026.")
         er, en = (p[REGLA] - p.real).abs().mean(), (p[NUESTRO] - p.real).abs().mean()

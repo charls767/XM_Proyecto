@@ -8,7 +8,7 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23, según el mater
 
 | Categoría | Variable | Unidad | Fuente (API XM) | Estado |
 |---|---|---|---|---|
-| **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner`, horarias | Componente económico de las obligaciones TIE en bolsa. **Sin modelo todavía**; XM no publica compras TIE desde el 1-ago-2026 |
+| **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner`, horarias | Componente económico de las obligaciones TIE en bolsa. Modelo E26: 142.2 frente a 159.6 COP/kWh de la regla (−10.9 %, p = 0.044; 113 semanas): evidencia débil. **No se puede emitir hoy**: XM no publica compras TIE desde el 1-ago-2026 |
 | **Referencia** | Precio de bolsa nacional, promedio horario (`precio`) | COP/kWh | `PrecBolsNaci`, horaria (alternativa diaria: `PPPrecBolsNaci`) | Modelo en registro (E16, E24) |
 | **Complementario** | Precio promedio realizado de exportación (`precio_expo`) | centUSD/kWh | `ExportMonedaUSD` / `ExpoEner`, horarias | Modelo en registro (E19, E20). Es un precio **realizado**, no el de la garantía: con el CEE oficial da 22.27 centUSD/kWh frente a 22.75 del ejemplo de XM (semana base del 18 al 24 de enero de 2025) |
 
@@ -36,7 +36,7 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23, según el mater
 
 ## El núcleo: pronósticos cada viernes
 
-Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes) y se compara con la regla de XM, que repite el valor de la semana s-1. Hoy hay modelo para el objetivo de referencia y el complementario. El principal todavía no tiene: su serie (compras TIE en bolsa) está en `dp.tabla_expo`, pero XM no la publica desde el 1-ago-2026.
+Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes) y se compara con la regla de XM, que repite el valor de la semana s-1. Los tres objetivos tienen modelo. El principal (compras TIE en bolsa, E26: precio de bolsa nacional pronosticado × diferencial de s-1) no se puede emitir hoy: XM no publica compras TIE desde el 1-ago-2026, y la emisión lo anota como nota. La tabla describe los otros dos.
 
 | | **Referencia:** precio de bolsa nacional | **Complementario:** precio promedio realizado de exportación |
 |---|---|---|
@@ -258,7 +258,7 @@ python src/experimentos.py e16
 ```
 
 Cada comando regenera sus archivos en `results/`:
-- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20), `e22` (monto de la garantía) y `e17`.
+- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20), `e22` (monto de la garantía), `e26` (objetivo principal: compras TIE en bolsa) y `e17`.
 - **Pronóstico a una semana:** `e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `e14`, `e15`, `cortes`, `tuning` y `alertas`.
 - **Sin comando:** E18, E20 (salvo la cota), E21, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
 
