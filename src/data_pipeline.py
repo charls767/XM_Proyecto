@@ -327,6 +327,15 @@ def tabla_tie(recalcular=False):
 # --- Precio de exportación TIE (E19) -----------------------------------------
 
 ENERGIA_MINIMA_EXPO_KWH = 1e6  # semanas con menos de 1 GWh exportado no tienen un precio representativo
+# Reglas especiales de exportación (Ministerio de Minas y Energía), publicadas antes de aplicarse, así que
+# se conocen el viernes de cálculo. En ellas el precio de exportación queda muy por encima del nacional.
+REGIMENES_EXPORTACION = [
+    ("2023-10-16", "2024-11-15", "Res. MME 40619 y 40718 de 2023, 40115, 40330 y 40410 de 2024: exportar solo con "
+                                 "térmicas, por alternativas definidas por circular o suspender; la 40494 de 2024 "
+                                 "reactivó con cualquier planta desde el 16-nov-2024"),
+    ("2026-07-31", "2027-05-31", "Marco permanente de medidas de 2026 (proyecto MME de junio de 2026: exportar con "
+                                 "térmicas) y CREG 101 127 de 2026 en el período de riesgo; fechas por confirmar"),
+]
 ENERGIA_MINIMA_PARCIAL_KWH = 3e5
 
 
@@ -387,8 +396,18 @@ def tabla_expo(recalcular=False):
     t["log_energia_expo"] = np.log1p(t.energia_expo_gwh)
     t["trm_cambio"] = np.log(t.trm / t.trm.ffill().shift(4))
     t["expo_parcial_rel"] = np.log(t.precio_expo_parcial / t.precio_expo)
+    t["regimen_expo"] = regimen_exportacion(t.index)
     t.to_parquet(archivo)
     return t
+
+
+def regimen_exportacion(semanas_base):
+    """1 si el viernes de cálculo (semana base + 13 días) cae dentro de una regla especial de exportación."""
+    calculo = pd.DatetimeIndex(semanas_base) + pd.Timedelta(days=13)
+    r = np.zeros(len(calculo))
+    for ini, fin, _ in REGIMENES_EXPORTACION:
+        r[(calculo >= ini) & (calculo <= fin)] = 1.0
+    return r
 
 
 # --- Datos nuevos (E8) ------------------------------------------------------

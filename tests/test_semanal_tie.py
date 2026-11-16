@@ -61,6 +61,25 @@ def test_precio_de_exportacion_cuadra_con_el_ejemplo_de_xm():
     assert abs(pred - e["pronostico"]) < 1e-6 and abs(cota - e["cota90"]) < 1e-6 and cota > pred
 
 
+def test_regimen_de_exportacion_y_cota_sin_fuga():
+    import numpy as np
+    import calibration as cal
+    import data_pipeline as dp
+    # Viernes de cálculo dentro y fuera de las reglas especiales.
+    r = dp.regimen_exportacion(pd.DatetimeIndex(["2023-10-07", "2024-03-02", "2024-11-09", "2025-02-01"]))
+    assert list(r) == [1.0, 1.0, 0.0, 0.0]  # 20-oct-23, 15-mar-24 sí; 22-nov-24 y 14-feb-25 no
+    # La cota por régimen no usa los reales de las 2 filas anteriores (rezago 3).
+    idx = pd.date_range("2018-01-06", periods=60, freq="7D")
+    rng = np.random.default_rng(0)
+    real = pd.Series(np.exp(rng.normal(3, 0.3, 60)), index=idx)
+    pred = pd.Series(np.exp(rng.normal(3, 0.3, 60)), index=idx)
+    reg = pd.Series((np.arange(60) % 5 == 0).astype(float), index=idx)
+    c1 = cal.conformal_regimen(real, pred, reg, rezago=3, minimo_grupo=4)
+    real2 = real.copy(); real2.iloc[-3:-1] *= 10
+    c2 = cal.conformal_regimen(real2, pred, reg, rezago=3, minimo_grupo=4)
+    assert np.isclose(c1.iloc[-1], c2.iloc[-1])
+
+
 def test_registro_detecta_alteracion(tmp_path, monkeypatch):
     monkeypatch.setattr(st, "ARCHIVO", tmp_path / "pronosticos_tie.csv")
     monkeypatch.setattr(st, "REGISTRO", tmp_path)

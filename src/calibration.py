@@ -34,18 +34,21 @@ def _cuantil_corregido(previos, nivel):
     return np.quantile(previos, min(1.0, np.ceil((n + 1) * nivel) / n), method="higher")
 
 
-def conformal_regimen(real, pred, regimen, nivel=0.9, ventana=104, minimo=26):
+def conformal_regimen(real, pred, regimen, nivel=0.9, ventana=104, minimo=26, rezago=1, minimo_grupo=None):
     """Conformal Mondrian: el margen de la fila i usa solo puntajes previos del mismo
     régimen (las últimas `ventana` filas de ese régimen). `regimen` debe ser conocido
-    al emitir. Si el régimen aún tiene menos de `minimo` puntajes, usa todos los previos."""
+    al emitir. Si el régimen aún tiene menos de `minimo_grupo` puntajes (por defecto
+    `minimo`), usa todos los previos. `rezago` como en `conformal`: 3 en la garantía TIE."""
+    minimo_grupo = minimo if minimo_grupo is None else minimo_grupo
     s = np.log(real / pred).to_numpy()
     g = regimen.reindex(pred.index).to_numpy()
     margen = np.full(len(s), np.nan)
     for i in range(minimo, len(s)):
-        previos, grupo = s[:i], g[:i]
+        fin = i - rezago + 1
+        previos, grupo = s[:fin], g[:fin]
         validos = ~np.isnan(previos)
         mismo = previos[validos & (grupo == g[i])]
-        if len(mismo) >= minimo:
+        if len(mismo) >= minimo_grupo:
             margen[i] = _cuantil_corregido(mismo[-ventana:], nivel)
         else:
             margen[i] = _cuantil_corregido(previos[validos][-ventana:], nivel)

@@ -75,7 +75,8 @@ def cargar(version):
 # La versión cambia cuando se regeneran los resultados: así la caché no sirve datos viejos.
 P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO, TIE, EXPO, CTX_EXPO = cargar(
     max(a.stat().st_mtime for a in DATOS.iterdir()))
-EXPO_MODELOS = [c for c in EXPO.columns if c not in ("semana_objetivo", "real", "base") and not c.startswith("cota|")]
+EXPO_MODELOS = [c for c in EXPO.columns if c not in ("semana_objetivo", "real", "base", "regimen_expo")
+                and not c.startswith("cota|")]
 ELEGIDO_EXPO = "Modelo elegido (Huber + regla)"
 COLOR.update({ELEGIDO_EXPO: "#eb6834", "Huber + sábado a martes": "#1baf7a", "Huber": "#2a78d6",
               "Precio nacional × diferencial": "#6250d6", "Ridge + nacional + sábado a martes": "#e87ba4", "LightGBM": "#eda100"})
@@ -281,6 +282,7 @@ públicas en la API de XM. Solo hay precio en las semanas en que se exportó al 
 - Lo que funciona es **moderar la regla**: promediarla con un modelo robusto (Huber) que usa el diferencial
   exportación/nacional, los días ya publicados y las variables del sistema.
 - Las mejoras no son significativas en todo 2018–2026 (pocas semanas y mucha variación); en la prueba final quedan al borde (p ≈ 0.06).
+- **Reglas especiales de exportación:** de octubre de 2023 a noviembre de 2024 (El Niño) y desde finales de julio de 2026, el Ministerio de Minas y Energía limitó las exportaciones a plantas térmicas o las suspendió. En esas semanas el precio de exportación es en promedio el doble del nacional. Estas reglas se publican antes de aplicarse, así que el modelo las conoce: la cota del modelo elegido se calibra aparte en esas semanas, y su cobertura allí sube de 87 % a 92 %, a cambio de una cota algo más ancha.
 """)
 
 

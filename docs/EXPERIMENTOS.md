@@ -35,6 +35,9 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
+| E22 | (scratch) | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
+| E21 | (scratch) | Con regla especial, ¿el precio de exportación sigue el costo de las térmicas, y sirve para pronosticarlo? | Sí sigue el costo térmico (correlación 0.75 frente a 0.42 del precio de bolsa), pero a tres semanas no supera al elegido (7.60 frente a 7.78, p = 0.77). No se adopta. |
+| E20 | `e19` (cota) y scratch | ¿Se explica el precio de exportación con el máximo precio de oferta, las rentas de congestión o el régimen regulatorio? | Ninguna serie pública lo explica. El régimen (reglas del MME) no mejora el error, pero la cota por régimen sube la cobertura en esas semanas de 87 % a 92 %; adoptada. |
 | E19 | `e19` | ¿Qué tan bien se pronostica el precio de exportación, el que entra en la garantía? | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
@@ -648,6 +651,88 @@ El modelo de E16, aplicado como cambio relativo sobre el precio de exportación,
 - **Ningún modelo solo le gana a la regla en selección.** Lo que funciona es moderar la regla: combinarla con un modelo robusto (Huber), porque el precio tiene saltos de régimen que pesan mucho en un Ridge.
 - **Elección:** el elegido es el de menor error en selección, entre unas 30 variantes. Unas 15 se probaron fuera del repositorio: Huber, mediana, ventana de 150 semanas y otras combinaciones. Mejora 9 % en 2018–2026 (p = 0.08) y 13.9 % en la prueba final (p = 0.06). Con la corrección por búsqueda no sería significativo: **la evidencia es débil**, y el registro debe confirmarla.
 - **Período de riesgo:** desde agosto de 2026 el precio de exportación llega a ser varias veces el nacional. La semana del 31 de octubre fue 2,978 frente a 389 COP/kWh. Eso es coherente con la CREG 101 127, que cobra el máximo de varios precios. Ningún modelo entrenado con la historia anticipa ese régimen.
+
+## E20: modelo estructural y régimen regulatorio del precio de exportación
+
+**¿Se explica el precio de exportación con datos públicos de XM?** No.
+- **El máximo precio de oferta nacional (`MaxPrecOferNal`)** es casi igual al precio de bolsa: entre 0.97 y 1.00 veces todos los años. Desde 2023, el error log mediano frente al precio de exportación es igual con el nacional (0.205) que con ese máximo (0.209).
+- **Rentas de congestión TIE y saldos netos TIE:** su correlación con lo cobrado de más al exportar va de −0.05 a −0.10. Como variables del modelo no mejoran en selección (5.35 a 5.70 frente a 5.37).
+- **Lo cobrado de más al exportar** sobre el valor en bolsa TIE, mediana por kWh: 30 a 56 COP en 2014–2018, −29 a 10 en 2019–2023, **374 en 2024** y **1,361 en 2026**. Coincide con las reglas especiales del MME (ver SUPUESTOS).
+- **Costo marginal de Ecuador (CENACE):** no hay una descarga pública histórica diaria. Los [informes anuales](https://www.cenace.gob.ec/wp-content/uploads/downloads/2026/04/Informe-Anual-2025_Parte-1-1.pdf) traen promedios mensuales del costo horario de energía (cUSD/kWh). El despacho diario se publica en SIMEM-CENACE. La [información operativa](https://www.cenace.gob.ec/info-operativa/InformacionOperativa.htm) muestra el último día. La vía para la serie completa es la solicitud de acceso a información pública de CENACE.
+
+**Régimen regulatorio.** Indicador `regimen_expo` (`dp.REGIMENES_EXPORTACION`), conocido el viernes de cálculo: 38 de las 387 semanas con objetivo.
+
+| Uso del indicador | Selección | Final | Con regla especial |
+|---|---|---|---|
+| Sin indicador (elegido) | 5.37 | 6.05 | 7.76 |
+| Como variable de Huber | 5.64 | 5.80 | 8.11 |
+| Variable × diferencial | 6.40 | 5.83 | 9.46 |
+| Solo la regla en esas semanas | 5.82 | 6.29 | 8.74 |
+
+Como variable no se adopta: empeora en selección.
+
+**Cota calibrada por régimen** (Mondrian, rezago 3, mínimo 8 semanas del mismo régimen, `config.MINIMO_GRUPO_REGIMEN`):
+
+| Cota del elegido | Cobertura | Con regla especial (38) | Normal | Exceso cuando cubre |
+|---|---|---|---|---|
+| Común | 88.9 % | 86.8 % | 89.9 % | 97 % |
+| **Por régimen (adoptada)** | **90.6 %** | **92.1 %** | 89.9 % | 105 % |
+
+La cota por régimen corrige la falta de cobertura en las semanas con regla especial, a cambio de ser 8 puntos más ancha. Se adoptó porque quedarse corto en la garantía cuesta más. Está en `results/E20_cotas_regimen.csv`, y la emisión TIE la usa desde la versión `expo-huber-mitad-regla-conformal104-regimen-v1`.
+
+## E21: el costo térmico en las semanas con regla especial
+
+Prueba hecha fuera del repositorio, con las ofertas, la generación y la capacidad por planta de la caché, y la clasificación térmica. Por semana TIE se calculó el costo térmico de varias formas. La que mejor resulta es la oferta de las térmicas que generaron, ponderada por su generación.
+
+**El mecanismo se confirma.** En las 52 semanas con regla especial y exportación desde 2014:
+
+| Medida | Correlación con el precio de exportación | Error log mediano | Razón mediana |
+|---|---|---|---|
+| Precio de bolsa nacional | 0.42 | 0.305 | 1.89 |
+| Oferta de las térmicas que generaron, ponderada por generación | **0.75** | 0.174 | 2.22 |
+| Percentil 90 de la oferta de las térmicas que generaron | 0.73 | **0.171** | 1.20 |
+
+En semanas normales es al revés: el precio de bolsa explica el de exportación (correlación 0.94 en 2014–2022) y el costo térmico no (−0.04). Con la regla especial, lo cobrado al exportar sigue el costo de las térmicas, como dice la Res. MME 40619 de 2023: el ASIC factura "los costos en que incurra el mercado exportador". Excepción: la semana del 31 de octubre de 2026 cobró 2,978 COP/kWh con un costo térmico de 768. Ahí parece actuar la fórmula del período de riesgo.
+
+**Como pronóstico no mejora con significancia.** Costo térmico de s-1 por la razón exportación/costo aprendida de semanas anteriores ya calificadas; 32 semanas evaluables con regla especial:
+
+| Modelo | MAE | Frente a la regla | 2024 (22) | 2026 (4) |
+|---|---|---|---|---|
+| Regla XM | 9.50 | — | 6.05 | 17.59 |
+| Elegido (mitad Huber + mitad regla) | 7.78 | −18 % (p = 0.004) | 4.42 | 15.84 |
+| Estructural (costo térmico ponderado) | 8.39 | −12 % (p = 0.48) | 6.79 | 10.65 |
+| Mitad estructural + mitad elegido | 7.60 | −20 % (p = 0.02) | 4.98 | 13.25 |
+
+La combinación no supera al elegido con significancia (p = 0.77). A tres semanas, el nivel del costo térmico ya lo resume el diferencial de s-1; lo que falla son sus cambios. **No se adopta.** Queda como candidato si vuelve un régimen como el de 2026, donde el elegido se queda más corto.
+
+## E22: el error en dinero de la garantía, el nivel de la cota y las transiciones de régimen
+
+Prueba hecha fuera del repositorio sobre `results/E19_ancho.parquet` (117 semanas con exportación, 2018–2026).
+
+**Monto.** Monto ≈ MXT × precio, con MXT constante de 74.25 GWh/semana: la energía del ejemplo de exportación de XM, unos 442 MW. El CEE se resta igual a lo garantizado y a lo liquidado, así que no cambia faltantes ni excesos. Cifras acumuladas en millones de USD:
+
+| Garantía calculada con | Faltante | Exceso inmovilizado | Semanas cortas | Peor faltante semanal |
+|---|---|---|---|---|
+| Regla XM (vigente) | 260.1 | 200.9 | 68 | 31.5 |
+| Modelo elegido | 256.4 | 163.0 | 64 | 39.3 |
+| Cota 80 % del modelo (cobertura 74 %) | 95.3 | 575.1 | 30 | 26.8 |
+| Cota 90 % del modelo (cobertura 91 %) | 23.5 | 1,044.1 | 11 | 7.2 |
+| Cota 95 % del modelo (cobertura 96 %) | 12.8 | 1,267.2 | 5 | 7.2 |
+| Cota 90 % de la regla | 38.2 | 1,012.5 | 12 | 9.9 |
+
+- **El modelo casi no reduce el faltante** (−1 %). Su ganancia es inmovilizar menos: −19 % de exceso. En el monto pesa sobre todo el lado que sobra.
+- **Con la energía realmente exportada** en vez del MXT constante, el orden se mantiene: faltante de 124.9 (regla) frente a 117.7 (modelo), exceso de 68.9 frente a 59.1.
+- **Qué nivel conviene** depende de cuánto más cuesta quedarse corto (k) que inmovilizar. Con costo total = k × faltante + exceso:
+
+| k | Mejor opción |
+|---|---|
+| 1 | Pronóstico puntual del modelo (419 frente a 461 de la regla) |
+| 3 a 5 | Cota del 80 % |
+| 10 | Cota del 90 % |
+
+La cota del 90 % es la opción prudente solo si quedarse corto cuesta unas 10 veces más que inmovilizar. Ese costo relativo debe fijarlo XM (pregunta 9 de PREGUNTAS_XM). Además, los faltantes se corrigen en el ajuste 1, una semana después, así que el costo real de quedarse corto es el de financiar o cubrir esa semana.
+
+**Transiciones de régimen.** Son semanas en que la regla especial cambia entre el viernes de cálculo y la semana objetivo. Solo 3 de 117: las bases del 16 al 30 de septiembre de 2023, justo antes de la Res. 40619 del 14 de octubre. Erran 6.67 (modelo) y 6.87 (regla), frente a 4.78 y 5.27 en el resto, y aportan el 3.5 % del error del modelo. No justifican un tratamiento propio.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
