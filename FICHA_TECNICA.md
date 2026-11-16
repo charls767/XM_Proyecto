@@ -1,6 +1,6 @@
 # Ficha técnica: precio para la garantía TIE (PAE-XM)
 
-**Versiones registradas (desde el 20-nov-2026):** precio de exportación `expo-huber-mitad-regla-conformal104-v1` y precio de bolsa `tie-ridge11-parcial-duan-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
+**Versiones registradas (desde el 20-nov-2026):** precio de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (candidato, ver abajo) y precio de bolsa `tie-ridge11-parcial-duan-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
 
 ## Para qué sirve
 
@@ -12,7 +12,8 @@ Estima, el viernes de la semana s, el precio de la semana TIE s+2 (sábado a vie
 |---|---|
 | Regla de XM | 5.31 centUSD/kWh de error medio |
 | Modelo (mitad Huber, mitad regla) | 4.83 (−9 %, p = 0.08); prueba final 2025–26: 6.05 frente a 7.03 (−13.9 %, p = 0.06) |
-| Limitación | Pocas semanas y saltos de régimen: la evidencia es débil. Sin exportaciones en s-1 no hay pronóstico |
+| Limitación | Pocas semanas y saltos de régimen: la evidencia es débil. Sin exportaciones en s-1, o si la semana s-1 aún no está publicada completa, no hay pronóstico |
+| Estado | **Candidato, no resultado:** se eligió entre ~30 variantes y no es significativo al 5 %. Se registra junto a la regla y lo decide el registro |
 
 **Precio de bolsa (base del mercado, E16).**
 

@@ -337,15 +337,27 @@ REGIMENES_EXPORTACION = [
                                  "térmicas) y CREG 101 127 de 2026 en el período de riesgo; fechas por confirmar"),
 ]
 ENERGIA_MINIMA_PARCIAL_KWH = 3e5
+# Series de exportación que la emisión debe descargar (precio = USD cobrados / energía exportada).
+SERIES_EXPO = ("expo_energia", "expo_usd", "expo_cop")
+SERIES_EXPO_TODAS = SERIES_EXPO + ("tie_venta_energia", "tie_venta_cop")
 
 
-def _semanal_expo(fechas_ini, dias, e, u, c):
-    """Precio de exportación (centUSD/kWh y COP/kWh) y energía de `dias` días desde cada fecha."""
+def _semanal_expo(fechas_ini, dias, e, u, c, corte=None):
+    """Precio de exportación (centUSD/kWh y COP/kWh) y energía de `dias` días desde cada fecha.
+
+    Un día sin fila antes de `corte` (última fecha publicada) es un día sin exportación y cuenta 0.
+    Si el periodo pasa de `corte`, aún no está publicado completo y no tiene precio ni energía:
+    así una semana a la que le faltan días no se calcula como si estuviera completa.
+    """
     h = pd.DataFrame({"e": e, "u": u, "c": c}).fillna(0.0)
     diario = h.groupby(h.index.normalize()).sum()
     filas = []
     for i in fechas_ini:
-        x = diario.reindex(pd.date_range(i, periods=dias)).fillna(0.0).sum()
+        rango = pd.date_range(i, periods=dias)
+        if corte is not None and rango[-1] > corte:
+            filas.append((np.nan, np.nan, np.nan))
+            continue
+        x = diario.reindex(rango).fillna(0.0).sum()
         ok = x.e > 0 and x.u > 0 and x.c > 0  # sin liquidación en moneda no hay precio
         filas.append((x.e, x.u / x.e * 100 if ok else np.nan, x.c / x.e if ok else np.nan))
     return pd.DataFrame(filas, index=fechas_ini, columns=["energia", "usd", "cop"])
@@ -372,15 +384,18 @@ def tabla_expo(recalcular=False):
     h = lambda n: xm.a_horario(xm.leer_cache(n)).fillna(0.0)
     e, u, c = h("expo_energia"), h("expo_usd"), h("expo_cop")
     ve, vc = h("tie_venta_energia"), h("tie_venta_cop")
-    base = _semanal_expo(t.index, 7, e, u, c)
+    # Última fecha publicada en las tres series: lo posterior aún no se conoce.
+    corte = min(xm.ultima_fecha_en_cache(n) for n in SERIES_EXPO)
+    corte_tie = min(xm.ultima_fecha_en_cache(n) for n in ("tie_venta_energia", "tie_venta_cop"))
+    base = _semanal_expo(t.index, 7, e, u, c, corte)
     hay = base.energia >= ENERGIA_MINIMA_EXPO_KWH
     t["energia_expo_gwh"] = base.energia / 1e6
     t["precio_expo"] = base.usd.where(hay)
     t["precio_expo_cop"] = base.cop.where(hay)
     t["trm"] = (t.precio_expo_cop / t.precio_expo * 100)
-    tie = _semanal_expo(t.index, 7, ve, vc * 0, vc)
+    tie = _semanal_expo(t.index, 7, ve, vc * 0, vc, corte_tie)
     t["precio_bolsa_tie"] = tie.cop.where(tie.energia >= ENERGIA_MINIMA_EXPO_KWH)
-    parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c)
+    parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c, corte)
     t["precio_expo_parcial"] = parcial.usd.where(parcial.energia >= ENERGIA_MINIMA_PARCIAL_KWH).to_numpy()
 
     s = t.index.to_series()

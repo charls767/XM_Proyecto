@@ -267,6 +267,11 @@ públicas en la API de XM. Solo hay precio en las semanas en que se exportó al 
     st.dataframe(metricas_expo(p), hide_index=True, width="stretch", column_config=FORMATO_USD)
     st.caption(f"{len(p)} semanas objetivo con exportación. Modelo elegido con el periodo de selección 2022–2024 "
                "entre unas 30 variantes; la prueba final 2025–2026 no se usó para elegir.")
+    st.warning("**Es un candidato, no un resultado.** Con 117 semanas y un modelo elegido entre muchas variantes, la "
+               "ventaja sobre la regla no es significativa al 5 % (p ≈ 0.08 en 2018–2026 y ≈ 0.06 en la prueba final). "
+               "En el período de riesgo puede alejarse mucho de la regla (en la prueba del 13 de noviembre de 2026, "
+               "65.8 frente a 92.4 centUSD/kWh), con muy pocas semanas de ese régimen para entrenar. "
+               "Lo decide el registro: se registra cada viernes junto a la regla.")
     sel = st.multiselect("Modelos en el gráfico", EXPO_MODELOS, default=[REGLA, ELEGIDO_EXPO], key="sel_expo")
     fig = go.Figure()
     fig.add_scatter(x=p.semana_objetivo, y=p.real, name="Precio real", mode="lines+markers",
@@ -434,7 +439,7 @@ def estres():
         st.dataframe(metricas(p, modelos), hide_index=True, width="stretch", column_config=FORMATO)
         st.plotly_chart(grafico_series(p, modelos, 440, "Ridge 14 (oficial)"), width="stretch")
     if ep.startswith("Período de riesgo"):
-        st.caption("Desde el 7 de septiembre de 2026 no hay exportaciones a Ecuador y rigen reglas temporales "
+        st.caption("Desde el 7 de septiembre de 2026 las exportaciones a Ecuador son mínimas o intermitentes y rigen reglas temporales "
                    "(CREG 101 127). Son pocas semanas: no permiten concluir si el modelo sigue funcionando.")
 
 
