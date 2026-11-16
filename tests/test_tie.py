@@ -11,6 +11,20 @@ import data_pipeline as dp  # noqa: E402
 ARCHIVO = dp.PROCESSED / "semanal_tie.parquet"
 
 
+def test_semana_de_exportacion_incompleta_no_tiene_precio():
+    """Auditoría de exportación, A2: los días después de la última fecha publicada no cuentan como cero."""
+    dias = pd.date_range("2026-11-07", periods=6, freq="D")
+    h = pd.date_range(dias[0], periods=24 * 6, freq="h")
+    e = pd.Series(1000.0, index=h)
+    u = pd.Series(500.0, index=h)
+    c = pd.Series(2e6, index=h)
+    sem = pd.DatetimeIndex(["2026-11-07"])
+    incompleta = dp._semanal_expo(sem, 7, e, u, c, corte=pd.Timestamp("2026-11-12"))
+    assert incompleta.usd.isna().all() and incompleta.energia.isna().all()
+    completa = dp._semanal_expo(sem, 7, e, u, c, corte=pd.Timestamp("2026-11-13"))
+    assert completa.usd.iloc[0] == pytest.approx(50.0)  # el día 13 sin fila cuenta como sin exportación
+
+
 @pytest.mark.skipif(not ARCHIVO.exists(), reason="falta la tabla TIE (python src/experimentos.py e16)")
 def test_tabla_tie_semanas_y_horizonte():
     t = dp.tabla_tie()

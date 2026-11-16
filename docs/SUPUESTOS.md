@@ -50,7 +50,7 @@ Mientras rija la CREG 101 127 de 2026 (hasta el 31 de mayo de 2027), los cargos 
 
 Ver la tabla inicial de [PREGUNTAS_XM.md](PREGUNTAS_XM.md).
 
-En ese régimen, el precio que entra en la garantía de exportación puede no ser el precio de bolsa que pronostica este proyecto. El backtest de 2018 a agosto de 2026 no se ve afectado. Lo que depende de esta respuesta es la utilidad del registro mientras rija la norma; además, desde el 7 de septiembre de 2026 no hay exportaciones.
+En ese régimen, el precio que entra en la garantía de exportación puede no ser el precio de bolsa que pronostica este proyecto. El backtest de 2018 a agosto de 2026 no se ve afectado. Lo que depende de esta respuesta es la utilidad del registro mientras rija la norma; además, desde el 7 de septiembre de 2026 las exportaciones son mínimas o intermitentes: según `ExpoEner`, 1.08 GWh la semana del 10 de octubre, 6.87 GWh la del 31 de octubre y 5.28 GWh del 7 al 12 de noviembre, frente a 46 y 50 GWh en las dos últimas semanas de agosto.
 
 ## Qué falta confirmar
 

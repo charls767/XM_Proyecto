@@ -41,6 +41,7 @@ import feature_engineering as fe
 import models
 import monitoreo
 import semanal
+import xm_client as xm
 
 RAIZ = Path(__file__).resolve().parents[1]
 REGISTRO = RAIZ / "registro"
@@ -156,6 +157,9 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     if guardar and (malas := verificar_registro()):
         raise RuntimeError(f"El registro TIE fue alterado en las semanas {malas}; revísalo antes de emitir.")
     fechas = semanal.actualizar_datos() if actualizar else semanal.ultimas_fechas()
+    # Las series de exportación también se actualizan: el precio de la garantía sale de ellas.
+    for n in dp.SERIES_EXPO_TODAS:
+        fechas[n] = xm.descargar(n).fecha.max() if actualizar else xm.ultima_fecha_en_cache(n)
     d = fe.preparar(dp.tabla_tie(recalcular=True))
     s, base, objetivo = semanas(fecha_emision)
     if base not in d.index or pd.isna(d.at[base, "precio"]):
@@ -222,7 +226,13 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     try:
         r["expo"] = pronosticar_expo(fe.preparar_expo(dp.tabla_expo(recalcular=True)), base)
         if r["expo"] is None:
-            r["motivos"].append("Sin exportaciones en la semana base: no hay precio de exportación que pronosticar")
+            corte = min(fechas[n] for n in dp.SERIES_EXPO)
+            if pd.isna(corte) or corte < base + pd.Timedelta(days=6):
+                r["motivos"].append(f"Exportaciones publicadas solo hasta {corte:%Y-%m-%d}: la semana base no está "
+                                    "completa y no se pronostica el precio de exportación")
+            else:
+                r["motivos"].append("Sin exportaciones en la semana base (menos de 1 GWh): no hay precio de "
+                                    "exportación que pronosticar")
     except Exception as e:
         print(f"No se pudo calcular el precio de exportación: {e}", flush=True)
     if guardar:
