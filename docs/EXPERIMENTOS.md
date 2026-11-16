@@ -35,6 +35,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
+| E23 | (scratch) | ¿Otros modelos supervisados (bosques, kernel, KNN, red neuronal, proceso gaussiano, PLS, Ridge bayesiano) superan a los elegidos? | No: ninguno gana en el periodo de selección, en ninguno de los dos objetivos. Los no lineales quedan iguales o peores; varios son significativamente peores. |
 | E22 | (scratch) | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
 | E21 | (scratch) | Con regla especial, ¿el precio de exportación sigue el costo de las térmicas, y sirve para pronosticarlo? | Sí sigue el costo térmico (correlación 0.75 frente a 0.42 del precio de bolsa), pero a tres semanas no supera al elegido (7.60 frente a 7.78, p = 0.77). No se adopta. |
 | E20 | `e19` (cota) y scratch | ¿Se explica el precio de exportación con el máximo precio de oferta, las rentas de congestión o el régimen regulatorio? | Ninguna serie pública lo explica. El régimen (reglas del MME) no mejora el error, pero la cota por régimen sube la cobertura en esas semanas de 87 % a 92 %; adoptada. |
@@ -733,6 +734,53 @@ Prueba hecha fuera del repositorio sobre `results/E19_ancho.parquet` (117 semana
 La cota del 90 % es la opción prudente solo si quedarse corto cuesta unas 10 veces más que inmovilizar. Ese costo relativo debe fijarlo XM (pregunta 9 de PREGUNTAS_XM). Además, los faltantes se corrigen en el ajuste 1, una semana después, así que el costo real de quedarse corto es el de financiar o cubrir esa semana.
 
 **Transiciones de régimen.** Son semanas en que la regla especial cambia entre el viernes de cálculo y la semana objetivo. Solo 3 de 117: las bases del 16 al 30 de septiembre de 2023, justo antes de la Res. 40619 del 14 de octubre. Erran 6.67 (modelo) y 6.87 (regla), frente a 4.78 y 5.27 en el resto, y aportan el 3.5 % del error del modelo. No justifican un tratamiento propio.
+
+## E23: otros modelos de aprendizaje supervisado (resultado negativo)
+
+Prueba hecha fuera del repositorio con el mismo backtest de E16 y E19 (mismas semanas, embargo de 2 semanas, periodos). Hiperparámetros razonables, no ajustados uno a uno:
+- **Random Forest y Extra Trees:** 400 árboles, hojas de al menos 10 semanas, 50 % de las variables.
+- **SVR:** kernel radial, C = 1, ε = 0.05.
+- **KNN:** 25 vecinos ponderados por distancia.
+- **Red neuronal (MLP):** 16 neuronas, α = 1, parada temprana.
+- **Proceso gaussiano:** kernel RBF más ruido blanco.
+- **PLS:** 3 componentes.
+- **Ridge bayesiano.**
+
+**Precio de bolsa TIE** (461 semanas, COP/kWh):
+
+| Modelo | Selección | Final | Total | p frente al elegido |
+|---|---|---|---|---|
+| **Ridge con Duan (elegido)** | **169.6** | 104.5 | **98.3** | — |
+| Ridge bayesiano | 174.3 | 100.8 | 98.7 | 0.76 |
+| Red neuronal | 175.2 | 106.2 | 100.4 | 0.23 |
+| SVR | 177.7 | 103.0 | 101.3 | 0.41 |
+| Proceso gaussiano | 178.2 | 99.4 | 99.6 | 0.46 |
+| PLS | 178.5 | 100.7 | 100.3 | 0.30 |
+| KNN | 185.6 | 102.4 | 104.4 | 0.03 (peor) |
+| Extra Trees | 187.5 | 104.1 | 104.3 | 0.02 (peor) |
+| Random Forest | 189.7 | 101.8 | 105.1 | 0.02 (peor) |
+| Regla XM | 200.0 | 122.1 | 115.3 | — |
+
+**Precio de exportación** (117 semanas, centUSD/kWh; cada modelo se promedia con la regla, como el elegido):
+
+| Modelo | Selección | Final | Total | p frente al elegido |
+|---|---|---|---|---|
+| **Huber (elegido)** | **5.37** | **6.05** | **4.83** | — |
+| Ridge bayesiano | 5.54 | 6.32 | 4.98 | 0.05 (peor) |
+| PLS | 5.57 | 6.32 | 5.01 | 0.04 (peor) |
+| Regla XM | 5.75 | 7.03 | 5.31 | — |
+| Extra Trees | 5.76 | 6.61 | 5.20 | 0.10 |
+| SVR | 5.76 | 7.21 | 5.37 | 0.16 |
+| Random Forest | 5.78 | 6.29 | 5.14 | 0.21 |
+| KNN | 5.82 | 6.81 | 5.30 | 0.05 |
+| Proceso gaussiano | 6.18 | 6.60 | 5.45 | 0.02 (peor) |
+| Red neuronal | 6.65 | 6.08 | 5.56 | 0.02 (peor) |
+
+- **Ninguno gana en el periodo de selección**, que es el criterio de elección.
+- **La flexibilidad no ayuda:** bosques, KNN, proceso gaussiano y red neuronal quedan iguales o peores que los lineales. Con 400 a 900 semanas de entrenamiento y mucho ruido, ajustan ruido.
+- **En el precio de bolsa,** el proceso gaussiano y el Ridge bayesiano ganan en la prueba final (99.4 y 100.8 frente a 104.5), pero sin significancia en el total (p de 0.46 a 0.76). Elegirlos por la prueba final sería ajustarse al azar.
+- **En el precio de exportación,** la robustez del Huber frente a los saltos extremos sigue siendo lo decisivo.
+- **Coincide con E5/E6, E11, E13 y E19:** con la información disponible, el límite no está en el tipo de modelo.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
