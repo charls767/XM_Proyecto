@@ -15,8 +15,11 @@ viernes) se calcula la garantía de la semana s+2 con los precios horarios de la
 - Candidato en paralelo: el mismo modelo más la hidrología de sábado a jueves de s y el precio del
   martes. Se registra a su lado y lo decide el registro: con 26 semanas calificadas reemplaza al
   modelo si erra menos y su cota cubre al menos 85 %.
-- Precio de exportación (el que entra en la garantía, E19): promedio de un Huber sobre el cambio del
-  precio de exportación y la regla de XM, en centUSD/kWh. Solo si en la semana s-1 se exportó.
+- Objetivo complementario (E19): precio promedio realizado de exportación (centUSD/kWh; reconstruido con
+  ExportMonedaUSD / ExpoEner; no es el precio oficial de la garantía). Promedio de un Huber sobre el cambio
+  del precio y la regla de XM. Solo si en la semana s-1 se exportó.
+- El objetivo principal (precio de las compras TIE en bolsa, config.OBJETIVOS) todavía no tiene modelo: XM
+  no publica compras TIE desde el 1-ago-2026.
 - Vigilancia: hidrología atrasada, variables fuera de lo visto, o en las últimas 52 semanas calificadas
   un error mayor que la regla, cobertura bajo 80 % o sesgo significativo (lo pide la auditoría del
   15 de noviembre de 2026, hallazgo A1). La vigilancia no cambia el pronóstico: avisa.
@@ -122,17 +125,39 @@ def pronosticar_expo(dx, base):
                    pd.DataFrame({"real": [np.nan], "prediccion": [pred]}, index=[base])])
     # Cota calibrada por régimen regulatorio de exportación (E20).
     regimen = pd.Series(dp.regimen_exportacion(h.index), index=h.index)
-    cota = float(cal.conformal_regimen(h.real, h.prediccion, regimen, nivel=config.NIVEL_COTA,
-                                       ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE,
-                                       minimo_grupo=config.MINIMO_GRUPO_REGIMEN).iloc[-1])
+    h["cota"] = cal.conformal_regimen(h.real, h.prediccion, regimen, nivel=config.NIVEL_COTA,
+                                      ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE,
+                                      minimo_grupo=config.MINIMO_GRUPO_REGIMEN)
+    cota = float(h.cota.iloc[-1])
+    # Vigilancia del precio de exportación: las últimas 52 semanas con exportación ya calificadas.
+    h["ingenuo"] = pd.concat([w.base, pd.Series([regla], index=[base])])
+    desempeno = monitoreo.desempeno_reciente(h.iloc[:-1], semanas=52)
     esc, reg = est[0], est[-1]
     return {"version": config.VERSION_EXPO, "regla": regla, "pronostico": pred, "cota90": cota,
-            "regimen_especial": bool(regimen.iloc[-1]),
+            "regimen_especial": bool(regimen.iloc[-1]), "desempeno_reciente": desempeno,
             "variables": {v: float(dx.at[base, v]) for v in variables},
             "reproduccion": {"variables": list(variables), "media": [float(m) for m in esc.mean_],
                              "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
                              "coeficientes": [float(c) for c in reg.coef_], "margen_log": float(np.log(cota / pred)),
                              "n_entrenamiento": len(entren), "entrenamiento_hasta": f"{entren.index.max():%Y-%m-%d}"}}
+
+
+def motivos_desempeno(desempeno, nombre, unidad):
+    """Motivos de vigilancia: en las últimas 52 semanas calificadas, erra más que la regla de XM, la cota
+    cubre menos de COBERTURA_MINIMA o el sesgo es significativo. Necesita al menos 8 semanas."""
+    if desempeno.get("semanas", 0) < 8:
+        return []
+    n, motivos = desempeno["semanas"], []
+    if desempeno["razon_mae"] > config.RAZON_MAE_MAXIMA:
+        motivos.append(f"{nombre}: en las últimas {n} semanas el modelo erró más que la regla de XM")
+    if desempeno["cobertura"] < config.COBERTURA_MINIMA:
+        motivos.append(f"{nombre}: la cota cubrió solo el {desempeno['cobertura']:.0%} de las últimas {n} semanas")
+    if monitoreo.sesgo_significativo(desempeno):
+        lado = "se quedó corto" if desempeno["sesgo"] < 0 else "se pasó"
+        motivos.append(f"{nombre}: en las últimas {n} semanas el modelo {lado} en promedio "
+                       f"{abs(desempeno['sesgo']):,.2f} {unidad} ({abs(desempeno['sesgo_pct']):.0f} % del precio), "
+                       f"de forma significativa (p = {desempeno['p_sesgo']:.2f})")
+    return motivos
 
 
 def reproducir_expo(expo):
@@ -158,7 +183,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     if guardar and (malas := verificar_registro()):
         raise RuntimeError(f"El registro TIE fue alterado en las semanas {malas}; revísalo antes de emitir.")
     fechas = semanal.actualizar_datos() if actualizar else semanal.ultimas_fechas()
-    # Las series de exportación también se actualizan: el precio de la garantía sale de ellas.
+    # Las series de exportación y de bolsa TIE también se actualizan (objetivos complementario y principal).
     # El costo marginal programado de miércoles a viernes de s también entra al modelo (E24).
     for n in list(dp.SERIES_EXPO_TODAS) + ["costo_marginal"]:
         fechas[n] = xm.descargar(n).fecha.max() if actualizar else xm.ultima_fecha_en_cache(n)
@@ -189,18 +214,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         motivos.append("Variables fuera de todo lo visto en la historia: "
                        + ", ".join(rango.loc[rango.nivel == "extrapolacion", "nombre"]))
     desempeno = monitoreo.desempeno_reciente(hist, semanas=52)
-    if desempeno.get("semanas", 0) >= 8:
-        if desempeno["razon_mae"] > config.RAZON_MAE_MAXIMA:
-            motivos.append(f"En las últimas {desempeno['semanas']} semanas el modelo erró más que la regla de XM")
-        if desempeno["cobertura"] < config.COBERTURA_MINIMA:
-            motivos.append(f"La cota cubrió solo el {desempeno['cobertura']:.0%} de las últimas {desempeno['semanas']} semanas")
-        if monitoreo.sesgo_significativo(desempeno):
-            lado = "se quedó corto" if desempeno["sesgo"] < 0 else "se pasó"
-            motivos.append(f"En las últimas {desempeno['semanas']} semanas el modelo {lado} en promedio "
-                           f"{abs(desempeno['sesgo']):,.1f} COP/kWh ({abs(desempeno['sesgo_pct']):.0f} % del precio), "
-                           f"de forma significativa (p = {desempeno['p_sesgo']:.2f})")
-    if estado == "normal" and motivos:
-        estado = "vigilancia"
+    motivos += motivos_desempeno(desempeno, "Precio de bolsa", "COP/kWh")
     fila = d.loc[base]
     r = {
         "fecha_emision": fecha_emision, "semana_calculo": s, "semana_base": base, "semana_objetivo": objetivo,
@@ -224,7 +238,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
                               "reproduccion": rep_c}
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
-    # Precio de exportación (el de la garantía, E19). Sin exportaciones en s-1 no hay precio base.
+    # Objetivo complementario: precio realizado de exportación (E19). Sin exportaciones en s-1 no hay precio base.
     r["expo"] = None
     try:
         r["expo"] = pronosticar_expo(fe.preparar_expo(dp.tabla_expo(recalcular=True)), base)
@@ -238,6 +252,12 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
                                     "exportación que pronosticar")
     except Exception as e:
         print(f"No se pudo calcular el precio de exportación: {e}", flush=True)
+    if r["expo"]:
+        # El precio realizado de exportación (objetivo complementario) también puede poner la emisión en
+        # vigilancia, igual que el precio de bolsa (objetivo de referencia).
+        r["motivos"] += motivos_desempeno(r["expo"]["desempeno_reciente"], "Precio de exportación", "centUSD/kWh")
+    if r["estado"] == "normal" and r["motivos"]:
+        r["estado"] = "vigilancia"
     if guardar:
         registrar(r)
         calificar(d)
@@ -358,5 +378,5 @@ if __name__ == "__main__":
         print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, "
               f"cota 90 % {r['candidato']['cota90']:,.1f}")
     if r["expo"]:
-        print(f"Precio de exportación (garantía): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
+        print(f"Precio realizado de exportación (complementario, reconstruido): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
               f"cota 90 % {r['expo']['cota90']:,.2f}; regla XM {r['expo']['regla']:,.2f}")

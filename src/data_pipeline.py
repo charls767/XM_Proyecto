@@ -347,7 +347,7 @@ REGIMENES_EXPORTACION = [
 ENERGIA_MINIMA_PARCIAL_KWH = 3e5
 # Series de exportación que la emisión debe descargar (precio = USD cobrados / energía exportada).
 SERIES_EXPO = ("expo_energia", "expo_usd", "expo_cop")
-SERIES_EXPO_TODAS = SERIES_EXPO + ("tie_venta_energia", "tie_venta_cop")
+SERIES_EXPO_TODAS = SERIES_EXPO + ("tie_venta_energia", "tie_venta_cop", "tie_compra_energia", "tie_compra_cop")
 
 
 def _semanal_expo(fechas_ini, dias, e, u, c, corte=None):
@@ -372,18 +372,26 @@ def _semanal_expo(fechas_ini, dias, e, u, c, corte=None):
 
 
 def tabla_expo(recalcular=False):
-    """Tabla TIE (sábado a viernes) con el precio de exportación, desde la caché local.
+    """Tabla TIE (sábado a viernes) con los objetivos principal y complementario, desde la caché local.
 
-    Según el ejemplo de XM (Reafirmación 2025, garantías TIE), la garantía de exportación usa el
-    "Precio Medio Total − CEE": lo cobrado por exportar en USD entre la energía exportada. Para la
-    semana base del 18 al 24 de enero de 2025, ExportMonedaUSD/ExpoEner da 24.32 centUSD/kWh y XM
-    proyectó 22.75 tras restar el CEE. El CEE es un valor conocido al calcular, así que se pronostica
-    el precio total.
+    Todas las columnas son variables RECONSTRUIDAS a partir de series oficiales de XM; ninguna es el
+    precio oficial de la garantía (XM no lo publica). Ver config.OBJETIVOS y docs/VARIABLES_XM.md.
 
-    - `precio_expo`: centUSD/kWh de la semana base s-1 (NaN si se exportó menos de 1 GWh).
+    Objetivo principal (compras TIE en bolsa):
+    - `precio_compra_tie_cop_kwh`: Σ CompBolsaTIEMoneda / Σ CompBolsaTIEEner de la semana base s-1, COP/kWh.
+    - `precio_compra_tie_cop_kwh_sig`: el de la semana s+2. Sin datos desde el 1-ago-2026.
+
+    Objetivo complementario (precio promedio realizado de exportación):
+    - `precio_expo`: Σ ExportMonedaUSD / Σ ExpoEner × 100 de la semana base s-1, centUSD/kWh
+      (NaN si se exportó menos de 1 GWh). `precio_expo_cop`: lo mismo con ExpoMoneda, COP/kWh.
     - `precio_expo_sig`: el de la semana s+2; `y_expo` = log(sig/base).
-    - `spread`: log del precio de exportación en COP frente al nacional (promedio horario).
     - `precio_expo_parcial`: sábado a martes de la semana s, ya liquidado el viernes.
+    - `trm`: tasa implícita ExpoMoneda / ExportMonedaUSD (COP/USD), no la TRM oficial.
+    - `spread`: log del precio de exportación en COP frente al precio de bolsa nacional promedio horario.
+
+    CEE (oficial, mensual): `cee_cop_kwh` del mes en que termina la semana base; `cee_centusd_kwh` con la
+    tasa implícita; `precio_expo_neto_cee` = precio_expo − CEE. Hipótesis (E19): XM proyectó 22.75 centUSD/kWh
+    para la semana base del 18 al 24 de enero de 2025; con el CEE oficial esta tabla da 22.27 (unos 2 % menos).
     """
     archivo = PROCESSED / "semanal_expo.parquet"
     if archivo.exists() and not recalcular:
@@ -391,18 +399,30 @@ def tabla_expo(recalcular=False):
     t = tabla_tie(recalcular=recalcular)
     h = lambda n: xm.a_horario(xm.leer_cache(n)).fillna(0.0)
     e, u, c = h("expo_energia"), h("expo_usd"), h("expo_cop")
-    ve, vc = h("tie_venta_energia"), h("tie_venta_cop")
     # Última fecha publicada en las tres series: lo posterior aún no se conoce.
     corte = min(xm.ultima_fecha_en_cache(n) for n in SERIES_EXPO)
-    corte_tie = min(xm.ultima_fecha_en_cache(n) for n in ("tie_venta_energia", "tie_venta_cop"))
     base = _semanal_expo(t.index, 7, e, u, c, corte)
     hay = base.energia >= ENERGIA_MINIMA_EXPO_KWH
     t["energia_expo_gwh"] = base.energia / 1e6
     t["precio_expo"] = base.usd.where(hay)
     t["precio_expo_cop"] = base.cop.where(hay)
     t["trm"] = (t.precio_expo_cop / t.precio_expo * 100)
-    tie = _semanal_expo(t.index, 7, ve, vc * 0, vc, corte_tie)
-    t["precio_bolsa_tie"] = tie.cop.where(tie.energia >= ENERGIA_MINIMA_EXPO_KWH)
+    # OBJETIVO PRINCIPAL (ver config.OBJETIVOS): precio de las compras TIE en bolsa, en COP/kWh, semanal
+    # de sábado a viernes = Σ CompBolsaTIEMoneda / Σ CompBolsaTIEEner (series oficiales; variable
+    # reconstruida). Sin datos desde el 1-ago-2026. Coincide con las ventas TIE (`VentBolsaTIE*`) en todas
+    # las horas comunes de 2010 a julio de 2026 (diferencia máxima 1.14 COP).
+    ce, cc = h("tie_compra_energia"), h("tie_compra_cop")
+    corte_compra = min(xm.ultima_fecha_en_cache(n) for n in ("tie_compra_energia", "tie_compra_cop"))
+    # No hay serie en USD: la moneda COP también se pasa como "usd" para que `_semanal_expo` no la descarte.
+    compra = _semanal_expo(t.index, 7, ce, cc, cc, corte_compra)
+    t["precio_compra_tie_cop_kwh"] = compra.cop.where(compra.energia >= ENERGIA_MINIMA_EXPO_KWH)
+    compra_sig = t.precio_compra_tie_cop_kwh.shift(-HORIZONTE_TIE)
+    t["precio_compra_tie_cop_kwh_sig"] = compra_sig.where((t.index.to_series().shift(-HORIZONTE_TIE) - t.index.to_series())
+                                                         == pd.Timedelta(weeks=HORIZONTE_TIE))
+    # CEE oficial (COP/kWh, mensual) del mes en que termina la semana base, y en centUSD/kWh con la tasa
+    # implícita de las exportaciones de esa semana (no es la TRM oficial).
+    cee = xm.cee_mensual().set_index("mes").cee_cop_kwh
+    t["cee_cop_kwh"] = cee.reindex((t.index + pd.Timedelta(days=6)).to_period("M").to_timestamp()).to_numpy()
     parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c, corte)
     t["precio_expo_parcial"] = parcial.usd.where(parcial.energia >= ENERGIA_MINIMA_PARCIAL_KWH).to_numpy()
 
@@ -420,6 +440,8 @@ def tabla_expo(recalcular=False):
     t["trm_cambio"] = np.log(t.trm / t.trm.ffill().shift(4))
     t["expo_parcial_rel"] = np.log(t.precio_expo_parcial / t.precio_expo)
     t["regimen_expo"] = regimen_exportacion(t.index)
+    t["cee_centusd_kwh"] = t.cee_cop_kwh / t.trm * 100
+    t["precio_expo_neto_cee"] = t.precio_expo - t.cee_centusd_kwh
     t.to_parquet(archivo)
     return t
 

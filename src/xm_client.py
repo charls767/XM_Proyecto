@@ -42,14 +42,49 @@ SERIES = {
     "gene_programada": ("GeneProgDesp", "Recurso", "hourly"),
     # E12: costo marginal del despacho programado (publicado el día anterior)
     "costo_marginal": ("CostMargDesp", "Sistema", "hourly"),
-    # E19: exportaciones TIE. El precio de la garantía de exportación es lo cobrado por exportar
-    # (ExportMonedaUSD) entre la energía exportada, menos el CEE: así cuadra el ejemplo de XM.
+    # Exportaciones (E19). Series OFICIALES de XM; ver docs/VARIABLES_XM.md. Con ellas el proyecto
+    # RECONSTRUYE un precio promedio realizado de exportación. No es el precio oficial de la garantía:
+    # XM no publica una métrica de garantía.
+    # - ExpoEner: kWh, horaria, "Transferencias de Energia desde Colombia hacia otros paises".
+    # - ExpoMoneda: COP, horaria, misma descripción.
+    # - ExportMonedaUSD: el catálogo dice "COP", pero los datos están en USD (ExpoMoneda/ExportMonedaUSD
+    #   da una tasa de unos 4,310 COP/USD en enero de 2025).
     "expo_energia": ("ExpoEner", "Sistema", "hourly"),
     "expo_cop": ("ExpoMoneda", "Sistema", "hourly"),
     "expo_usd": ("ExportMonedaUSD", "Sistema", "hourly"),
+    # Bolsa TIE (OFICIALES; kWh y COP, horarias). Compras y ventas son idénticas hora a hora en la muestra
+    # revisada, y no hay datos desde el 1-ago-2026. Las compras definen el objetivo principal.
     "tie_venta_energia": ("VentBolsaTIEEner", "Sistema", "hourly"),
     "tie_venta_cop": ("VentBolsaTIEMoneda", "Sistema", "hourly"),
+    "tie_compra_energia": ("CompBolsaTIEEner", "Sistema", "hourly"),
+    "tie_compra_cop": ("CompBolsaTIEMoneda", "Sistema", "hourly"),
 }
+
+
+def cee_mensual(desde="2010-01-01"):
+    """CEE por Sistema (OFICIAL): Costo Equivalente de Energía del Cargo por Capacidad, en COP/kWh, mensual.
+
+    Es el término que la fórmula de la garantía TIE resta al precio. Se guarda en `data/raw/xm/cee.parquet`
+    y se vuelve a pedir si el archivo tiene más de 30 días.
+    """
+    archivo = CACHE / "cee.parquet"
+    if archivo.exists() and pd.Timestamp.now() - pd.Timestamp(archivo.stat().st_mtime, unit="s") < pd.Timedelta(days=30):
+        return pd.read_parquet(archivo)
+    filas = []
+    inicio = pd.Timestamp(desde)
+    hoy = pd.Timestamp.today().normalize()
+    while inicio <= hoy:
+        fin = min(inicio + pd.DateOffset(days=700), hoy)
+        js = _post("monthly", {"MetricId": "CEE", "Entity": "Sistema", "StartDate": str(inicio.date()),
+                               "EndDate": str(fin.date()), "Filter": []})
+        for it in js.get("Items") or []:
+            for e in it.get("MonthlyEntities", []):
+                filas.append({"mes": pd.Timestamp(it["Date"]), "cee_cop_kwh": float(e["Value"])})
+        inicio = fin + pd.Timedelta(days=1)
+    df = pd.DataFrame(filas).drop_duplicates("mes").sort_values("mes").reset_index(drop=True)
+    archivo.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(archivo, index=False)
+    return df
 
 
 def _post(base, cuerpo, intentos=4):

@@ -246,7 +246,7 @@ def p1_resumen(pdf, tie, expo, ultimo, reg, datos_hasta, generado, m_bolsa, m_ex
     ult = medidas(tie.dropna(subset=["real"]).tail(52), _columna(tie, "Modelo registrado"))
     puntos = [
         f"En el precio de bolsa, nuestro modelo se equivoca {m_bolsa['mejora']:.0f} % menos que la regla; la diferencia {'es real' if m_bolsa['p'] < 0.05 else 'no es segura'}.",
-        f"En el precio de exportación (el que usa la garantía) la mejora es de {m_expo['mejora']:.0f} % y {confiable(m_expo['p'])}: hay pocas semanas con exportaciones. Es un candidato.",
+        f"En el precio promedio realizado de exportación (reconstruido; no es el precio oficial de la garantía) la mejora es de {m_expo['mejora']:.0f} % y {confiable(m_expo['p'])}: hay pocas semanas con exportaciones. Es un candidato.",
         f"En el último año, precio de bolsa: {ult['modelo']:,.0f} frente a {ult['regla']:,.0f} COP/kWh; ¿es real?: {confiable(ult['p'])}." if ult else "",
         "Nadie anticipa los saltos bruscos de precio. Los triángulos rojos de las gráficas marcan las semanas en que el precio real superó el techo.",
         "Prueba independiente: el registro de pronósticos congelados, desde el 20 de noviembre de 2026.",
@@ -335,7 +335,7 @@ def p4_registro(pdf, reg, ultimo, generado):
 def p5_notas(pdf, generado):
     fig = pagina(pdf, "Supuestos, límites y cómo leer este informe", 5, generado)
     texto = """Supuestos principales
-• La garantía de exportación usa el precio de exportación de la semana s-1 (lo cobrado en USD entre la energía exportada) y se calcula el viernes de la semana s para la semana s+2 (sábado a viernes), según el material de formación de XM sobre la CREG 004 de 2003.
+• La regla de la garantía usa precios de la semana s-1. El proyecto los aproxima con el precio realizado de exportación (lo cobrado en USD entre la energía exportada), que no es el precio oficial de la garantía. Se calcula el viernes de la semana s para la semana s+2 (sábado a viernes), según el material de formación de XM sobre la CREG 004 de 2003.
 • El viernes ya están publicados la semana s-1 completa y los días de sábado a martes de la semana s (rezago de unos 3 días); la hidrología llega hasta el jueves.
 • El precio de bolsa se promedia por hora; la máxima transferencia del enlace se supone constante.
 • La calificación usa el precio publicado; la regla final usa la segunda liquidación (TX2).
@@ -343,7 +343,7 @@ def p5_notas(pdf, generado):
 Límites conocidos
 • Las cifras de 2018 a 2026 son una simulación usada para diseñar los modelos: son optimistas. La prueba independiente es el registro.
 • El precio de exportación tiene pocas semanas con datos y cambia con las reglas del Ministerio de Minas y Energía: su mejora no es segura.
-• Mientras rija la CREG 101 127 de 2026 (período de riesgo, hasta el 31 de mayo de 2027), el precio de la garantía de exportación puede no ser el que se pronostica. Pendiente de confirmar con XM.
+• Mientras rija la CREG 101 127 de 2026 (período de riesgo, hasta el 31 de mayo de 2027), el precio que XM usa para la garantía de exportación puede diferir aún más del precio realizado que se pronostica. Pendiente de confirmar con XM.
 • Ningún modelo anticipa los saltos bruscos de precio. El techo es ancho: cuando cubre, queda muy por encima del precio.
 • El monto de la garantía también depende de la máxima transferencia, el costo equivalente en energía y la tasa de cambio, que no se pronostican.
 
@@ -381,7 +381,7 @@ def generar(destino=None, generado=None):
             "y el costo marginal programado de miércoles a viernes, con corrección de sesgo."), 2, generado,
                  desde=tie.semana_objetivo.max() - pd.Timedelta(weeks=104))
         p_precio(pdf, expo, nuestro_expo, "Precio de exportación", "centUSD/kWh", 2, (
-            "Lo que Ecuador paga por cada kWh que le vende Colombia: el precio que usa la garantía. Solo existe en las "
+            "Lo que Ecuador paga por cada kWh que le vende Colombia (precio realizado, reconstruido; no es el precio oficial de la garantía). Solo existe en las "
             "semanas con exportaciones (al menos 1 GWh). Nuestro modelo promedia la regla de XM con una regresión "
             "robusta (Huber). Es un candidato: la mejora aún no es segura."), 3, generado, puntos=True,
                  desde=pd.Timestamp("2022-01-01"))

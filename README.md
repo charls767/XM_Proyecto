@@ -1,26 +1,30 @@
-# XM_Proyecto · Precio para la garantía TIE
+# XM_Proyecto · Precios para la garantía TIE
 
-**En palabras simples:** Colombia le vende electricidad a Ecuador. Antes de cada semana, Ecuador deja un depósito (la *garantía*) para asegurar el pago. Para calcularlo, XM tiene que adivinar el precio de una semana que empieza dentro de 8 días, y hoy supone que será igual al de hace tres semanas. Este proyecto intenta adivinarlo mejor, y lo compara siempre con esa regla.
+**En palabras simples:** Colombia le vende electricidad a Ecuador. Antes de cada semana, Ecuador deja un depósito (la *garantía*) para asegurar el pago. Para calcularlo, XM proyecta un precio para una semana que empieza dentro de 8 días, y hoy supone que será igual al de hace tres semanas. Este proyecto pronostica los precios relacionados con esa regla y los compara siempre con ella.
 
-Modelo para anticipar el precio que entra en la **garantía de las transacciones internacionales de electricidad (TIE)** con Ecuador, con una **cota superior de riesgo** (caso XM–UNAL).
+La regla de la garantía (Resolución CREG 004 de 2003, art. 23, según el material de formación de XM) fija el calendario: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los precios de la semana **s-1**. En la práctica, esa regla es un pronóstico ingenuo a tres semanas.
 
-La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problema: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los precios de la semana **s-1**. Esa regla es, en la práctica, un pronóstico ingenuo a tres semanas.
+**XM no publica el precio oficial de la garantía.** Por eso el proyecto trabaja con tres objetivos, todos reconstruidos a partir de series oficiales de la API de XM y ninguno validado para fijar garantías. Su definición está en `src/config.py` (`OBJETIVOS`) y la equivalencia con el catálogo de XM, en [docs/VARIABLES_XM.md](docs/VARIABLES_XM.md):
 
-**El precio de esa fórmula, para la exportación, no es el precio de bolsa.** Es lo que se cobra por exportar (USD) entre la energía exportada, menos el CEE. Con datos públicos de XM cuadra con su ejemplo: 24.32 centUSD/kWh menos el CEE ≈ 22.75, para la semana base del 18 al 24 de enero de 2025 (E19). El detalle está en [docs/SUPUESTOS.md](docs/SUPUESTOS.md).
+| Categoría | Variable | Unidad | Fuente (API XM) | Estado |
+|---|---|---|---|---|
+| **Principal** | Precio de las compras TIE en bolsa (`precio_compra_tie_cop_kwh`) | COP/kWh | `CompBolsaTIEMoneda` / `CompBolsaTIEEner`, horarias | Componente económico de las obligaciones TIE en bolsa. **Sin modelo todavía**; XM no publica compras TIE desde el 1-ago-2026 |
+| **Referencia** | Precio de bolsa nacional, promedio horario (`precio`) | COP/kWh | `PrecBolsNaci`, horaria (alternativa diaria: `PPPrecBolsNaci`) | Modelo en registro (E16, E24) |
+| **Complementario** | Precio promedio realizado de exportación (`precio_expo`) | centUSD/kWh | `ExportMonedaUSD` / `ExpoEner`, horarias | Modelo en registro (E19, E20). Es un precio **realizado**, no el de la garantía: con el CEE oficial da 22.27 centUSD/kWh frente a 22.75 del ejemplo de XM (semana base del 18 al 24 de enero de 2025) |
 
-| En una mirada (semanas objetivo 2018–2026) | |
+| En una mirada (semanas objetivo 2018–2026, backtest simulado) | |
 |---|---|
-| **Precio de exportación** (el de la garantía, E19) | Regla de XM 5.31 centUSD/kWh; modelo elegido 4.83 (**−9 %**, p = 0.08); en la prueba final 2025–26, −13.9 % (p = 0.06). Solo 117 semanas con exportación: la evidencia es débil |
-| Precio de bolsa (base del mercado, E16 y E24) | Regla 115 COP/kWh; modelo registrado 94 (**−19 %**, p < 0.001), con el costo marginal programado de miércoles a viernes de la semana en curso; en el último año 113 frente a 127, sin significancia (p = 0.18) |
+| Precio de bolsa (referencia; E16 y E24; 461 semanas) | Regla 115 COP/kWh; modelo registrado 94 (**−19 %**, p < 0.001), con el costo marginal programado de miércoles a viernes de la semana en curso; en el último año 113 frente a 127, sin significancia (p = 0.18) |
+| Precio realizado de exportación (complementario; E19; 117 semanas con exportación) | Regla 5.31 centUSD/kWh; modelo elegido 4.83 (**−9 %**, p = 0.08); en la prueba final 2025–26, −13.9 % (p = 0.06). La evidencia es débil |
 | Cotas al 90 % | Cubren alrededor de 90 %, pero son anchas |
-| Pronóstico a una semana (complemento) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
+| Pronóstico a una semana (complemento histórico) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
 
 **La app** ([app/streamlit_app.py](app/streamlit_app.py)) está escrita para cualquier lector, con un glosario. Tiene 6 páginas:
 
 | Página | Qué responde |
 |---|---|
-| Inicio | ¿Qué problema se resuelve y qué tan bien? |
-| Precio de exportación | ¿Qué tan bien se adivina el precio que usa el depósito? |
+| Inicio | ¿Qué problema se resuelve, qué tan bien y qué tan oficial es cada objetivo? |
+| Precio de exportación | ¿Qué tan bien se pronostica el precio realizado de exportación? |
 | Precio de bolsa | ¿Y el precio general del mercado? ¿Cómo le va en las crisis? ¿Ve venir los saltos? |
 | Pronóstico de esta semana | ¿Qué se registró el último viernes y por qué? |
 | Extra: la semana siguiente | El primer planteamiento, con 13 modelos comparados |
@@ -30,22 +34,24 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problem
 
 ---
 
-## El núcleo: dos pronósticos cada viernes
+## El núcleo: pronósticos cada viernes
 
-Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes). Los dos pronósticos se comparan con la regla de XM, que repite el valor de la semana s-1.
+Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes) y se compara con la regla de XM, que repite el valor de la semana s-1. Hoy hay modelo para el objetivo de referencia y el complementario. El principal todavía no tiene: su serie (compras TIE en bolsa) está en `dp.tabla_expo`, pero XM no la publica desde el 1-ago-2026.
 
-| | Precio de exportación (el de la garantía) | Precio de bolsa (base del mercado) |
+| | **Referencia:** precio de bolsa nacional | **Complementario:** precio promedio realizado de exportación |
 |---|---|---|
-| **Qué es** | `ExportMonedaUSD` / `ExpoEner`, en centUSD/kWh (E19) | Promedio horario simple del precio de bolsa nacional, en COP/kWh (E16) |
-| **Modelo** | Mitad un Huber sobre el cambio del precio de exportación y mitad la regla de XM (`expo-huber-mitad-regla-...`) | Ridge sobre el cambio de s-1 a s+2, con corrección de sesgo de Duan (`tie-ridge11-parcial-cmg-duan-...`) |
-| **Variables** | Las 11 nacionales sin ofertas y el sábado a martes de s, más 9 de exportación: nivel, diferencia con el precio nacional, momento, energía exportada, tasa de cambio y días parciales | 11 de la semana s-1 (precio, embalse, aportes y época), el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24) |
-| **Cota del 90 %** | Conformal calibrada por régimen regulatorio de exportación (E20) | Conformal con los errores de las últimas 104 semanas ya calificadas |
-| **Resultado 2018–2026** | 4.83 frente a 5.31 de la regla (−9 %, p = 0.08); 117 semanas con exportación | 93.7 frente a 115.3 de la regla (−19 %, p < 0.001); último año 113 frente a 127 (p = 0.18) |
-| **Cuándo no hay pronóstico** | Si en la semana s-1 no se exportó (menos de 1 GWh). Desde el 7-sep-2026 no hay exportaciones | Si la semana s-1 no está completa. Si faltan los días de s, usa un respaldo sin ellos |
+| **Qué es** | Promedio horario simple de `PrecBolsNaci`, en COP/kWh (E16). Reconstruido | `ExportMonedaUSD` / `ExpoEner`, en centUSD/kWh (E19). Reconstruido; no es el precio oficial de la garantía |
+| **Modelo** | Ridge sobre el cambio de s-1 a s+2, con corrección de sesgo de Duan (`tie-ridge11-parcial-cmg-duan-...`) | Mitad un Huber sobre el cambio del precio y mitad la regla de XM (`expo-huber-mitad-regla-...`) |
+| **Variables** | 11 de la semana s-1 (precio, embalse, aportes y época), el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24) | Las 11 nacionales sin ofertas y el sábado a martes de s, más 9 de exportación: nivel, diferencia con el precio nacional, momento, energía exportada, tasa de cambio implícita y días parciales |
+| **Cota del 90 %** | Conformal con los errores de las últimas 104 semanas ya calificadas | Conformal calibrada por régimen regulatorio de exportación (E20) |
+| **Resultado 2018–2026** | 93.7 frente a 115.3 de la regla (−19 %, p < 0.001); último año 113 frente a 127 (p = 0.18) | 4.83 frente a 5.31 de la regla (−9 %, p = 0.08); 117 semanas con exportación |
+| **Cuándo no hay pronóstico** | Si la semana s-1 no está completa. Si faltan los días de s, usa un respaldo sin ellos | Si en la semana s-1 no se exportó (menos de 1 GWh). Desde el 7-sep-2026 las exportaciones son mínimas |
 
 - **Por qué estos modelos:** a tres semanas, las ganancias medidas vinieron de **información disponible el viernes** (los días de la semana en curso, el costo marginal), no de modelos más complejos. LightGBM, bosques, redes, procesos gaussianos y ensambles con pesos aprendidos no superaron a los elegidos (E23, E25). La corrección de sesgo adaptativa empeoró (E17).
 - **Candidato en paralelo (bolsa):** suma la hidrología de sábado a jueves y el precio del martes. Erra 92.1 frente a 93.7, sin ganar en todos los periodos. Lo decide el registro con 26 semanas.
-- **Supuestos y riesgos:** [docs/SUPUESTOS.md](docs/SUPUESTOS.md). El principal pendiente es qué contiene el precio de exportación bajo las reglas especiales del período de riesgo. Las preguntas están listas para el CRM de XM en [docs/CONSULTA_CRM_XM.md](docs/CONSULTA_CRM_XM.md).
+- **Vigilancia:** la emisión revisa ambos modelos con las últimas 52 semanas calificadas (error frente a la regla, cobertura de la cota y sesgo). Si alguno falla, el estado pasa a *vigilancia*.
+- **Monto:** `src/garantia.py` reconstruye un monto aproximado con el precio realizado de exportación y supuestos (MXT constante de 74.25 GWh/semana; el CEE oficial no cambia faltantes ni excesos). `python src/experimentos.py e22` reproduce E22. No es el cálculo oficial de XM.
+- **Supuestos y riesgos:** [docs/SUPUESTOS.md](docs/SUPUESTOS.md). El principal pendiente es qué precio usa XM para la garantía de exportación y qué contiene `ExpoMoneda`. Las preguntas están listas para el CRM de XM en [docs/CONSULTA_CRM_XM.md](docs/CONSULTA_CRM_XM.md).
 
 ---
 
@@ -252,9 +258,9 @@ python src/experimentos.py e16
 ```
 
 Cada comando regenera sus archivos en `results/`:
-- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20) y `e17`.
+- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20), `e22` (monto de la garantía) y `e17`.
 - **Pronóstico a una semana:** `e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `e14`, `e15`, `cortes`, `tuning` y `alertas`.
-- **Sin comando:** E18, E20 (salvo la cota), E21, E22, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
+- **Sin comando:** E18, E20 (salvo la cota), E21, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
 
 La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
@@ -278,6 +284,7 @@ La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 ├── src/
 │   ├── config.py             modelos en operación (bolsa TIE, candidato y exportación), cota y umbrales del monitoreo
 │   ├── semanal_tie.py        emisión TIE: datos, precios de bolsa y exportación de s+2, candidato, registro, calificación, reproducción
+│   ├── garantia.py           monto de la garantía de exportación, reconstruido con supuestos (E22)
 │   ├── resultados_app.py     reúne en results/app/ lo que muestra la app
 │   ├── semanal.py            emisión a una semana (ya no emite; califica y reproduce su registro)
 │   ├── monitoreo.py          controles de calidad, rango histórico, desempeño reciente y estado

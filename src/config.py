@@ -21,7 +21,64 @@ VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
 # conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
 # Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
 VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
-# Garantía TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
+# Objetivos del proyecto. Regla temporal común: semana TIE de sábado a viernes; cálculo el viernes de la
+# semana s; objetivo la semana s+2; referencia (regla de XM) la semana s-1. Ninguna variable es el precio
+# oficial de la garantía: XM no publica una métrica de garantía. Ver docs/VARIABLES_XM.md.
+OBJETIVOS = {
+    "principal": {
+        "nombre": "Precio de las compras TIE en bolsa",
+        "columna": "precio_compra_tie_cop_kwh",
+        "unidad": "COP/kWh",
+        "fuente": "API XM: CompBolsaTIEMoneda / CompBolsaTIEEner (Sistema, oficiales)",
+        "frecuencia": "horaria agregada a semana de sábado a viernes",
+        "tipo": "reconstruida a partir de series oficiales",
+        "oficial": False,
+        "validacion": "Componente económico de las obligaciones TIE en bolsa. Sin modelo propio todavía; "
+                      "sin datos desde el 1-ago-2026. Su relación con la garantía está pendiente con XM.",
+        "version_modelo": None,
+    },
+    "referencia": {
+        "nombre": "Precio de bolsa nacional, promedio horario",
+        "columna": "precio",
+        "unidad": "COP/kWh",
+        "fuente": "API XM: PrecBolsNaci (Sistema, oficial, horaria). Alternativa oficial diaria: PPPrecBolsNaci",
+        "frecuencia": "horaria agregada a semana de sábado a viernes (promedio simple)",
+        "tipo": "reconstruida a partir de una serie oficial",
+        "oficial": False,
+        "validacion": "Backtest simulado 2018–2026 (E16, E24); registro desde el 20-nov-2026. No validado para garantías.",
+        "version_modelo": "VERSION_TIE",
+    },
+    "complementario": {
+        "nombre": "Precio promedio realizado de exportación",
+        "columna": "precio_expo",
+        "unidad": "centUSD/kWh",
+        "fuente": "API XM: ExportMonedaUSD / ExpoEner (Sistema, oficiales; ExportMonedaUSD figura en COP en el "
+                  "catálogo, pero los datos están en USD). En COP: ExpoMoneda / ExpoEner",
+        "frecuencia": "horaria agregada a semana de sábado a viernes",
+        "tipo": "reconstruida a partir de series oficiales",
+        "oficial": False,
+        "validacion": "Precio realizado, no el precio de la garantía. Con el CEE oficial no reproduce el ejemplo de "
+                      "XM (22.27 frente a 22.75 centUSD/kWh, semana base 18–24 de enero de 2025). Backtest E19 con "
+                      "117 semanas; no significativo al 5 %.",
+        "version_modelo": "VERSION_EXPO",
+    },
+}
+# Frases que el proyecto no debe usar para el precio reconstruido de exportación (lo verifica
+# tests/test_objetivos.py en el código, la app y la documentación principal).
+FRASES_PROHIBIDAS = (
+    "precio de la garantía", "el de la garantía", "que entra en la garantía", "que usa la garantía",
+    "que usa el depósito", "precio oficial de la garantía", "precio_garantia",
+)
+
+
+def etiqueta_objetivo(clave):
+    """Texto para mostrar un objetivo con su unidad y su condición (reconstruido, no oficial)."""
+    o = OBJETIVOS[clave]
+    condicion = "oficial" if o["oficial"] else "reconstruido, no oficial"
+    return f"{o['nombre']} ({o['unidad']}; {condicion})"
+
+
+# Precio de bolsa TIE (E16), objetivo de referencia: base s-1, objetivo s+2. Sin ofertas (no aportan a
 # tres semanas y XM puede publicarlas con semanas de atraso) y con los días de sábado a martes de s.
 VERSION_TIE = "tie-ridge11-parcial-cmg-duan-conformal104-v1"
 # Hasta el 16-nov-2026 (E16): sin el costo marginal. Se conserva para el modelo de exportación y la comparación.
@@ -34,8 +91,9 @@ VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
 # lo decide el registro con la misma regla de 26 semanas que los candidatos anteriores.
 VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-cmg-hidro-martes-duan-conformal104-v1"
 VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
-# Precio de exportación TIE (E19), el que entra en la garantía: promedio de un Huber sobre el cambio
-# del precio de exportación y la regla de XM. Se eligió por el periodo de selección 2022–2024.
+# Objetivo complementario (E19): precio promedio realizado de exportación (centUSD/kWh, reconstruido, no
+# oficial). Modelo: promedio de un Huber sobre el cambio del precio y la regla de XM; elegido por el
+# periodo de selección 2022–2024.
 VERSION_EXPO = "expo-huber-mitad-regla-conformal104-regimen-v1"
 # Cota del precio de exportación calibrada por régimen regulatorio (E20): con regla especial de exportación
 # usa los errores de ese régimen si hay al menos este número de semanas calificadas en él.
