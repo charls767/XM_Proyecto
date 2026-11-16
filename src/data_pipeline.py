@@ -401,7 +401,10 @@ def tabla_expo(recalcular=False):
     t["precio_expo"] = base.usd.where(hay)
     t["precio_expo_cop"] = base.cop.where(hay)
     t["trm"] = (t.precio_expo_cop / t.precio_expo * 100)
-    tie = _semanal_expo(t.index, 7, ve, vc * 0, vc, corte_tie)
+    # Ventas en bolsa TIE (VentBolsaTIEMoneda / VentBolsaTIEEner), en COP/kWh: variable reconstruida para
+    # comparar, no usada por los modelos. No hay serie en USD: se pasa la moneda COP también como "usd" para
+    # que `_semanal_expo` no la descarte (antes recibía 0 y la columna quedaba vacía en todas las semanas).
+    tie = _semanal_expo(t.index, 7, ve, vc, vc, corte_tie)
     t["precio_bolsa_tie"] = tie.cop.where(tie.energia >= ENERGIA_MINIMA_EXPO_KWH)
     parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c, corte)
     t["precio_expo_parcial"] = parcial.usd.where(parcial.energia >= ENERGIA_MINIMA_PARCIAL_KWH).to_numpy()

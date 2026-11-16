@@ -1,32 +1,35 @@
 # Ficha técnica: precio para la garantía TIE (PAE-XM)
 
-**Versiones registradas (desde el 20-nov-2026):** precio de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (candidato, ver abajo) y precio de bolsa `tie-ridge11-parcial-duan-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
+**Versiones registradas (desde el 20-nov-2026):** precio de exportación `expo-huber-mitad-regla-conformal104-regimen-v1` (**objetivo principal**) y precio de bolsa `tie-ridge11-parcial-cmg-duan-conformal104-v1` (objetivo secundario) · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 16 de noviembre de 2026
+
+**Objetivos.** El **principal** es el precio de exportación, porque según E19 es el que entra en la garantía de exportación (supuesto del proyecto, pendiente de confirmar con XM). El **secundario** es el precio de bolsa nacional, como referencia del mercado y porque existe aunque no haya exportaciones. Ninguno de los dos está validado para fijar garantías: la evidencia es un backtest simulado y el registro empieza el 20 de noviembre de 2026.
 
 ## Para qué sirve
 
 Estima, el viernes de la semana s, el precio de la semana TIE s+2 (sábado a viernes) que entra en la garantía de las transacciones internacionales con Ecuador (CREG 004 de 2003, art. 23). Lo compara siempre con la regla de XM, que repite el de la semana s-1. Incluye una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas.
 
-**Precio de exportación (el de la garantía, E19).** Es lo cobrado por exportar (USD) entre la energía exportada, menos el CEE; cuadra con el ejemplo de XM.
+**Precio de exportación (objetivo principal, E19).** Variable reconstruida: lo cobrado por exportar (`ExportMonedaUSD`, USD) entre la energía exportada (`ExpoEner`), en centUSD/kWh. Se pronostica el precio bruto; la fórmula de la garantía le resta el CEE, que no tiene serie pública. Para la semana base del 18 al 24 de enero de 2025 da 24.33 centUSD/kWh, y el ejemplo de XM proyectó 22.75 después de restar el CEE. Que la diferencia (1.57) sea el CEE de esa semana es una **hipótesis** de una sola semana.
 
 | Precio de exportación (117 semanas con exportación, 2018–2026) | |
 |---|---|
 | Regla de XM | 5.31 centUSD/kWh de error medio |
 | Modelo (mitad Huber, mitad regla) | 4.83 (−9 %, p = 0.08); prueba final 2025–26: 6.05 frente a 7.03 (−13.9 %, p = 0.06) |
 | Limitación | Pocas semanas y saltos de régimen: la evidencia es débil. Sin exportaciones en s-1, o si la semana s-1 aún no está publicada completa, no hay pronóstico |
-| Estado | **Candidato, no resultado:** se eligió entre ~30 variantes y no es significativo al 5 %. Se registra junto a la regla y lo decide el registro |
+| Estado | Es el objetivo principal, pero el modelo **no es un resultado firme**: se eligió entre ~30 variantes y no es significativo al 5 %. Se registra junto a la regla, la emisión vigila su desempeño (52 semanas con exportación) y lo decide el registro |
+| Monto (E22, `python src/experimentos.py e22`) | Con MXT constante de 74.25 GWh/semana (supuesto): faltante acumulado 256.4 frente a 260.1 millones de USD de la regla, exceso 163.0 frente a 200.9. Funciones en `src/garantia.py` |
 
-**Precio de bolsa (base del mercado, E16).**
+**Precio de bolsa (objetivo secundario, E16).**
 
 | Precio de bolsa (461 semanas, 2018–2026, E16) | |
 |---|---|
 | Regla de XM | 115.3 COP/kWh de error medio |
 | Modelo registrado (con costo marginal miércoles–viernes, E24) | 93.7 COP/kWh, 18.7 % menos (p < 0.001); sesgo −24; sin el costo marginal era 98.3 |
 | Último año | 113 frente a 127, sin significancia (p = 0.18) |
-| Cota 90 % | Cubre 90.5 %; cuando cubre, excede al precio real en 85 % |
+| Cota 90 % | Cubre 89.2 %; cuando cubre, excede al precio real en 77 % (modelo con costo marginal) |
 
 **Modelo:** Ridge sobre log(P<sub>s+2</sub>/P<sub>s-1</sub>) con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24), con corrección de sesgo de Duan. Respaldo sin los datos de s que falten; vigilancia si en 52 semanas erra más que la regla, la cota cubre menos de 80 % o el sesgo es significativo. Detalle en [docs/SUPUESTOS.md](docs/SUPUESTOS.md) y [E16](docs/EXPERIMENTOS.md).
 
-**No sirve para:** calcular el monto completo (también dependen la máxima transferencia, el CEE y la tasa de cambio), pronosticar precios horarios ni anticipar saltos bruscos.
+**No sirve para:** fijar garantías, calcular el monto oficial (el MXT y el CEE no tienen serie pública; `src/garantia.py` solo hace una reconstrucción con supuestos), pronosticar precios horarios ni anticipar saltos bruscos.
 
 ## El pronóstico a una semana (complemento)
 

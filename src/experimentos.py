@@ -789,6 +789,35 @@ def resumen_e16(w):
     return t
 
 
+def correr_e22():
+    """E22: error en dinero de la garantía de exportación y nivel de la cota (sobre E19_ancho).
+
+    Reproduce en el repositorio la prueba que se hizo fuera de él. Supuestos de `garantia.py`: MXT
+    constante (74.25 GWh/semana) y CEE que no cambia faltantes ni excesos. Variante con la energía
+    realmente exportada en la semana objetivo, en lugar del MXT.
+    """
+    import garantia
+
+    w = pd.read_parquet(bt.RESULTADOS / "E19_ancho.parquet")
+    obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
+    el = "Mitad Huber + mitad regla"
+    garantias = {"Regla XM (vigente)": w["Regla XM"], "Modelo elegido": w[el]}
+    completo = pd.read_parquet(bt.RESULTADOS / "E19_ancho.parquet")
+    for nivel in (0.80, 0.90, 0.95):
+        cota = cal.conformal_regimen(completo.real, completo[el], completo.regimen_expo, nivel=nivel,
+                                     ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE,
+                                     minimo_grupo=config.MINIMO_GRUPO_REGIMEN)
+        garantias[f"Cota {nivel:.0%} del modelo (por régimen)"] = cota.reindex(w.index)
+    garantias["Cota 90 % de la regla"] = w["cota_Regla XM"]
+    t = garantia.resumen(w.real, garantias)
+    energia = dp.tabla_expo().energia_expo_gwh.reindex(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)).to_numpy() * 1e6
+    t2 = garantia.resumen(w.real, {k: garantias[k] for k in ("Regla XM (vigente)", "Modelo elegido")}, energia)
+    t.to_csv(bt.RESULTADOS / "E22_monto.csv")
+    t2.to_csv(bt.RESULTADOS / "E22_monto_energia_real.csv")
+    return t, t2, len(w)
+
+
 def correr_e17():
     """E17: corrección de sesgo adaptativa sobre el modelo TIE registrado (sobre E16_ancho).
 
@@ -955,6 +984,10 @@ if __name__ == "__main__":
         print(t.T.to_string())
         print(cms.pivot_table(index=["tipo", "modelo", "real"], columns="pronosticado", values="semanas").to_string())
         print(alerta.to_string())
+    elif comando == "e22":
+        t, t2, n = correr_e22()
+        print(f"{n} semanas con exportación (2018–2026); MXT constante:\n{t.round(1).to_string()}")
+        print(f"\nCon la energía realmente exportada:\n{t2.round(1).to_string()}")
     elif comando == "e17":
         print(correr_e17().to_string())
     elif comando == "e19":

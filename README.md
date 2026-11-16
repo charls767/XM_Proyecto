@@ -34,7 +34,7 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problem
 
 Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes). Los dos pronósticos se comparan con la regla de XM, que repite el valor de la semana s-1.
 
-| | Precio de exportación (el de la garantía) | Precio de bolsa (base del mercado) |
+| | **Objetivo principal:** precio de exportación (el de la garantía, según E19) | **Objetivo secundario:** precio de bolsa (base del mercado) |
 |---|---|---|
 | **Qué es** | `ExportMonedaUSD` / `ExpoEner`, en centUSD/kWh (E19) | Promedio horario simple del precio de bolsa nacional, en COP/kWh (E16) |
 | **Modelo** | Mitad un Huber sobre el cambio del precio de exportación y mitad la regla de XM (`expo-huber-mitad-regla-...`) | Ridge sobre el cambio de s-1 a s+2, con corrección de sesgo de Duan (`tie-ridge11-parcial-cmg-duan-...`) |
@@ -45,6 +45,8 @@ Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes). Los
 
 - **Por qué estos modelos:** a tres semanas, las ganancias medidas vinieron de **información disponible el viernes** (los días de la semana en curso, el costo marginal), no de modelos más complejos. LightGBM, bosques, redes, procesos gaussianos y ensambles con pesos aprendidos no superaron a los elegidos (E23, E25). La corrección de sesgo adaptativa empeoró (E17).
 - **Candidato en paralelo (bolsa):** suma la hidrología de sábado a jueves y el precio del martes. Erra 92.1 frente a 93.7, sin ganar en todos los periodos. Lo decide el registro con 26 semanas.
+- **Vigilancia:** la emisión revisa ambos modelos con las últimas 52 semanas calificadas (error frente a la regla, cobertura de la cota y sesgo). Si alguno falla, el estado pasa a *vigilancia*.
+- **Monto de la garantía:** `src/garantia.py` lo reconstruye con supuestos (MXT constante de 74.25 GWh/semana; el CEE no cambia faltantes ni excesos), y `python src/experimentos.py e22` reproduce E22. No es el cálculo oficial de XM.
 - **Supuestos y riesgos:** [docs/SUPUESTOS.md](docs/SUPUESTOS.md). El principal pendiente es qué contiene el precio de exportación bajo las reglas especiales del período de riesgo. Las preguntas están listas para el CRM de XM en [docs/CONSULTA_CRM_XM.md](docs/CONSULTA_CRM_XM.md).
 
 ---
@@ -252,9 +254,9 @@ python src/experimentos.py e16
 ```
 
 Cada comando regenera sus archivos en `results/`:
-- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20) y `e17`.
+- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20), `e22` (monto de la garantía) y `e17`.
 - **Pronóstico a una semana:** `e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `e14`, `e15`, `cortes`, `tuning` y `alertas`.
-- **Sin comando:** E18, E20 (salvo la cota), E21, E22, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
+- **Sin comando:** E18, E20 (salvo la cota), E21, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
 
 La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
@@ -278,6 +280,7 @@ La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 ├── src/
 │   ├── config.py             modelos en operación (bolsa TIE, candidato y exportación), cota y umbrales del monitoreo
 │   ├── semanal_tie.py        emisión TIE: datos, precios de bolsa y exportación de s+2, candidato, registro, calificación, reproducción
+│   ├── garantia.py           monto de la garantía de exportación, reconstruido con supuestos (E22)
 │   ├── resultados_app.py     reúne en results/app/ lo que muestra la app
 │   ├── semanal.py            emisión a una semana (ya no emite; califica y reproduce su registro)
 │   ├── monitoreo.py          controles de calidad, rango histórico, desempeño reciente y estado

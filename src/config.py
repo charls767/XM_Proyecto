@@ -21,7 +21,15 @@ VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
 # conocen esos dos días; el del miércoles aún no estaba publicado el martes a las 21:19.
 # Solo puede reemplazar al oficial si XM confirma que la garantía se fija con la semana ya iniciada.
 VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
-# Garantía TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
+# Objetivos del proyecto (semana TIE de sábado a viernes; cálculo el viernes de s; objetivo s+2; base s-1):
+# - PRINCIPAL: precio de exportación (centUSD/kWh, `ExportMonedaUSD` / `ExpoEner`, variable reconstruida),
+#   que según E19 es el que entra en la garantía de exportación (supuesto pendiente de confirmar con XM).
+#   Modelo: VERSION_EXPO. Solo existe en semanas con exportación.
+# - SECUNDARIO: precio de bolsa nacional promedio horario (COP/kWh): referencia del mercado y pronóstico
+#   disponible aunque no haya exportación. Modelo: VERSION_TIE.
+# Los dos se registran cada viernes junto a la regla de XM, y los dos pueden poner la emisión en vigilancia.
+#
+# Precio de bolsa TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
 # tres semanas y XM puede publicarlas con semanas de atraso) y con los días de sábado a martes de s.
 VERSION_TIE = "tie-ridge11-parcial-cmg-duan-conformal104-v1"
 # Hasta el 16-nov-2026 (E16): sin el costo marginal. Se conserva para el modelo de exportación y la comparación.

@@ -38,7 +38,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E24 | `e16` | ¿Mejora el costo marginal programado de miércoles a viernes de la semana en curso, publicado la víspera? | Sí, en el precio de bolsa: 93.7 frente a 98.3 (−4.6 %, p = 0.008), en selección y en la prueba final; adoptado. En exportación, −1.4 % sin significancia; no se usa. |
 | E25 | (scratch) | ¿Combinar modelos con pesos aprendidos de los errores pasados? | No: en exportación empeora 3–4 % frente al 50/50; en bolsa no supera al modelo con costo marginal. |
 | E23 | (scratch) | ¿Otros modelos supervisados (bosques, kernel, KNN, red neuronal, proceso gaussiano, PLS, Ridge bayesiano) superan a los elegidos? | No: ninguno gana en el periodo de selección, en ninguno de los dos objetivos. Los no lineales quedan iguales o peores; varios son significativamente peores. |
-| E22 | (scratch) | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
+| E22 | `e22` | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
 | E21 | (scratch) | Con regla especial, ¿el precio de exportación sigue el costo de las térmicas, y sirve para pronosticarlo? | Sí sigue el costo térmico (correlación 0.75 frente a 0.42 del precio de bolsa), pero a tres semanas no supera al elegido (7.60 frente a 7.78, p = 0.77). No se adopta. |
 | E20 | `e19` (cota) y scratch | ¿Se explica el precio de exportación con el máximo precio de oferta, las rentas de congestión o el régimen regulatorio? | Ninguna serie pública lo explica. El régimen (reglas del MME) no mejora el error, pero la cota por régimen sube la cobertura en esas semanas de 87 % a 92 %; adoptada. |
 | E19 | `e19` | ¿Qué tan bien se pronostica el precio de exportación, el que entra en la garantía? | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
@@ -710,7 +710,7 @@ La combinación no supera al elegido con significancia (p = 0.77). A tres semana
 
 ## E22: el error en dinero de la garantía, el nivel de la cota y las transiciones de régimen
 
-Prueba hecha fuera del repositorio sobre `results/E19_ancho.parquet` (117 semanas con exportación, 2018–2026).
+Sobre `results/E19_ancho.parquet` (117 semanas con exportación, 2018–2026). Se hizo primero fuera del repositorio; desde el 16 de noviembre de 2026 se reproduce con `python src/experimentos.py e22` (funciones en `src/garantia.py`), con las mismas cifras. Resultados en `results/E22_monto.csv` y `results/E22_monto_energia_real.csv`.
 
 **Monto.** Monto ≈ MXT × precio, con MXT constante de 74.25 GWh/semana: la energía del ejemplo de exportación de XM, unos 442 MW. El CEE se resta igual a lo garantizado y a lo liquidado, así que no cambia faltantes ni excesos. Cifras acumuladas en millones de USD:
 
