@@ -83,6 +83,33 @@ def preparar_expo(t):
     return d
 
 
+VARIABLES_COMPRA = ["spread_compra", "spread_compra_4s", "compra_momentum", "compra_parcial_rel", "compra_parcial_falta"]
+
+
+def preparar_compra(t):
+    """Tabla para pronosticar el objetivo principal: precio de las compras TIE en bolsa (COP/kWh, E26).
+
+    Las variables nacionales se calculan con el precio de bolsa nacional (`preparar`); después `precio`,
+    `precio_sig` e `y` pasan a ser los de compras TIE, que es lo que usan los modelos y el backtest.
+    `compra_parcial_rel`: log del precio de sábado a martes de s frente a s-1 (0 si falta, marcado en
+    `compra_parcial_falta`). `compra_momentum`: log de s-1 frente a s-2 (0 si falta).
+    """
+    d = preparar(t)
+    d["precio_nacional"] = d.precio
+    d["y_nacional"] = d.y
+    c = d.precio_compra_tie_cop_kwh
+    d["compra_momentum"] = np.log(c / c.shift(1)).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    rel = np.log(d.precio_compra_tie_parcial / c).replace([np.inf, -np.inf], np.nan)
+    d["compra_parcial_falta"] = rel.isna().astype(float)
+    d["compra_parcial_rel"] = rel.fillna(0.0)
+    d["spread_compra_4s"] = d.spread_compra_4s.fillna(d.spread_compra)
+    d["precio"] = c
+    d["precio_sig"] = d.precio_compra_tie_cop_kwh_sig
+    d["y"] = np.log(d.precio_sig / d.precio)
+    d["regla_parcial"] = d.precio_compra_tie_parcial.fillna(c)
+    return d
+
+
 def bandas_stft(serie_diaria, semanas, largo=28, prefijo="p"):
     """E13: último cuadro de una STFT causal de una serie diaria.
 

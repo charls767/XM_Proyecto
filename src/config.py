@@ -33,9 +33,12 @@ OBJETIVOS = {
         "frecuencia": "horaria agregada a semana de sábado a viernes",
         "tipo": "reconstruida a partir de series oficiales",
         "oficial": False,
-        "validacion": "Componente económico de las obligaciones TIE en bolsa. Sin modelo propio todavía; "
-                      "sin datos desde el 1-ago-2026. Su relación con la garantía está pendiente con XM.",
-        "version_modelo": None,
+        "validacion": "Componente económico de las obligaciones TIE en bolsa; su relación exacta con la garantía está "
+                      "pendiente con XM. Backtest simulado E26 (113 semanas con compras, 2018 a enero de 2026): "
+                      "142.2 frente a 159.6 COP/kWh de la regla (−10.9 %, p = 0.044), elegido entre 9 variantes: "
+                      "evidencia débil. Casi sin compras de febrero a julio de 2026 y sin datos desde el 1-ago-2026 "
+                      "(aunque hubo exportaciones), así que hoy no se puede emitir.",
+        "version_modelo": "VERSION_COMPRA",
     },
     "referencia": {
         "nombre": "Precio de bolsa nacional, promedio horario",
@@ -91,6 +94,12 @@ VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
 # lo decide el registro con la misma regla de 26 semanas que los candidatos anteriores.
 VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-cmg-hidro-martes-duan-conformal104-v1"
 VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
+# Objetivo principal (E26): precio de las compras TIE en bolsa (COP/kWh, reconstruido, no oficial).
+# Modelo: el precio de bolsa nacional de s+2 pronosticado con un Ridge con Duan (variables VARIABLES_TIE)
+# × el diferencial log(compras TIE / nacional) de la semana s-1. Elegido por el periodo de selección.
+VERSION_COMPRA = "compra-tie-nacional-spread-s1-conformal104-v1"
+VARIABLES_COMPRA_NACIONAL = VARIABLES_TIE
+COLUMNA_SPREAD_COMPRA = "spread_compra"
 # Objetivo complementario (E19): precio promedio realizado de exportación (centUSD/kWh, reconstruido, no
 # oficial). Modelo: promedio de un Huber sobre el cambio del precio y la regla de XM; elegido por el
 # periodo de selección 2022–2024.
