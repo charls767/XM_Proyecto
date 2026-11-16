@@ -2,14 +2,14 @@
 
 Según el material de formación de XM (Reafirmación 2025, sesión 2), el monto semanal es
     MSG = Σ_h MXT_h × (PM_{s-1,h} − CEE_{s-1})
-con MXT la máxima transferencia horaria del enlace. Para exportación el proyecto supone (E19) que PM
-es el precio de exportación (`ExportMonedaUSD` / `ExpoEner`). Clasificación de cada pieza:
+con MXT la máxima transferencia horaria del enlace. Aquí PM se APROXIMA con el precio promedio realizado
+de exportación (`ExportMonedaUSD` / `ExpoEner`), que no es el precio oficial de la garantía. Clasificación:
 
-- Precio de exportación: variable reconstruida desde series oficiales de XM.
+- Precio realizado de exportación: variable reconstruida desde series oficiales de XM (objetivo complementario).
 - MXT: SUPUESTO. Se toma constante, 74.25 GWh por semana (unos 442 MW), la energía del ejemplo de
   exportación de XM. No hay serie pública del MXT (pregunta 4 de docs/CONSULTA_CRM_XM.md).
-- CEE: SUPUESTO. No hay serie pública. Se resta igual a lo garantizado y a lo liquidado, así que no
-  cambia faltantes ni excesos; por defecto vale 0 y el monto queda en términos brutos.
+- CEE: serie OFICIAL mensual en COP/kWh (`xm_client.cee_mensual`). Se resta igual a lo garantizado y a lo
+  liquidado, así que no cambia faltantes ni excesos; por defecto vale 0 y el monto queda en términos brutos.
 - Tasa de cambio: el monto queda en USD; no se convierte.
 
 Faltante: semanas en que lo liquidado supera lo garantizado (exposición hasta el ajuste 1).

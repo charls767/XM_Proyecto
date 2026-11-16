@@ -878,7 +878,7 @@ ENSAMBLES_E19 = {"Mitad Huber + mitad regla": ["Huber expo", "Regla XM"],
 
 
 def correr_e19():
-    """E19: pronóstico del precio de exportación TIE, el que entra en la garantía.
+    """E19: pronóstico del precio promedio realizado de exportación (objetivo complementario; reconstruido).
 
     Mismo esquema que E16 (sábado a viernes, s-1 → s+2, embargo de 2 semanas, cota con rezago 3),
     sobre las semanas en que se exportó al menos 1 GWh en s-1 y en s+2.

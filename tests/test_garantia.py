@@ -31,8 +31,12 @@ def test_motivos_desempeno():
 
 
 @pytest.mark.skipif(not (dp.PROCESSED / "semanal_expo.parquet").exists(), reason="falta la tabla de exportación")
-def test_precio_bolsa_tie_reconstruido_no_vacio():
+def test_objetivo_principal_y_cee_en_la_tabla():
+    """Semana base del 18 al 24 de enero de 2025 (la del ejemplo de XM)."""
     t = dp.tabla_expo()
-    assert t.precio_bolsa_tie.notna().sum() > 0
+    assert t.precio_compra_tie_cop_kwh.notna().sum() > 0
     b = pd.Timestamp("2025-01-18")
-    assert t.at[b, "precio_bolsa_tie"] / t.at[b, "trm"] * 100 == pytest.approx(16.55, abs=0.01)
+    assert t.at[b, "precio_compra_tie_cop_kwh"] / t.at[b, "trm"] * 100 == pytest.approx(16.55, abs=0.01)
+    assert t.at[b, "cee_cop_kwh"] == pytest.approx(88.758)  # CEE oficial de enero de 2025
+    # Con el CEE oficial, el precio realizado no reproduce los 22.75 del ejemplo de XM.
+    assert t.at[b, "precio_expo_neto_cee"] == pytest.approx(22.27, abs=0.01)

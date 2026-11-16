@@ -5,7 +5,7 @@ Lee solo results/app/ (lo genera `python src/resultados_app.py`) y docs/SUPUESTO
 
 Páginas:
 1. Inicio: qué problema resolvemos y el resultado en una pantalla.
-2. Precio de exportación: el precio que usa el depósito de Ecuador.
+2. Precio realizado de exportación: lo que Ecuador pagó por kWh (reconstruido; no es el precio oficial del depósito).
 3. Precio de bolsa: el precio general del mercado, con crisis y saltos.
 4. Pronóstico de esta semana: lo último que se registró y por qué.
 5. Extra, la semana siguiente: el primer planteamiento, con 13 modelos.
@@ -25,6 +25,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 DATOS = RAIZ / "results" / "app"
 sys.path.insert(0, str(RAIZ / "src"))
 import isa101 as isa  # noqa: E402  (paleta ISA-101 compartida con el informe PDF)
+import config  # noqa: E402  (definición de los tres objetivos y su condición de oficial o reconstruido)
 
 st.set_page_config(page_title="Precio de la energía para Ecuador", page_icon="⚡", layout="wide")
 
@@ -33,7 +34,7 @@ REGLA = "Regla actual de XM"
 NUESTRO = "Nuestro modelo"
 PRUEBA = "Modelo en prueba"
 NOMBRES_SIMPLES = {
-    # Precio de bolsa y de exportación (garantía)
+    # Precio de bolsa (referencia) y precio realizado de exportación (complementario)
     "Regla XM (repetir s-1)": REGLA,
     "Modelo registrado (sábado a martes + costo marginal mié-vie, con corrección de sesgo)": NUESTRO,
     "Modelo elegido (Huber + regla)": NUESTRO,
@@ -259,9 +260,15 @@ def inicio():
 3. Para calcular el depósito, XM necesita **adivinar el precio** de una semana que empieza dentro de 8 días.
 4. Hoy XM usa una **regla sencilla**: supone que el precio será igual al de hace tres semanas. **Este proyecto intenta adivinarlo mejor.**
 """)
+    with st.expander("Los tres objetivos del proyecto y qué tan oficiales son"):
+        st.markdown("\n".join(
+            f"- **{c.capitalize()}:** {config.etiqueta_objetivo(c)}. Fuente: {o['fuente']}. {o['validacion']}"
+            for c, o in config.OBJETIVOS.items()))
+        st.caption("XM no publica el precio de la garantía. Ninguna de estas variables es el precio oficial de la "
+                   "garantía, y ninguna está validada para fijarla.")
     expo, bolsa = filtrar(EXPO, PRINCIPAL), filtrar(TIE, PRINCIPAL)
     for titulo, p, unidad, dec, texto in (
-            ("Precio de exportación: el que usa el depósito", expo, "centavos de dólar por kWh", 2,
+            ("Precio realizado de exportación (reconstruido)", expo, "centavos de dólar por kWh", 2,
              "Lo que Ecuador paga por cada kilovatio-hora."),
             ("Precio de bolsa: el precio general del mercado colombiano", bolsa, "pesos por kWh", 0,
              "El precio al que se compra y vende la energía en Colombia, hora por hora.")):
@@ -294,7 +301,7 @@ def exportacion():
     st.title("Precio de exportación")
     st.markdown("""
 **Qué es:** lo que Ecuador paga por cada kilovatio-hora que le vende Colombia, en **centavos de dólar**.
-Es el precio que usa el depósito (la garantía). Solo existe en las semanas en que hubo exportaciones.
+Es un precio **realizado y reconstruido** por el proyecto, **no** el precio oficial del depósito: XM no lo publica. Solo existe en las semanas en que hubo exportaciones.
 
 **Por qué es difícil:** cambia de golpe cuando cambian las reglas o el clima, y hay pocas semanas para aprender
 (solo las semanas con exportaciones).

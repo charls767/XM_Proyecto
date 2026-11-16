@@ -15,8 +15,11 @@ viernes) se calcula la garantía de la semana s+2 con los precios horarios de la
 - Candidato en paralelo: el mismo modelo más la hidrología de sábado a jueves de s y el precio del
   martes. Se registra a su lado y lo decide el registro: con 26 semanas calificadas reemplaza al
   modelo si erra menos y su cota cubre al menos 85 %.
-- Precio de exportación (el que entra en la garantía, E19): promedio de un Huber sobre el cambio del
-  precio de exportación y la regla de XM, en centUSD/kWh. Solo si en la semana s-1 se exportó.
+- Objetivo complementario (E19): precio promedio realizado de exportación (centUSD/kWh; reconstruido con
+  ExportMonedaUSD / ExpoEner; no es el precio oficial de la garantía). Promedio de un Huber sobre el cambio
+  del precio y la regla de XM. Solo si en la semana s-1 se exportó.
+- El objetivo principal (precio de las compras TIE en bolsa, config.OBJETIVOS) todavía no tiene modelo: XM
+  no publica compras TIE desde el 1-ago-2026.
 - Vigilancia: hidrología atrasada, variables fuera de lo visto, o en las últimas 52 semanas calificadas
   un error mayor que la regla, cobertura bajo 80 % o sesgo significativo (lo pide la auditoría del
   15 de noviembre de 2026, hallazgo A1). La vigilancia no cambia el pronóstico: avisa.
@@ -180,7 +183,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     if guardar and (malas := verificar_registro()):
         raise RuntimeError(f"El registro TIE fue alterado en las semanas {malas}; revísalo antes de emitir.")
     fechas = semanal.actualizar_datos() if actualizar else semanal.ultimas_fechas()
-    # Las series de exportación también se actualizan: el precio de la garantía sale de ellas.
+    # Las series de exportación y de bolsa TIE también se actualizan (objetivos complementario y principal).
     # El costo marginal programado de miércoles a viernes de s también entra al modelo (E24).
     for n in list(dp.SERIES_EXPO_TODAS) + ["costo_marginal"]:
         fechas[n] = xm.descargar(n).fecha.max() if actualizar else xm.ultima_fecha_en_cache(n)
@@ -235,7 +238,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
                               "reproduccion": rep_c}
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
-    # Precio de exportación (el de la garantía, E19). Sin exportaciones en s-1 no hay precio base.
+    # Objetivo complementario: precio realizado de exportación (E19). Sin exportaciones en s-1 no hay precio base.
     r["expo"] = None
     try:
         r["expo"] = pronosticar_expo(fe.preparar_expo(dp.tabla_expo(recalcular=True)), base)
@@ -250,8 +253,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     except Exception as e:
         print(f"No se pudo calcular el precio de exportación: {e}", flush=True)
     if r["expo"]:
-        # El precio de exportación es el objetivo principal (el de la garantía): su desempeño también
-        # puede poner la emisión en vigilancia.
+        # El precio realizado de exportación (objetivo complementario) también puede poner la emisión en
+        # vigilancia, igual que el precio de bolsa (objetivo de referencia).
         r["motivos"] += motivos_desempeno(r["expo"]["desempeno_reciente"], "Precio de exportación", "centUSD/kWh")
     if r["estado"] == "normal" and r["motivos"]:
         r["estado"] = "vigilancia"
@@ -375,5 +378,5 @@ if __name__ == "__main__":
         print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, "
               f"cota 90 % {r['candidato']['cota90']:,.1f}")
     if r["expo"]:
-        print(f"Precio de exportación (garantía): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
+        print(f"Precio realizado de exportación (complementario, reconstruido): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
               f"cota 90 % {r['expo']['cota90']:,.2f}; regla XM {r['expo']['regla']:,.2f}")
