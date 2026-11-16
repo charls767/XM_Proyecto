@@ -35,6 +35,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
+| E20 | `e19` (cota) y scratch | ¿Se explica el precio de exportación con el máximo precio de oferta, las rentas de congestión o el régimen regulatorio? | Ninguna serie pública lo explica. El régimen (reglas del MME) no mejora el error, pero la cota por régimen sube la cobertura en esas semanas de 87 % a 92 %; adoptada. |
 | E19 | `e19` | ¿Qué tan bien se pronostica el precio de exportación, el que entra en la garantía? | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
@@ -648,6 +649,34 @@ El modelo de E16, aplicado como cambio relativo sobre el precio de exportación,
 - **Ningún modelo solo le gana a la regla en selección.** Lo que funciona es moderar la regla: combinarla con un modelo robusto (Huber), porque el precio tiene saltos de régimen que pesan mucho en un Ridge.
 - **Elección:** el elegido es el de menor error en selección, entre unas 30 variantes. Unas 15 se probaron fuera del repositorio: Huber, mediana, ventana de 150 semanas y otras combinaciones. Mejora 9 % en 2018–2026 (p = 0.08) y 13.9 % en la prueba final (p = 0.06). Con la corrección por búsqueda no sería significativo: **la evidencia es débil**, y el registro debe confirmarla.
 - **Período de riesgo:** desde agosto de 2026 el precio de exportación llega a ser varias veces el nacional. La semana del 31 de octubre fue 2,978 frente a 389 COP/kWh. Eso es coherente con la CREG 101 127, que cobra el máximo de varios precios. Ningún modelo entrenado con la historia anticipa ese régimen.
+
+## E20: modelo estructural y régimen regulatorio del precio de exportación
+
+**¿Se explica el precio de exportación con datos públicos de XM?** No.
+- **El máximo precio de oferta nacional (`MaxPrecOferNal`)** es casi igual al precio de bolsa: entre 0.97 y 1.00 veces todos los años. Desde 2023, el error log mediano frente al precio de exportación es igual con el nacional (0.205) que con ese máximo (0.209).
+- **Rentas de congestión TIE y saldos netos TIE:** su correlación con lo cobrado de más al exportar va de −0.05 a −0.10. Como variables del modelo no mejoran en selección (5.35 a 5.70 frente a 5.37).
+- **Lo cobrado de más al exportar** sobre el valor en bolsa TIE, mediana por kWh: 30 a 56 COP en 2014–2018, −29 a 10 en 2019–2023, **374 en 2024** y **1,361 en 2026**. Coincide con las reglas especiales del MME (ver SUPUESTOS).
+- **Costo marginal de Ecuador (CENACE):** no hay una descarga pública histórica diaria. Los [informes anuales](https://www.cenace.gob.ec/wp-content/uploads/downloads/2026/04/Informe-Anual-2025_Parte-1-1.pdf) traen promedios mensuales del costo horario de energía (cUSD/kWh). El despacho diario se publica en SIMEM-CENACE. La [información operativa](https://www.cenace.gob.ec/info-operativa/InformacionOperativa.htm) muestra el último día. La vía para la serie completa es la solicitud de acceso a información pública de CENACE.
+
+**Régimen regulatorio.** Indicador `regimen_expo` (`dp.REGIMENES_EXPORTACION`), conocido el viernes de cálculo: 38 de las 387 semanas con objetivo.
+
+| Uso del indicador | Selección | Final | Con regla especial |
+|---|---|---|---|
+| Sin indicador (elegido) | 5.37 | 6.05 | 7.76 |
+| Como variable de Huber | 5.64 | 5.80 | 8.11 |
+| Variable × diferencial | 6.40 | 5.83 | 9.46 |
+| Solo la regla en esas semanas | 5.82 | 6.29 | 8.74 |
+
+Como variable no se adopta: empeora en selección.
+
+**Cota calibrada por régimen** (Mondrian, rezago 3, mínimo 8 semanas del mismo régimen, `config.MINIMO_GRUPO_REGIMEN`):
+
+| Cota del elegido | Cobertura | Con regla especial (38) | Normal | Exceso cuando cubre |
+|---|---|---|---|---|
+| Común | 88.9 % | 86.8 % | 89.9 % | 97 % |
+| **Por régimen (adoptada)** | **90.6 %** | **92.1 %** | 89.9 % | 105 % |
+
+La cota por régimen corrige la falta de cobertura en las semanas con regla especial, a cambio de ser 8 puntos más ancha. Se adoptó porque quedarse corto en la garantía cuesta más. Está en `results/E20_cotas_regimen.csv`, y la emisión TIE la usa desde la versión `expo-huber-mitad-regla-conformal104-regimen-v1`.
 
 ## Correcciones de la auditoría a las cifras anteriores
 

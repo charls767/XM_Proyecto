@@ -865,6 +865,11 @@ def correr_e19():
         w[nombre] = w[partes].mean(axis=1)
     for c in [x.nombre for x in m] + list(ENSAMBLES_E19):
         w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE)
+    # E20: cota del elegido calibrada por régimen regulatorio de exportación.
+    w["regimen_expo"] = dp.regimen_exportacion(w.index)
+    w["cota_regimen_Mitad Huber + mitad regla"] = cal.conformal_regimen(
+        w.real, w["Mitad Huber + mitad regla"], w.regimen_expo, ventana=config.VENTANA_CONFORMAL,
+        rezago=dp.HORIZONTE_TIE, minimo_grupo=config.MINIMO_GRUPO_REGIMEN)
     w.to_parquet(bt.RESULTADOS / "E19_ancho.parquet")
     return w
 
@@ -874,7 +879,7 @@ def resumen_e19(w):
     obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
     w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
     periodos = bt.periodo(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
-    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    puntuales = [c for c in w.columns if c not in ("real", "base", "regimen_expo") and not c.startswith("cota_")]
     filas = []
     for m in puntuales:
         e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
@@ -893,6 +898,15 @@ def resumen_e19(w):
         t[f"mejora_{p}_%"] = (1 - t[f"MAE_{p}"] / t.at["Regla XM", f"MAE_{p}"]) * 100
     t = t.sort_values("MAE_seleccion")
     t.to_csv(bt.RESULTADOS / "E19_resumen.csv")
+    # E20: cobertura de la cota común y por régimen del elegido, dentro y fuera de las reglas especiales.
+    el = "Mitad Huber + mitad regla"
+    filas = []
+    for nombre, col in (("común", f"cota_{el}"), ("por régimen", f"cota_regimen_{el}")):
+        cubre = w.real <= w[col]
+        filas.append({"cota": nombre, "cobertura": cubre.mean(), "cobertura_regimen": cubre[w.regimen_expo == 1].mean(),
+                      "cobertura_normal": cubre[w.regimen_expo == 0].mean(), "semanas_regimen": int(w.regimen_expo.sum()),
+                      "exceso_%": ((w[col] - w.real) / w.real)[cubre].mean() * 100})
+    pd.DataFrame(filas).to_csv(bt.RESULTADOS / "E20_cotas_regimen.csv", index=False)
     return t
 
 

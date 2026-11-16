@@ -28,6 +28,19 @@ XM respondió que qué se pronostica y para qué lo define el proyecto. Después
 | **Régimen actual** | El período de riesgo de desabastecimiento (desde el 7 de septiembre de 2026, reglas hasta el 31 de mayo de 2027) se trata como excepción | Hay pocas semanas de ese régimen. |
 | **Uso del resultado** | Insumo para el precio de la garantía, no el monto | El monto también depende de la máxima transferencia, el CEE y la tasa de cambio. |
 
+## Reglas especiales de exportación (régimen regulatorio)
+
+El Ministerio de Minas y Energía ha cambiado varias veces con qué plantas se exporta. Esas medidas se publican en el Diario Oficial antes de aplicarse, así que se conocen el viernes de cálculo. `dp.REGIMENES_EXPORTACION` las marca:
+
+| Periodo (viernes de cálculo) | Regla | Fuente |
+|---|---|---|
+| 16-oct-2023 a 31-jul-2024 | Exportar solo con plantas térmicas | Res. MME [40619 de 2023](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_minminas_40619_2023.htm), 40718 de 2023, [40115 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_minminas_40115_2024.htm) |
+| 17-ago-2024 a 15-nov-2024 | Alternativas fijadas por circular (térmicas) y suspensión | Res. MME [40330 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_minminas_40330_2024.htm) y 40410 de 2024 |
+| Desde el 16-nov-2024 | Cualquier planta (régimen normal) | Res. MME [40494 de 2024](https://gestornormativo.creg.gov.co/gestor/entorno/docs/resolucion_minminas_40494_2024.htm) |
+| Desde el 31-jul-2026 (por confirmar) | Marco permanente de medidas; exportación con térmicas; período de riesgo | Memoria justificativa MME de junio de 2026 y CREG 101 127 de 2026 |
+
+En esas semanas el precio de exportación es en promedio el doble del nacional (diferencial log 0.70 frente a −0.13). Como variable del modelo no mejoró el error en selección. Se usa para calibrar la cota por separado (E20). El periodo de 2024 se cubre sin el hueco del 1 al 16 de agosto de 2024; la fecha de inicio de 2026 es una aproximación.
+
 ## Riesgo conocido: el período de riesgo de desabastecimiento
 
 Mientras rija la CREG 101 127 de 2026 (hasta el 31 de mayo de 2027), los cargos de exportación consideran el **máximo** entre:

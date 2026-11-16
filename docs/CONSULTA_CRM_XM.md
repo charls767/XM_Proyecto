@@ -12,7 +12,12 @@ Somos un equipo de la Universidad Nacional de Colombia que trabaja en un proyect
 
 Según el material de formación de XM (Reafirmación 2025, sesión 2), entendemos que cada viernes de la semana s el ASIC calcula el monto de la semana s+2 (sábado a viernes) como Σ MXT<sub>h</sub> × (PM<sub>s-1,h</sub> − CEE<sub>s-1</sub>), y que después lo corrige con el ajuste 1 (precios reales de los primeros cinco días) y el ajuste 2 (segunda liquidación, TX2).
 
-1. **¿Qué precio es PM<sub>s-1,h</sub>?** ¿Es el precio de bolsa nacional horario, o el precio de la liquidación TIE ("Precio Medio Total", en centUSD/kWh)? Si es este último, ¿cómo se calcula a partir del precio de bolsa?
+1. **¿Qué precio es PM<sub>s-1,h</sub> en la exportación, y qué contiene `ExpoMoneda`?**
+   - Con las series públicas de la API, lo cobrado por exportar (`ExportMonedaUSD`) entre la energía exportada (`ExpoEner`) da 24.32 centUSD/kWh para la semana del 18 al 24 de enero de 2025. Menos el CEE, cuadra con los 22.75 que muestra su ejemplo de exportación.
+   - El inventario de métricas describe `ExpoMoneda` solo como "Transferencias de Energía desde Colombia hacia otros países", en COP.
+   - ¿Qué componentes tiene además del valor en bolsa TIE (`VentBolsaTIEMoneda`)?
+   - ¿Por qué ese exceso pasó de unos 50 COP/kWh hasta 2018 a 374 en 2024 y 1,361 en 2026? ¿Corresponde a los costos de las plantas térmicas usadas para exportar bajo las resoluciones del MME, liquidados con las CREG 026 y 155 de 2014?
+   - El inventario indica unidades "COP" para `ExportMonedaUSD`, pero sus valores parecen estar en USD. ¿Cuál es la unidad correcta?
 2. **¿Se aplica la misma fórmula a las exportaciones hacia Ecuador?** Es decir, la garantía que deposita CENACE por la energía que Colombia exporta.
 3. **¿Cambió este cálculo con la Resolución CREG 101 127 de 2026?** Mientras esté vigente el período de riesgo de desabastecimiento, ¿la garantía de exportación usa el máximo entre el precio de bolsa TIE, el precio de la planta más cara con arranque y parada, y el costo marginal del importador?
 4. **¿Cómo se define MXT<sub>h</sub> en la práctica?** ¿Es constante en las 168 horas o varía por hora? ¿Dónde se puede consultar su historial?
@@ -29,7 +34,7 @@ Universidad Nacional de Colombia, caso XM–UNAL
 
 | Pregunta | Qué cambia en el proyecto si la respuesta es distinta a lo supuesto |
 |---|---|
-| 1 | El objetivo del modelo: hoy se pronostica el precio de bolsa nacional en COP, promedio horario simple |
+| 1 | Desde E19 el objetivo es el precio de exportación (`ExportMonedaUSD`/`ExpoEner`). Conocer sus componentes permitiría modelar cada uno, en vez de tratarlo como una caja negra con saltos de régimen |
 | 2 | Si el modelo sirve para el caso de exportación, que es el de interés |
 | 3 | La utilidad del registro mientras rija la norma (hasta el 31 de mayo de 2027) |
 | 4 | La ponderación horaria: hoy se supone MXT constante. Con solo horas de punta, la mejora del modelo bajaría de 14.8 % a 12.5 % (auditoría del 15 de noviembre por partes) |

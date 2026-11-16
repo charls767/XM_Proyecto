@@ -132,7 +132,9 @@ def predicciones_expo():
     p = w[["real", "base"]].copy()
     for col, nombre in EXPO.items():
         p[nombre] = w[col]
-        p[f"cota|{nombre}"] = w[f"cota_{col}"]
+        # El elegido usa la cota calibrada por régimen regulatorio (E20).
+        p[f"cota|{nombre}"] = w[f"cota_regimen_{col}"] if f"cota_regimen_{col}" in w else w[f"cota_{col}"]
+    p["regimen_expo"] = w.regimen_expo
     p = p.dropna(subset=["real"])
     p.index.name = "semana_base"
     p.insert(0, "semana_objetivo", p.index + pd.Timedelta(weeks=3))

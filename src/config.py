@@ -33,7 +33,10 @@ VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-hidro-martes-duan-conformal104-v1"
 VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
 # Precio de exportación TIE (E19), el que entra en la garantía: promedio de un Huber sobre el cambio
 # del precio de exportación y la regla de XM. Se eligió por el periodo de selección 2022–2024.
-VERSION_EXPO = "expo-huber-mitad-regla-conformal104-v1"
+VERSION_EXPO = "expo-huber-mitad-regla-conformal104-regimen-v1"
+# Cota del precio de exportación calibrada por régimen regulatorio (E20): con regla especial de exportación
+# usa los errores de ese régimen si hay al menos este número de semanas calificadas en él.
+MINIMO_GRUPO_REGIMEN = 8
 VARIABLES_EXPO = VARIABLES_TIE + fe.VARIABLES_EXPO
 DIAS_CMG_CANDIDATO = 2
 VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]

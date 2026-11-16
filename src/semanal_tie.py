@@ -118,10 +118,14 @@ def pronosticar_expo(dx, base):
     w = w[w.index < base]
     h = pd.concat([pd.DataFrame({"real": w.real, "prediccion": (w.huber + w.base) / 2}),
                    pd.DataFrame({"real": [np.nan], "prediccion": [pred]}, index=[base])])
-    cota = float(cal.conformal(h.real, h.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL,
-                               rezago=dp.HORIZONTE_TIE).iloc[-1])
+    # Cota calibrada por régimen regulatorio de exportación (E20).
+    regimen = pd.Series(dp.regimen_exportacion(h.index), index=h.index)
+    cota = float(cal.conformal_regimen(h.real, h.prediccion, regimen, nivel=config.NIVEL_COTA,
+                                       ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE,
+                                       minimo_grupo=config.MINIMO_GRUPO_REGIMEN).iloc[-1])
     esc, reg = est[0], est[-1]
     return {"version": config.VERSION_EXPO, "regla": regla, "pronostico": pred, "cota90": cota,
+            "regimen_especial": bool(regimen.iloc[-1]),
             "variables": {v: float(dx.at[base, v]) for v in variables},
             "reproduccion": {"variables": list(variables), "media": [float(m) for m in esc.mean_],
                              "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
