@@ -5,9 +5,9 @@ import pytest
 
 APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 DATOS = APP.parents[1] / "results" / "app" / "predicciones_tie.parquet"
-PAGINAS = {"": "Precio para la garantía TIE", "exportacion": "Precio de exportación", "garantia": "Garantía TIE", "capacidad": "Capacidad predictiva",
-           "estres": "Episodios de estrés", "movimientos": "¿Anticipa los movimientos grandes?",
-           "pronostico": "Pronóstico de la semana", "metodologia": "Metodología y supuestos"}
+PAGINAS = {"": "¿Cuánto costará la energía", "exportacion": "Precio de exportación", "bolsa": "Precio de bolsa",
+           "pronostico": "Pronóstico de esta semana", "semana": "Extra: el precio de la semana siguiente",
+           "como": "Cómo funciona"}
 
 st_testing = pytest.importorskip("streamlit.testing.v1")
 

@@ -1,5 +1,7 @@
 # XM_Proyecto · Precio para la garantía TIE
 
+**En palabras simples:** Colombia le vende electricidad a Ecuador. Antes de cada semana, Ecuador deja un depósito (la *garantía*) para asegurar el pago. Para calcularlo, XM tiene que adivinar el precio de una semana que empieza dentro de 8 días, y hoy supone que será igual al de hace tres semanas. Este proyecto intenta adivinarlo mejor, y lo compara siempre con esa regla.
+
 Modelo para anticipar el precio que entra en la **garantía de las transacciones internacionales de electricidad (TIE)** con Ecuador, con una **cota superior de riesgo** (caso XM–UNAL).
 
 La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problema: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los precios de la semana **s-1**. Esa regla es, en la práctica, un pronóstico ingenuo a tres semanas.
@@ -13,7 +15,16 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problem
 | Cotas al 90 % | Cubren alrededor de 90 %, pero son anchas |
 | Pronóstico a una semana (complemento) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
 
-**La app** ([app/streamlit_app.py](app/streamlit_app.py)) muestra el precio de exportación frente a la regla, el precio de bolsa, la capacidad predictiva de 13 modelos a una semana, los episodios de estrés y el registro.
+**La app** ([app/streamlit_app.py](app/streamlit_app.py)) está escrita para cualquier lector, con un glosario. Tiene 6 páginas:
+
+| Página | Qué responde |
+|---|---|
+| Inicio | ¿Qué problema se resuelve y qué tan bien? |
+| Precio de exportación | ¿Qué tan bien se adivina el precio que usa el depósito? |
+| Precio de bolsa | ¿Y el precio general del mercado? ¿Cómo le va en las crisis? ¿Ve venir los saltos? |
+| Pronóstico de esta semana | ¿Qué se registró el último viernes y por qué? |
+| Extra: la semana siguiente | El primer planteamiento, con 13 modelos comparados |
+| Cómo funciona | Los pasos, el glosario y los supuestos |
 
 > Prototipo académico; no es una publicación oficial de XM. La evaluación es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas. La evidencia independiente es el [registro TIE](registro/), que empieza el 20 de noviembre de 2026. Ver las auditorías: [5 de noviembre](docs/AUDITORIA.md), [10 de noviembre](docs/AUDITORIA_2026-11-10.md) y [15 de noviembre](docs/AUDITORIA_2026-11-15.md). **No usarlo para fijar garantías sin esa validación.**
 
@@ -103,7 +114,7 @@ El **margen** es el error que el modelo solo superó en el 10 % de las últimas 
 | Exceso de la cota | Cuánto sobra la cota cuando cubre | ≤ 40 % | 37 % ✓ |
 | Cobertura en semanas de salto | Cobertura en el 20 % de semanas con mayor cambio | ≥ 85 % | 70 % ✗ |
 
-En la app, la página *Capacidad predictiva* muestra estas métricas para cada periodo de evaluación.
+En la app, la página *Extra: la semana siguiente* muestra estas métricas para cada periodo de evaluación.
 
 ### 7. Los tres estados
 
@@ -182,7 +193,7 @@ python src/resultados_app.py
 streamlit run app/streamlit_app.py
 ```
 
-El primer comando reúne en `results/app/` los resultados que muestra la app (la emisión semanal también lo hace). La app solo lee esa carpeta, así que no consulta la API de XM al abrirse. El tablero HTML anterior (`dashboard/`) ya no se regenera.
+El primer comando reúne en `results/app/` los resultados que muestra la app (la emisión semanal también lo hace). La app solo lee esa carpeta, así que no consulta la API de XM al abrirse.
 
 ### Reproducir la evaluación
 
@@ -228,7 +239,6 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 │   ├── trazabilidad.py       registro de corridas (commit, datos, versiones)
 │   ├── tuning.py             hiperparámetros con datos anteriores a 2018
 │   └── graficas.py           frontera de las cotas (E7)
-├── dashboard/                tablero HTML anterior (ya no se regenera)
 ├── registro/                 pronósticos emitidos (inmutables) y snapshots: pronosticos_tie.csv y el registro a una semana
 ├── results/                  resultados de los experimentos
 ├── data/                     caché de la API de XM, ONI de NOAA y tablas semanales

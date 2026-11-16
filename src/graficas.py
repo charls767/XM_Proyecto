@@ -1,4 +1,4 @@
-"""Gráficas de resultados para el README y el dashboard."""
+"""Gráficas de resultados para el README."""
 
 import matplotlib
 
