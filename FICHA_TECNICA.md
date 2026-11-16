@@ -20,11 +20,11 @@ Estima, el viernes de la semana s, el precio de la semana TIE s+2 (sábado a vie
 | Precio de bolsa (461 semanas, 2018–2026, E16) | |
 |---|---|
 | Regla de XM | 115.3 COP/kWh de error medio |
-| Modelo registrado | 98.3 COP/kWh, 14.8 % menos (p < 0.001); sesgo −16 |
-| Último año | 120 frente a 127, sin significancia (p = 0.40) |
+| Modelo registrado (con costo marginal miércoles–viernes, E24) | 93.7 COP/kWh, 18.7 % menos (p < 0.001); sesgo −24; sin el costo marginal era 98.3 |
+| Último año | 113 frente a 127, sin significancia (p = 0.18) |
 | Cota 90 % | Cubre 90.5 %; cuando cubre, excede al precio real en 85 % |
 
-**Modelo:** Ridge sobre log(P<sub>s+2</sub>/P<sub>s-1</sub>) con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo de Duan. Respaldo sin los días de s; vigilancia si en 52 semanas erra más que la regla, la cota cubre menos de 80 % o el sesgo es significativo. Detalle en [docs/SUPUESTOS.md](docs/SUPUESTOS.md) y [E16](docs/EXPERIMENTOS.md).
+**Modelo:** Ridge sobre log(P<sub>s+2</sub>/P<sub>s-1</sub>) con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24), con corrección de sesgo de Duan. Respaldo sin los datos de s que falten; vigilancia si en 52 semanas erra más que la regla, la cota cubre menos de 80 % o el sesgo es significativo. Detalle en [docs/SUPUESTOS.md](docs/SUPUESTOS.md) y [E16](docs/EXPERIMENTOS.md).
 
 **No sirve para:** calcular el monto completo (también dependen la máxima transferencia, el CEE y la tasa de cambio), pronosticar precios horarios ni anticipar saltos bruscos.
 

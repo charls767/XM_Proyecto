@@ -26,6 +26,20 @@ def test_semana_de_exportacion_incompleta_no_tiene_precio():
 
 
 @pytest.mark.skipif(not ARCHIVO.exists(), reason="falta la tabla TIE (python src/experimentos.py e16)")
+def test_costo_marginal_de_miercoles_a_viernes_de_la_semana_en_curso():
+    """E24: para la semana base del 1-feb-2025, el viernes de cálculo es el 14-feb y se usan el miércoles 12,
+    jueves 13 y viernes 14, que XM publica la víspera: nunca días de la semana objetivo."""
+    import numpy as np
+    import xm_client as xm
+    t = dp.tabla_tie()
+    cm = xm.a_horario(xm.leer_cache("costo_marginal"))
+    dias = pd.date_range("2025-02-12", "2025-02-14")
+    esperado = cm[cm.index.normalize().isin(dias)].groupby(cm.index.normalize()[cm.index.normalize().isin(dias)]).mean().mean()
+    assert t.at[pd.Timestamp("2025-02-01"), "cmg_s"] == pytest.approx(esperado)
+    assert t.at[pd.Timestamp("2025-02-01"), "cmg_s_rel"] == pytest.approx(np.log(esperado / t.at[pd.Timestamp("2025-02-01"), "precio"]))
+
+
+@pytest.mark.skipif(not ARCHIVO.exists(), reason="falta la tabla TIE (python src/experimentos.py e16)")
 def test_tabla_tie_semanas_y_horizonte():
     t = dp.tabla_tie()
     assert (t.index.dayofweek == 5).all()  # sábado

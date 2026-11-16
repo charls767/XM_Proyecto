@@ -23,13 +23,16 @@ VERSION_CANDIDATO = "ens-ridge14-lear-directo-v1"
 VERSION_CANDIDATO_CMG = "ridge14-cmg2d-conformal104-v1"
 # Garantía TIE (E16): semana sábado a viernes, base s-1, objetivo s+2. Sin ofertas (no aportan a
 # tres semanas y XM puede publicarlas con semanas de atraso) y con los días de sábado a martes de s.
-VERSION_TIE = "tie-ridge11-parcial-duan-conformal104-v1"
-VARIABLES_TIE = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]] + ["parcial_rel"]
+VERSION_TIE = "tie-ridge11-parcial-cmg-duan-conformal104-v1"
+# Hasta el 16-nov-2026 (E16): sin el costo marginal. Se conserva para el modelo de exportación y la comparación.
+VARIABLES_TIE_SIN_CMG = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]] + ["parcial_rel"]
+# E24: más el costo marginal programado de miércoles a viernes de s (−4.6 % de error, p = 0.008).
+VARIABLES_TIE = VARIABLES_TIE_SIN_CMG + ["cmg_s_rel"]
 VARIABLES_TIE_RESPALDO = [v for v in VARIABLES if v not in fe.GRUPOS["ofertas"]]
 # Candidato en paralelo desde el 20-nov-2026: más la hidrología de sábado a jueves de s y el precio
 # del martes. En el backtest erró 94.2 frente a 98.3 (p = 0.02), pero no ganó en todos los periodos:
 # lo decide el registro con la misma regla de 26 semanas que los candidatos anteriores.
-VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-hidro-martes-duan-conformal104-v1"
+VERSION_TIE_CANDIDATO = "tie-ridge11-parcial-cmg-hidro-martes-duan-conformal104-v1"
 VARIABLES_TIE_CANDIDATO = VARIABLES_TIE + ["aportes_s", "embalse_s_cambio", "parcial_ultimo_rel"]
 # Precio de exportación TIE (E19), el que entra en la garantía: promedio de un Huber sobre el cambio
 # del precio de exportación y la regla de XM. Se eligió por el periodo de selección 2022–2024.
@@ -37,7 +40,8 @@ VERSION_EXPO = "expo-huber-mitad-regla-conformal104-regimen-v1"
 # Cota del precio de exportación calibrada por régimen regulatorio (E20): con regla especial de exportación
 # usa los errores de ese régimen si hay al menos este número de semanas calificadas en él.
 MINIMO_GRUPO_REGIMEN = 8
-VARIABLES_EXPO = VARIABLES_TIE + fe.VARIABLES_EXPO
+# El modelo de exportación no usa el costo marginal: en E24 solo mejoró 1.4 %, sin significancia.
+VARIABLES_EXPO = VARIABLES_TIE_SIN_CMG + fe.VARIABLES_EXPO
 DIAS_CMG_CANDIDATO = 2
 VARIABLES_CANDIDATO_CMG = VARIABLES + [f"cmg_{DIAS_CMG_CANDIDATO}d_rel", "cmg_brecha"]
 REVISION_CANDIDATO = 12  # semanas calificadas para una primera lectura

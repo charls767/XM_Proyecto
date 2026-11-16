@@ -35,6 +35,8 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
 | E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
+| E24 | `e16` | ¿Mejora el costo marginal programado de miércoles a viernes de la semana en curso, publicado la víspera? | Sí, en el precio de bolsa: 93.7 frente a 98.3 (−4.6 %, p = 0.008), en selección y en la prueba final; adoptado. En exportación, −1.4 % sin significancia; no se usa. |
+| E25 | (scratch) | ¿Combinar modelos con pesos aprendidos de los errores pasados? | No: en exportación empeora 3–4 % frente al 50/50; en bolsa no supera al modelo con costo marginal. |
 | E23 | (scratch) | ¿Otros modelos supervisados (bosques, kernel, KNN, red neuronal, proceso gaussiano, PLS, Ridge bayesiano) superan a los elegidos? | No: ninguno gana en el periodo de selección, en ninguno de los dos objetivos. Los no lineales quedan iguales o peores; varios son significativamente peores. |
 | E22 | (scratch) | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
 | E21 | (scratch) | Con regla especial, ¿el precio de exportación sigue el costo de las térmicas, y sirve para pronosticarlo? | Sí sigue el costo térmico (correlación 0.75 frente a 0.42 del precio de bolsa), pero a tres semanas no supera al elegido (7.60 frente a 7.78, p = 0.77). No se adopta. |
@@ -781,6 +783,38 @@ Prueba hecha fuera del repositorio con el mismo backtest de E16 y E19 (mismas se
 - **En el precio de bolsa,** el proceso gaussiano y el Ridge bayesiano ganan en la prueba final (99.4 y 100.8 frente a 104.5), pero sin significancia en el total (p de 0.46 a 0.76). Elegirlos por la prueba final sería ajustarse al azar.
 - **En el precio de exportación,** la robustez del Huber frente a los saltos extremos sigue siendo lo decisivo.
 - **Coincide con E5/E6, E11, E13 y E19:** con la información disponible, el límite no está en el tipo de modelo.
+
+## E24: costo marginal programado de la semana en curso
+
+El viernes de cálculo ya están publicados el precio de sábado a martes de la semana s y el **costo marginal del despacho programado de miércoles, jueves y viernes de s** (`CostMargDesp`), que XM publica la víspera. La regla y los modelos anteriores solo usaban lo primero. `dp.tabla_tie()` agrega `cmg_s` (promedio horario de esos tres días) y `cmg_s_rel` = log(cmg_s / precio de s-1).
+
+| Precio de bolsa (461 semanas) | 2018–26 | Selección | Final | Frente al registrado anterior |
+|---|---|---|---|---|
+| Regla XM | 115.3 | 200.0 | 122.1 | — |
+| Registrado anterior (sin costo marginal) | 98.3 | 169.6 | 104.5 | — |
+| Regla con la semana s estimada (sábado–martes de precio + miércoles–viernes de costo marginal), sin modelo | 98.3 | 172.0 | 102.8 | igual |
+| **Registrado + costo marginal miércoles–viernes (adoptado)** | **93.7** | **163.4** | **97.2** | **−4.6 % (p = 0.008)** |
+| Candidato + costo marginal | 92.1 | 159.1 | 100.0 | −6.3 % (p = 0.003) |
+
+- **Mejora en los dos periodos.** Frente a la regla de XM, el error baja 18.7 % (antes 14.8 %). En las últimas 52 semanas, 113 frente a 127 (p = 0.18).
+- **Costo:** el sesgo a quedarse corto pasa de −16 a −24 COP/kWh. La cota cubre 89.2 % y, cuando cubre, excede al precio real en 77 % (antes 90.5 % y 85 %).
+- **Hallazgo para XM:** calcular la regla con la semana en curso estimada, en vez de la semana s-1, ya iguala al modelo anterior sin ningún modelo.
+- **En el precio de exportación** mejora solo 1.4 a 1.8 % (p = 0.24 a 0.37). No se usa: `config.VARIABLES_EXPO` conserva las variables sin costo marginal.
+- **Versiones desde el 16-nov-2026, antes de la primera emisión:** `tie-ridge11-parcial-cmg-duan-conformal104-v1` y candidato `tie-ridge11-parcial-cmg-hidro-martes-duan-conformal104-v1`.
+- **Respaldo:** si al emitir no está el costo marginal de los tres días, se usa el mismo Ridge sin esa variable. El del viernes se publica el jueves en la noche.
+
+## E25: combinaciones con pesos aprendidos (resultado negativo)
+
+El peso de cada modelo se eligió con el error de las últimas 104 semanas ya calificadas (rezago 3, grilla de 0 a 1).
+
+| Combinación | 2018–26 | Frente a la referencia |
+|---|---|---|
+| Exportación: pesos aprendidos Huber/regla | 5.02 | +3.9 % frente al 50/50 (4.83) |
+| Exportación: pesos aprendidos Huber con costo marginal/regla | 4.98 | +3.1 % |
+| Bolsa: pesos aprendidos registrado con costo marginal/regla con semana s estimada | 94.87 | +1.2 % frente al registrado con costo marginal |
+| Bolsa: mitad candidato + mitad registrado (ambos con costo marginal) | 92.38 | −1.4 % (p = 0.03), peor en la prueba final |
+
+Los pesos aprendidos persiguen el ruido. El 50/50 fijo de exportación se mantiene.
 
 ## Correcciones de la auditoría a las cifras anteriores
 

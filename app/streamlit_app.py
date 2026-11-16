@@ -84,8 +84,9 @@ TIE_MODELOS = [c for c in TIE.columns if c not in ("semana_objetivo", "real", "b
 COLOR.update({"Regla XM (repetir s-1)": MUTED, "Regla con sábado a martes de s": INK2, "Ridge 14": "#2a78d6",
               "Ridge 14 + sábado a martes de s": "#1baf7a",
               "Ridge 14 + sábado a martes de s, con corrección de sesgo": "#6250d6",
-              "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)": "#eb6834",
-              "Candidato en paralelo (+ hidrología hasta el jueves y martes)": "#1baf7a"})
+              "Modelo registrado (sábado a martes + costo marginal mié-vie, con corrección de sesgo)": "#eb6834",
+              "Candidato en paralelo (+ hidrología hasta el jueves y martes)": "#1baf7a",
+              "Modelo anterior (sin costo marginal)": "#a3a29b"})
 NOMBRES = MODELOS.modelo.tolist()
 
 
@@ -154,7 +155,7 @@ def p_diebold_mariano(p, modelo, referencia):
 
 
 REGLA = "Regla XM (repetir s-1)"
-REGISTRADO = "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)"
+REGISTRADO = "Modelo registrado (sábado a martes + costo marginal mié-vie, con corrección de sesgo)"
 
 
 def metricas_expo(p):

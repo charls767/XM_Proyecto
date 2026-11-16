@@ -8,9 +8,10 @@ Uso:
 Sigue la regla de la Resolución CREG 004 de 2003, art. 23: el viernes de la semana s (sábado a
 viernes) se calcula la garantía de la semana s+2 con los precios horarios de la semana s-1.
 - Regla XM: repetir el precio promedio horario de s-1.
-- Modelo: Ridge con 11 variables de s-1 (sin ofertas) y el precio de sábado a martes de s,
+- Modelo: Ridge con 11 variables de s-1 (sin ofertas), el precio de sábado a martes de s y el costo marginal,
   con corrección de sesgo de Duan y cota conformal del 90 % (E16).
-- Respaldo: si faltan los días de s, el mismo Ridge sin ellos; si falta la semana s-1, no se emite.
+- Costo marginal programado de miércoles a viernes de s (E24), publicado la víspera.
+- Respaldo: si faltan los días de s o el costo marginal, el mismo Ridge sin ellos; si falta s-1, no se emite.
 - Candidato en paralelo: el mismo modelo más la hidrología de sábado a jueves de s y el precio del
   martes. Se registra a su lado y lo decide el registro: con 26 semanas calificadas reemplaza al
   modelo si erra menos y su cota cubre al menos 85 %.
@@ -158,7 +159,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         raise RuntimeError(f"El registro TIE fue alterado en las semanas {malas}; revísalo antes de emitir.")
     fechas = semanal.actualizar_datos() if actualizar else semanal.ultimas_fechas()
     # Las series de exportación también se actualizan: el precio de la garantía sale de ellas.
-    for n in dp.SERIES_EXPO_TODAS:
+    # El costo marginal programado de miércoles a viernes de s también entra al modelo (E24).
+    for n in list(dp.SERIES_EXPO_TODAS) + ["costo_marginal"]:
         fechas[n] = xm.descargar(n).fecha.max() if actualizar else xm.ultima_fecha_en_cache(n)
     d = fe.preparar(dp.tabla_tie(recalcular=True))
     s, base, objetivo = semanas(fecha_emision)
@@ -171,7 +173,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     faltan = [v for v in variables if pd.isna(d.at[base, v])]
     estado = "normal"
     if faltan:
-        variables = [v for v in config.VARIABLES_TIE_RESPALDO if pd.notna(d.at[base, v])]
+        # Respaldo: el mismo Ridge con las variables que sí están (sin sábado a martes o sin costo marginal).
+        variables = [v for v in config.VARIABLES_TIE if pd.notna(d.at[base, v])]
         estado = "respaldo"
         motivos.append(f"Faltan: {', '.join(faltan)}")
     # Hidrología al día: el viernes debería llegar al menos al martes de la semana s.

@@ -9,7 +9,7 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problem
 | En una mirada (semanas objetivo 2018–2026) | |
 |---|---|
 | **Precio de exportación** (el de la garantía, E19) | Regla de XM 5.31 centUSD/kWh; modelo elegido 4.83 (**−9 %**, p = 0.08); en la prueba final 2025–26, −13.9 % (p = 0.06). Solo 117 semanas con exportación: la evidencia es débil |
-| Precio de bolsa (base del mercado, E16) | Regla 115 COP/kWh; modelo registrado 98 (**−15 %**, p < 0.001); en el último año 120 frente a 127, sin significancia |
+| Precio de bolsa (base del mercado, E16 y E24) | Regla 115 COP/kWh; modelo registrado 94 (**−19 %**, p < 0.001), con el costo marginal programado de miércoles a viernes de la semana en curso; en el último año 113 frente a 127, sin significancia (p = 0.18) |
 | Cotas al 90 % | Cubren alrededor de 90 %, pero son anchas |
 | Pronóstico a una semana (complemento) | 54 COP/kWh, 19 % menos que repetir el precio anterior |
 
@@ -159,9 +159,9 @@ correr_semanal.bat
 
 Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE (CREG 004 de 2003, art. 23; ver [docs/SUPUESTOS.md](docs/SUPUESTOS.md)). El viernes de la semana s, [src/semanal_tie.py](src/semanal_tie.py) pronostica el precio promedio horario de la semana s+2, de sábado a viernes. Lo registra junto a la regla de XM, que repite el precio de s-1.
 
-- **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s, con corrección de sesgo y cota del 90 % (E16).
+- **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s, con corrección de sesgo y cota del 90 % (E16, E24).
 - **Respaldo:** si faltan los días de s, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
-- **Candidato en paralelo:** el mismo modelo más la hidrología de sábado a jueves de s y el precio del martes. En el backtest erra 94.2 frente a 98.3, pero no gana en todos los periodos. Se registra a su lado, y con 26 semanas calificadas reemplaza al modelo si erra menos y su cota cubre al menos 85 %.
+- **Candidato en paralelo:** el mismo modelo más la hidrología de sábado a jueves de s y el precio del martes. Con el costo marginal, en el backtest erra 92.1 frente a 93.7 del registrado, pero no gana en todos los periodos. Se registra a su lado, y con 26 semanas calificadas reemplaza al modelo si erra menos y su cota cubre al menos 85 %.
 - **Registro:** `registro/pronosticos_tie.csv`, encadenado con SHA-256, con snapshots en `registro/snapshots_tie/`.
 
 El script también califica las emisiones anteriores (incluidas las del registro a una semana, que ya no emite) y regenera `results/app/`. Al final hace un commit con el tag `registro-tie-AAAA-MM-DD`; no lo empuja. La salida queda en `registro/logs/AAAA-MM-DD.log`.
