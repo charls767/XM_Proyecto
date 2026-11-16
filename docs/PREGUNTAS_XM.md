@@ -73,6 +73,7 @@ Siguen abiertas la 1 (vigencia sin exportaciones), la 9 (costo de equivocarse), 
 
 **6. ¿Qué precio entra en el cálculo?** ¿Precio de bolsa nacional, Precio de Bolsa TIE o el máximo que indica el Anexo 3 de la CREG 101 127?
 *Si no es el nacional:* la variable objetivo del modelo está equivocada. **Es la pregunta técnica más importante.**
+*Respuesta con datos públicos (15-nov-2026, E19):* para exportación, el precio es lo cobrado por exportar (`ExportMonedaUSD`) entre la energía exportada, menos el CEE. Da 24.32 centUSD/kWh para la semana base del 18 al 24 de enero de 2025, que cuadra con los 22.75 que proyectó XM. **La pregunta para XM ahora es:** ¿qué componentes tiene `ExpoMoneda` además del precio de bolsa TIE, y es exactamente ese el "Precio Medio Total"?
 
 **7. ¿Es garantía o prepago?** ¿Qué instrumento se usa, en qué moneda y con qué tasa de cambio?
 

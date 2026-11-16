@@ -55,6 +55,33 @@ class Duan(Modelo):
         return prueba.precio.to_numpy() * np.exp(est.predict(prueba[self.variables])) * factor
 
 
+def huber():
+    """Regresión robusta (Huber): los saltos extremos del precio de exportación pesan menos (E19)."""
+    from sklearn.linear_model import HuberRegressor
+    return make_pipeline(StandardScaler(), HuberRegressor(epsilon=1.35, alpha=1.0, max_iter=2000))
+
+
+class NacionalSpread(Modelo):
+    """E19: precio de exportación = pronóstico del precio nacional en s+2 × diferencial de exportación.
+
+    Ridge con Duan sobre el cambio del precio nacional (s-1 → s+2), con las variables de la garantía
+    TIE; luego multiplica por exp(spread) para pasar a precio de exportación en COP y divide por la
+    tasa de cambio de s-1 para llevarlo a centUSD/kWh. `columna_spread` elige qué diferencial usar
+    (el de s-1 o un promedio de 4 o 13 semanas).
+    """
+
+    def __init__(self, nombre, variables, columna_spread="spread_4s"):
+        super().__init__(nombre, list(variables) + [columna_spread, "trm"], ridge)
+        self.vars_nal, self.col = list(variables), columna_spread
+
+    def ajustar_predecir(self, entren, prueba):
+        e = entren.dropna(subset=self.vars_nal + ["y_nacional"])
+        est = ridge().fit(e[self.vars_nal], e.y_nacional)
+        factor = np.mean(np.exp(e.y_nacional.to_numpy() - est.predict(e[self.vars_nal])))
+        nal = prueba.precio_nacional.to_numpy() * np.exp(est.predict(prueba[self.vars_nal])) * factor
+        return nal * np.exp(prueba[self.col].to_numpy()) / prueba.trm.to_numpy() * 100
+
+
 def elasticnet():
     """Penalización y mezcla L1/L2 elegidas con validación temporal interna (5 cortes)."""
     return make_pipeline(StandardScaler(), ElasticNetCV(

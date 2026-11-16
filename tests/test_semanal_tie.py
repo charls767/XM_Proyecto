@@ -43,6 +43,24 @@ def test_emision_en_seco_se_reproduce_desde_el_snapshot():
     assert abs(pred_c - c["pronostico"]) < 1e-6 and abs(cota_c - c["cota90"]) < 1e-6
 
 
+def test_precio_de_exportacion_cuadra_con_el_ejemplo_de_xm():
+    """Semana base del 18 al 24 de enero de 2025: XM proyectó 22.75 centUSD/kWh tras restar el CEE.
+    El precio total debe ser algo mayor (24.3) y el pronóstico debe reproducirse desde lo guardado."""
+    import data_pipeline as dp
+    import pytest
+    if not (dp.RAW / "xm" / "expo_usd" / "2025-01.parquet").exists():
+        pytest.skip("falta la caché de exportaciones")
+    t = dp.tabla_expo()
+    p = t.at[pd.Timestamp("2025-01-18"), "precio_expo"]
+    assert 22.75 < p < 22.75 + 3  # el CEE es de unos pocos centavos
+    assert t.at[pd.Timestamp("2025-01-18"), "precio_expo_sig"] == t.at[pd.Timestamp("2025-02-08"), "precio_expo"]
+    r = st.emitir("2025-02-14", actualizar=False, guardar=False)
+    e = r["expo"]
+    assert e is not None and e["regla"] == pytest.approx(t.at[pd.Timestamp("2025-02-01"), "precio_expo"])
+    pred, cota = st.reproducir_expo(e)
+    assert abs(pred - e["pronostico"]) < 1e-6 and abs(cota - e["cota90"]) < 1e-6 and cota > pred
+
+
 def test_registro_detecta_alteracion(tmp_path, monkeypatch):
     monkeypatch.setattr(st, "ARCHIVO", tmp_path / "pronosticos_tie.csv")
     monkeypatch.setattr(st, "REGISTRO", tmp_path)

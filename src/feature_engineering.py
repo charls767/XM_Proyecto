@@ -55,6 +55,34 @@ def preparar(sem):
     return d
 
 
+VARIABLES_EXPO = ["log_precio_expo", "spread", "spread_4s", "spread_13s", "expo_momentum", "log_energia_expo",
+                  "trm_cambio", "expo_parcial_rel", "expo_parcial_falta"]
+
+
+def preparar_expo(t):
+    """Tabla para pronosticar el precio de exportación (E19).
+
+    Las variables nacionales se calculan con el precio nacional (`preparar`); después `precio`,
+    `precio_sig` e `y` pasan a ser los de exportación, que es lo que usan los modelos y el backtest.
+    Los faltantes de las variables de exportación (semana s-2 o sábado a martes sin exportar) se
+    llenan con 0 = sin cambio, y `expo_parcial_falta` marca cuándo faltan los días parciales.
+    """
+    d = preparar(t)
+    d["precio_nacional"] = d.precio
+    d["y_nacional"] = d.y
+    d["expo_parcial_falta"] = d.expo_parcial_rel.isna().astype(float)
+    for c in ("expo_momentum", "trm_cambio", "expo_parcial_rel"):
+        d[c] = d[c].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    d["spread_4s"] = d.spread_4s.fillna(d.spread)
+    d["spread_13s"] = d.spread_13s.fillna(d.spread)
+    d["precio"] = d.precio_expo
+    d["precio_sig"] = d.precio_expo_sig
+    d["y"] = d.y_expo
+    # Regla con los días ya publicados: sábado a martes de s si se exportó, si no la semana s-1.
+    d["regla_parcial"] = d.precio_expo_parcial.fillna(d.precio_expo)
+    return d
+
+
 def bandas_stft(serie_diaria, semanas, largo=28, prefijo="p"):
     """E13: último cuadro de una STFT causal de una serie diaria.
 

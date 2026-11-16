@@ -5,7 +5,7 @@ import pytest
 
 APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 DATOS = APP.parents[1] / "results" / "app" / "predicciones_tie.parquet"
-PAGINAS = {"": "Precio de bolsa para la garantía TIE", "garantia": "Garantía TIE", "capacidad": "Capacidad predictiva",
+PAGINAS = {"": "Precio para la garantía TIE", "exportacion": "Precio de exportación", "garantia": "Garantía TIE", "capacidad": "Capacidad predictiva",
            "estres": "Episodios de estrés", "movimientos": "¿Anticipa los movimientos grandes?",
            "pronostico": "Pronóstico de la semana", "metodologia": "Metodología y supuestos"}
 

@@ -324,6 +324,73 @@ def tabla_tie(recalcular=False):
     return sem
 
 
+# --- Precio de exportación TIE (E19) -----------------------------------------
+
+ENERGIA_MINIMA_EXPO_KWH = 1e6  # semanas con menos de 1 GWh exportado no tienen un precio representativo
+ENERGIA_MINIMA_PARCIAL_KWH = 3e5
+
+
+def _semanal_expo(fechas_ini, dias, e, u, c):
+    """Precio de exportación (centUSD/kWh y COP/kWh) y energía de `dias` días desde cada fecha."""
+    h = pd.DataFrame({"e": e, "u": u, "c": c}).fillna(0.0)
+    diario = h.groupby(h.index.normalize()).sum()
+    filas = []
+    for i in fechas_ini:
+        x = diario.reindex(pd.date_range(i, periods=dias)).fillna(0.0).sum()
+        ok = x.e > 0 and x.u > 0 and x.c > 0  # sin liquidación en moneda no hay precio
+        filas.append((x.e, x.u / x.e * 100 if ok else np.nan, x.c / x.e if ok else np.nan))
+    return pd.DataFrame(filas, index=fechas_ini, columns=["energia", "usd", "cop"])
+
+
+def tabla_expo(recalcular=False):
+    """Tabla TIE (sábado a viernes) con el precio de exportación, desde la caché local.
+
+    Según el ejemplo de XM (Reafirmación 2025, garantías TIE), la garantía de exportación usa el
+    "Precio Medio Total − CEE": lo cobrado por exportar en USD entre la energía exportada. Para la
+    semana base del 18 al 24 de enero de 2025, ExportMonedaUSD/ExpoEner da 24.32 centUSD/kWh y XM
+    proyectó 22.75 tras restar el CEE. El CEE es un valor conocido al calcular, así que se pronostica
+    el precio total.
+
+    - `precio_expo`: centUSD/kWh de la semana base s-1 (NaN si se exportó menos de 1 GWh).
+    - `precio_expo_sig`: el de la semana s+2; `y_expo` = log(sig/base).
+    - `spread`: log del precio de exportación en COP frente al nacional (promedio horario).
+    - `precio_expo_parcial`: sábado a martes de la semana s, ya liquidado el viernes.
+    """
+    archivo = PROCESSED / "semanal_expo.parquet"
+    if archivo.exists() and not recalcular:
+        return pd.read_parquet(archivo)
+    t = tabla_tie(recalcular=recalcular)
+    h = lambda n: xm.a_horario(xm.leer_cache(n)).fillna(0.0)
+    e, u, c = h("expo_energia"), h("expo_usd"), h("expo_cop")
+    ve, vc = h("tie_venta_energia"), h("tie_venta_cop")
+    base = _semanal_expo(t.index, 7, e, u, c)
+    hay = base.energia >= ENERGIA_MINIMA_EXPO_KWH
+    t["energia_expo_gwh"] = base.energia / 1e6
+    t["precio_expo"] = base.usd.where(hay)
+    t["precio_expo_cop"] = base.cop.where(hay)
+    t["trm"] = (t.precio_expo_cop / t.precio_expo * 100)
+    tie = _semanal_expo(t.index, 7, ve, vc * 0, vc)
+    t["precio_bolsa_tie"] = tie.cop.where(tie.energia >= ENERGIA_MINIMA_EXPO_KWH)
+    parcial = _semanal_expo(t.index + pd.Timedelta(weeks=1), DIAS_PARCIALES_TIE, e, u, c)
+    t["precio_expo_parcial"] = parcial.usd.where(parcial.energia >= ENERGIA_MINIMA_PARCIAL_KWH).to_numpy()
+
+    s = t.index.to_series()
+    consecutiva = (s.shift(-HORIZONTE_TIE) - s) == pd.Timedelta(weeks=HORIZONTE_TIE)
+    t["precio_expo_sig"] = t.precio_expo.shift(-HORIZONTE_TIE).where(consecutiva)
+    t["y_expo"] = np.log(t.precio_expo_sig / t.precio_expo)
+    # Variables propias de la exportación, todas conocidas el viernes de la semana s.
+    t["log_precio_expo"] = np.log(t.precio_expo)
+    t["spread"] = np.log(t.precio_expo_cop / t.precio)
+    t["spread_4s"] = t.spread.rolling(4, min_periods=1).mean()
+    t["spread_13s"] = t.spread.rolling(13, min_periods=1).mean()
+    t["expo_momentum"] = np.log(t.precio_expo / t.precio_expo.shift(1))
+    t["log_energia_expo"] = np.log1p(t.energia_expo_gwh)
+    t["trm_cambio"] = np.log(t.trm / t.trm.ffill().shift(4))
+    t["expo_parcial_rel"] = np.log(t.precio_expo_parcial / t.precio_expo)
+    t.to_parquet(archivo)
+    return t
+
+
 # --- Datos nuevos (E8) ------------------------------------------------------
 
 def disponibilidad_y_escasez(datos, listado, sem):

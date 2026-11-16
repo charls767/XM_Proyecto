@@ -42,6 +42,13 @@ SERIES = {
     "gene_programada": ("GeneProgDesp", "Recurso", "hourly"),
     # E12: costo marginal del despacho programado (publicado el día anterior)
     "costo_marginal": ("CostMargDesp", "Sistema", "hourly"),
+    # E19: exportaciones TIE. El precio de la garantía de exportación es lo cobrado por exportar
+    # (ExportMonedaUSD) entre la energía exportada, menos el CEE: así cuadra el ejemplo de XM.
+    "expo_energia": ("ExpoEner", "Sistema", "hourly"),
+    "expo_cop": ("ExpoMoneda", "Sistema", "hourly"),
+    "expo_usd": ("ExportMonedaUSD", "Sistema", "hourly"),
+    "tie_venta_energia": ("VentBolsaTIEEner", "Sistema", "hourly"),
+    "tie_venta_cop": ("VentBolsaTIEMoneda", "Sistema", "hourly"),
 }
 
 

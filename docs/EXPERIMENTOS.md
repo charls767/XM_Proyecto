@@ -34,6 +34,8 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E15 | `e15` | ¿Costo marginal de 3 días? ¿Corrección de sesgo de Duan? ¿Alpha con validación temporal? | 3 días erra 33.2 frente a 39.3 con 2 días. Duan baja el error (53.4 frente a 54.0, p = 0.04) y el sesgo. Alpha temporal no mejora: se mantiene leave-one-out. |
 | E16 | `e16` | ¿Qué tan bien se pronostica lo que pide la garantía TIE (sábado a viernes, de s-1 a s+2)? | La regla de XM erra 115.3. Ridge 14 + sábado a martes de s con Duan erra 98.2 (14.8 % menos, p < 0.001). Solo usar esos días, sin modelo, ya baja 10.4 %. |
 | E17 | `e17` | ¿Corregir el sesgo reciente del modelo TIE con los errores de las últimas semanas? | No: empeora el error en todos los periodos (últimas 52 semanas: 119.9 → 122.2 a 148.9). |
+| E18 | (scratch) | ¿Aportan festivos de la semana objetivo, embalses por región o indicadores de régimen? | No: 0 a 3 COP/kWh de mejora, sin significancia y sin ganar en el último año. |
+| E19 | `e19` | ¿Qué tan bien se pronostica el precio de exportación, el que entra en la garantía? | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -599,6 +601,53 @@ El registrado se agregó el 15 de noviembre de 2026. Quitar las ofertas no cambi
 | Adaptativo, 52 semanas | 99.2 | −5.5 | 108.2 | 122.2 | −19.7 | 0.60 |
 
 **Conclusión: no se adopta ni se registra en paralelo.** La corrección empeora el error en todos los periodos, incluido el último año. El sesgo no persiste lo suficiente: con tres semanas de rezago, la corrección llega tarde y se pasa al otro lado (+35 en las últimas 52 semanas con k = 13). El sesgo reciente se seguirá vigilando en la emisión, sin corregirlo.
+
+## E18: festivos, embalses por región y régimen (resultado negativo)
+
+Prueba hecha fuera del repositorio, con el mismo esquema que E16 (461 semanas):
+
+| Variante | 2018–26 | Final | Últimas 52 | p frente al registrado |
+|---|---|---|---|---|
+| Registrado | 98.3 | 104.5 | 119.9 | — |
+| + festivos de la semana objetivo | 98.0 | 103.7 | 119.2 | 0.63 |
+| + embalses por región (al jueves de s) | 95.6 | 104.6 | 123.1 | 0.24 |
+| + horas sobre el precio de escasez y período de riesgo | 98.2 | 103.9 | 117.7 | 0.91 |
+| + festivos + régimen | 97.5 | 102.0 | 115.1 | 0.39 |
+
+Los embalses por región mejoran las semanas con embalse bajo (107.6 → 103.6), pero empeoran el último año y el sesgo (−25). No se adoptó ninguna.
+
+## E19: el precio de exportación, el que entra en la garantía
+
+**Hallazgo.** Con las series públicas de la API de XM (`ExpoEner`, `ExpoMoneda`, `ExportMonedaUSD`, `VentBolsaTIE*`) se construyó el precio de exportación semanal, de sábado a viernes: lo cobrado por exportar entre la energía exportada. Para la semana base del 18 al 24 de enero de 2025 da 24.32 centUSD/kWh, y el ejemplo de exportación de XM proyectó 22.75 después de restar el CEE. El precio nacional de esa semana fue 15.75, y el de bolsa TIE 16.55.
+
+| Frente al precio nacional | Correlación del nivel | Correlación del cambio a 3 semanas | Razón mediana |
+|---|---|---|---|
+| Precio de bolsa TIE | 0.98 | 0.90 | 1.05 |
+| Precio de exportación | 0.82 | **0.27** | 1.21; entre 1.4 y 2.0 en 2023–2026 |
+
+El modelo de E16, aplicado como cambio relativo sobre el precio de exportación, erra 6.7 % **más** que la regla. Hay que modelarlo directamente.
+
+**Experimento.** `dp.tabla_expo()` y `fe.preparar_expo()`:
+- **Objetivo:** log del precio de exportación en s+2 frente al de s-1.
+- **Semanas usables:** las que exportaron al menos 1 GWh en s-1 y en s+2. Son 387 desde 2010 y 117 con objetivo desde 2018: 67 en selección y 30 en la prueba final.
+- **Variables:** las de E16 más diferencial exportación/nacional (s-1, 4 y 13 semanas), momento del precio de exportación, energía exportada, cambio de la tasa de cambio y precio de exportación de sábado a martes de s.
+- **Esquema:** embargo de 2 semanas y cota con rezago 3.
+
+| Modelo | 2018–26 | Selección | Final | p frente a la regla (final) |
+|---|---|---|---|---|
+| Regla XM | 5.31 | 5.75 | 7.03 | — |
+| Regla con sábado a martes de s | 5.22 | 5.82 | 6.61 | 0.33 |
+| Huber | 5.40 | 6.01 | 6.61 | 0.67 |
+| Ridge con Duan | 5.79 | 6.45 | 7.26 | 0.80 |
+| LightGBM | 5.66 | 6.59 | 6.60 | 0.48 |
+| Nacional × diferencial de 4 semanas | 5.84 | 6.95 | 6.49 | 0.42 |
+| **Mitad Huber + mitad regla (elegido)** | **4.83** | **5.37** | **6.05** | **0.06** |
+| Huber + sábado a martes | 4.81 | 5.37 | 5.98 | 0.05 |
+| Ridge + nacional + sábado a martes | 4.86 | 5.54 | 5.88 | 0.03 |
+
+- **Ningún modelo solo le gana a la regla en selección.** Lo que funciona es moderar la regla: combinarla con un modelo robusto (Huber), porque el precio tiene saltos de régimen que pesan mucho en un Ridge.
+- **Elección:** el elegido es el de menor error en selección, entre unas 30 variantes. Unas 15 se probaron fuera del repositorio: Huber, mediana, ventana de 150 semanas y otras combinaciones. Mejora 9 % en 2018–2026 (p = 0.08) y 13.9 % en la prueba final (p = 0.06). Con la corrección por búsqueda no sería significativo: **la evidencia es débil**, y el registro debe confirmarla.
+- **Período de riesgo:** desde agosto de 2026 el precio de exportación llega a ser varias veces el nacional. La semana del 31 de octubre fue 2,978 frente a 389 COP/kWh. Eso es coherente con la CREG 101 127, que cobra el máximo de varios precios. Ningún modelo entrenado con la historia anticipa ese régimen.
 
 ## Correcciones de la auditoría a las cifras anteriores
 
