@@ -17,6 +17,7 @@ Según el material de formación de XM (Reafirmación 2025, sesión 2), entendem
    - El inventario de métricas describe `ExpoMoneda` solo como "Transferencias de Energía desde Colombia hacia otros países", en COP.
    - ¿Qué componentes tiene además del valor en bolsa TIE (`VentBolsaTIEMoneda`)?
    - ¿Por qué ese exceso pasó de unos 50 COP/kWh hasta 2018 a 374 en 2024 y 1,361 en 2026? ¿Corresponde a los costos de las plantas térmicas usadas para exportar bajo las resoluciones del MME, liquidados con las CREG 026 y 155 de 2014?
+   - Evidencia del proyecto (E21): en las 52 semanas con regla especial, el precio de exportación tiene una correlación de 0.75 con la oferta de las térmicas que generaron, y de 0.42 con el precio de bolsa.
    - El inventario indica unidades "COP" para `ExportMonedaUSD`, pero sus valores parecen estar en USD. ¿Cuál es la unidad correcta?
 2. **¿Se aplica la misma fórmula a las exportaciones hacia Ecuador?** Es decir, la garantía que deposita CENACE por la energía que Colombia exporta.
 3. **¿Cambió este cálculo con la Resolución CREG 101 127 de 2026?** Mientras esté vigente el período de riesgo de desabastecimiento, ¿la garantía de exportación usa el máximo entre el precio de bolsa TIE, el precio de la planta más cara con arranque y parada, y el costo marginal del importador?
