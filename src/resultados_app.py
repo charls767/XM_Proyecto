@@ -43,7 +43,7 @@ MODELOS = [
      "Oficial con el factor de Duan: pronostica la media del precio y no la mediana (E15)."),
     ("E15", "Ridge14+cmg3d_Duan", "Ridge 14 + costo marginal 3 días", "Lineal",
      "Costo marginal programado de lunes a miércoles, con corrección de sesgo (E15). "
-     "Es lo que se conoce al emitir el miércoles en la tarde."),
+     "Se supone publicado al emitir el miércoles en la tarde; la hora de publicación no está confirmada."),
 ]
 # Cota 90 % por modelo: (archivo, columna).
 COTAS = {"Ingenuo": ("E14", "cota_Ingenuo"), "Ridge 14 (oficial)": ("E14", "cota_Ridge14"),
@@ -111,6 +111,7 @@ def ultimo_tie():
     return {
         "fecha_calculo": f"{r['fecha_emision']:%Y-%m-%d}", "semana_base": f"{r['semana_base']:%Y-%m-%d}",
         "semana_objetivo": f"{r['semana_objetivo']:%Y-%m-%d}", "estado": r["estado"], "motivos": r["motivos"],
+        "notas": r.get("notas", []),
         "regla_xm": r["regla_xm"], "pronostico": r["pronostico"], "cota90": r["cota90"],
         "candidato": r["candidato"]["pronostico"] if r["candidato"] else None,
         "factor_duan": rep["factor_duan"], "intercepto": rep["intercepto"],

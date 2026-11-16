@@ -38,6 +38,10 @@ def test_sin_frases_que_presenten_el_precio_reconstruido_como_oficial(archivo):
     if archivo.name == "config.py":
         # La lista de frases prohibidas vive aquí: se quita antes de revisar.
         texto = re.sub(r"frases_prohibidas = \(.*?\)", "", texto, flags=re.S)
+    if archivo.name == "presentacion.py":
+        # Ahí viven la lista estricta de la app y el PDF y los reemplazos para mostrar documentos: se quitan.
+        texto = re.sub(r"frases_prohibidas = \(.*?\)\n", "", texto, flags=re.S)
+        texto = re.sub(r"reemplazos = \{.*?\}\n", "", texto, flags=re.S)
     encontradas = []
     for frase in config.FRASES_PROHIBIDAS:
         for m in re.finditer(re.escape(frase), texto):

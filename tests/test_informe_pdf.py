@@ -1,4 +1,4 @@
-"""El informe PDF se genera con los resultados de results/app/ y tiene sus cinco páginas."""
+"""El informe PDF se genera con los resultados de results/app/ y tiene sus seis páginas (la 2 es el objetivo principal, E26)."""
 import sys
 from pathlib import Path
 
@@ -20,7 +20,7 @@ def test_informe_pdf_se_genera(tmp_path, monkeypatch):
     datos = ruta.read_bytes()
     assert datos.startswith(b"%PDF")
     import re
-    assert len(re.findall(rb"/Type\s*/Page[^s]", datos)) == 5
+    assert len(re.findall(rb"/Type\s*/Page[^s]", datos)) == 6
     assert copia.exists()
 
 

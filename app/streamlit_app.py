@@ -26,6 +26,7 @@ DATOS = RAIZ / "results" / "app"
 sys.path.insert(0, str(RAIZ / "src"))
 import isa101 as isa  # noqa: E402  (paleta ISA-101 compartida con el informe PDF)
 import config  # noqa: E402  (definición de los tres objetivos y su condición de oficial o reconstruido)
+import presentacion as pr  # noqa: E402  (estado metodológico y textos compartidos con el informe PDF)
 
 st.set_page_config(page_title="Precio de la energía para Ecuador", page_icon="⚡", layout="wide")
 
@@ -148,14 +149,18 @@ def p_valor(p, modelo, referencia):
 
 
 def confiable(p):
-    """La respuesta a "¿la diferencia es real o pudo ser suerte?", en palabras."""
+    """Qué tan probable es que la diferencia sea suerte, en palabras, con el valor p a la vista.
+
+    No dice "es real": el valor p no corrige por haber elegido entre variantes. El estado metodológico de
+    cada objetivo está en presentacion.OBJETIVO.
+    """
     if np.isnan(p):
         return "Muy pocas semanas para saber"
     if p < 0.05:
-        return "Sí, es real"
+        return f"Diferencia poco probable por azar ({pr.valor_p(p)})"
     if p < 0.10:
-        return "Casi seguro"
-    return "No se puede asegurar"
+        return f"No concluyente ({pr.valor_p(p)})"
+    return f"No se puede asegurar ({pr.valor_p(p)})"
 
 
 def tabla(p, modelos, referencia):
@@ -241,6 +246,7 @@ def grafico(p, modelos, unidad, techo=None, puntos=False, alto=420):
 def barras_explicacion(aportes):
     """Gris oscuro: empuja hacia arriba; gris claro: hacia abajo. El color queda para las alarmas."""
     a = pd.DataFrame(aportes).assign(pct=lambda x: (np.exp(x.aporte_log) - 1) * 100)
+    a["nombre"] = [pr.NOMBRES.get(v, n) for v, n in zip(a.variable, a.nombre)]
     a = a.reindex(a.pct.abs().sort_values().index)
     fig = go.Figure(go.Bar(x=a.pct, y=a.nombre, orientation="h",
                            marker=dict(color=np.where(a.pct >= 0, isa.SUBE, isa.BAJA), line=dict(color=isa.EJE, width=0.5)),
@@ -260,44 +266,57 @@ def inicio():
 
 1. Colombia le vende electricidad a Ecuador.
 2. Para asegurar el pago, Ecuador deja **un depósito** antes de cada semana. A ese depósito se le llama *garantía*.
-3. Para calcular el depósito, XM necesita **adivinar el precio** de una semana que empieza dentro de 8 días.
-4. Según el material de formación de XM (2025), se usa una **regla sencilla**: suponer que el precio será igual al de hace tres semanas. No está confirmado que siga vigente. **Este proyecto intenta adivinarlo mejor.**
+3. Según el material de formación de XM revisado por el proyecto (2025), el depósito se calcula el viernes para una semana que empieza dentro de 8 días, con una **regla sencilla**: suponer que el precio será igual al de hace tres semanas. Que esa regla siga vigente es una pregunta abierta.
+4. **Este proyecto pronostica tres precios públicos reconstruidos** relacionados con esa regla y los compara siempre con ella.
 """)
     with st.expander("Los tres objetivos del proyecto y qué tan oficiales son"):
         st.markdown("\n".join(
-            f"- **{c.capitalize()}:** {config.etiqueta_objetivo(c)}. Fuente: {o['fuente']}. {o['validacion']}"
-            for c, o in config.OBJETIVOS.items()))
-        st.caption("XM no publica el precio de la garantía. Ninguna de estas variables es el precio oficial de la "
-                   "garantía, y ninguna está validada para fijarla.")
+            f"- **{c.capitalize()}: {pr.OBJETIVO[c]['nombre']}** ({pr.OBJETIVO[c]['unidad']}; {pr.OBJETIVO[c]['experimento']}): "
+            f"{pr.OBJETIVO[c]['funcion']}. Fuente: {config.OBJETIVOS[c]['fuente']}. "
+            f"Estado de la evidencia: **{pr.OBJETIVO[c]['estado']}**."
+            for c in pr.ORDEN))
+        st.caption("XM no publica una cifra oficial para el depósito, así que las tres variables son reconstruidas. "
+                   + pr.NO_VALIDADO)
+    for aviso in pr.AVISOS_DISPONIBILIDAD:
+        st.warning(aviso)
     expo, bolsa = filtrar(EXPO, PRINCIPAL), filtrar(TIE, PRINCIPAL)
     bloques = []
     if COMPRA is not None:
-        bloques.append(("Objetivo principal: precio de las compras TIE en bolsa (reconstruido)", filtrar(COMPRA, PRINCIPAL),
-                        "pesos por kWh", 0, "Lo que se pagó en la bolsa colombiana por la energía para atender la "
-                        "exportación. XM no publica estas compras desde agosto de 2026, así que hoy no se puede pronosticar."))
-    bloques += [("Objetivo de referencia: precio de bolsa, el precio general del mercado colombiano", bolsa,
-                 "pesos por kWh", 0, "El precio al que se compra y vende la energía en Colombia, hora por hora."),
-                ("Objetivo complementario: precio realizado de exportación (reconstruido)", expo,
-                 "centavos de dólar por kWh", 2, "Lo que Ecuador paga por cada kilovatio-hora.")]
-    for titulo, p, unidad, dec, texto in bloques:
+        bloques.append(("principal", "Objetivo principal: precio de las compras TIE en bolsa (reconstruido)",
+                        filtrar(COMPRA, PRINCIPAL), "pesos por kWh",
+                        "Lo que se pagó en la bolsa colombiana por la energía para atender la exportación "
+                        "(CompBolsaTIEMoneda / CompBolsaTIEEner)."))
+    bloques += [("referencia", "Objetivo de referencia: precio de bolsa, el precio general del mercado colombiano", bolsa,
+                 "pesos por kWh", "El precio al que se compra y vende la energía en Colombia, hora por hora (PrecBolsNaci)."),
+                ("complementario", "Objetivo complementario: precio realizado de exportación (reconstruido)", expo,
+                 "centavos de dólar por kWh", "Lo que Ecuador paga por cada kilovatio-hora (ExportMonedaUSD / ExpoEner); "
+                 "no es una cifra oficial de XM.")]
+    for clave, titulo, p, unidad, texto in bloques:
+        o = pr.OBJETIVO[clave]
+        dec = o["decimales"]
+        p = p.dropna(subset=["real", REGLA, NUESTRO])
         st.subheader(titulo)
-        st.caption(f"{texto} Errores promedio en {unidad}, de 2018 a 2026.")
         er, en = (p[REGLA] - p.real).abs().mean(), (p[NUESTRO] - p.real).abs().mean()
+        pv = p_valor(p, NUESTRO, REGLA)
         c = st.columns(4)
         c[0].metric("Error de la regla actual", f"{er:,.{dec}f}")
         c[1].metric("Error de nuestro modelo", f"{en:,.{dec}f}", f"{(en / er - 1) * 100:+.0f} %",
                     delta_color="off")
-        c[2].metric("¿La mejora es real?", confiable(p_valor(p, NUESTRO, REGLA)))
+        c[2].metric("Estado de la evidencia", o["estado"])
         c[3].metric("Semanas comparadas", f"{len(p)}")
+        st.caption(f"{texto} {o['experimento']}. Muestra: {len(p)} semanas objetivo, de "
+                   f"{p.semana_objetivo.min():%d/%m/%Y} a {p.semana_objetivo.max():%d/%m/%Y}. Errores promedio en "
+                   f"{unidad} ({o['unidad']}). Diebold-Mariano frente a la regla: {pr.valor_p(pv)}.")
 
     st.subheader("Lo más importante")
     ultimo = TIE.tail(52)
     er52, en52 = (ultimo[REGLA] - ultimo.real).abs().mean(), (ultimo[NUESTRO] - ultimo.real).abs().mean()
     st.markdown(f"""
-- **Nuestro modelo se equivoca menos que la regla** en los dos precios. En el precio de bolsa la diferencia es clara. En el de exportación es más pequeña y menos segura, porque hay pocas semanas con exportaciones.
+- **Los tres objetivos cumplen funciones distintas.** El principal (compras TIE en bolsa) es el componente económico de las obligaciones TIE: el modelo erra menos que la regla, pero es un **indicio con evidencia débil** y hoy no se puede emitir por falta de datos. El de referencia (precio de bolsa) tiene **evidencia estadística favorable** frente a la regla. El complementario (precio realizado de exportación) es **no concluyente**, porque hay pocas semanas con exportaciones.
 - **Ayuda mirar lo más reciente.** La regla solo mira una semana que ya tiene diez días de vieja. Nuestro modelo también usa los días de esta semana que ya se conocen el viernes.
 - **Nadie ve venir los saltos bruscos de precio**, ni la regla ni el modelo. Ahí está el límite.
-- **En el último año** (52 semanas), en el precio de bolsa: {en52:,.0f} frente a {er52:,.0f} pesos por kWh ({confiable(p_valor(ultimo, NUESTRO, REGLA)).lower()}).
+- **En el último año** (52 semanas), en el precio de bolsa: {en52:,.0f} frente a {er52:,.0f} pesos por kWh; {confiable(p_valor(ultimo, NUESTRO, REGLA)).lower()}.
+- {pr.NOTA_E22}
 """)
     boton_informe()
     st.info("**Es un prototipo de la universidad**, no una herramienta oficial de XM. Las cifras salen de una "
@@ -324,7 +343,7 @@ Es un precio **realizado y reconstruido** por el proyecto, **no** el precio ofic
     st.markdown(f"""
 **Qué aprendimos**
 - **Nuestro modelo es una mezcla:** la mitad es la regla de XM y la otra mitad un modelo que mira la diferencia entre este precio y el nacional, los días recientes y el estado del sistema.
-- **La mejora es pequeña y no del todo segura** ({confiable(pv).lower()}). Por eso se registra cada semana al lado de la regla, para ver si se sostiene con datos nuevos.
+- **La mejora es pequeña: {pr.OBJETIVO["complementario"]["estado"].lower()}** ({pr.valor_p(pv)}; {len(p.dropna(subset=["real"]))} semanas con exportación). Por eso se registra cada semana al lado de la regla, para ver si se sostiene con datos nuevos.
 - **Cuando el gobierno cambia las reglas de exportación** (por ejemplo, exportar solo con plantas térmicas), este precio llega a ser el doble del nacional. El techo del modelo se calcula aparte en esas semanas.
 """)
     with st.expander("Ver todas las variantes que se probaron"):
@@ -448,6 +467,13 @@ def pronostico():
     indicador_estado(u.get("estado"))
     if u.get("estado") == "respaldo":
         st.caption("Ese día faltaba un dato del sistema, así que se usó la versión de respaldo del modelo.")
+    for m in u.get("motivos") or []:
+        st.caption(f"Motivo: {pr.legible(str(m))}")
+    for n in u.get("notas") or []:
+        st.caption(f"Nota: {pr.legible(str(n))}")
+    st.caption("Este pronóstico es del objetivo de referencia (precio de bolsa nacional). " + pr.NO_VALIDADO)
+    for aviso in pr.AVISOS_DISPONIBILIDAD:
+        st.warning(aviso)
     st.markdown("**¿Por qué dice eso?** Cada barra muestra cuánto empuja una pieza de información el precio "
                 "hacia arriba (gris oscuro) o hacia abajo (gris claro), comparado con una semana normal. Siguiendo ISA-101, el color se reserva para las alarmas.")
     st.plotly_chart(barras_explicacion(u["aportes"]), width="stretch")
@@ -505,7 +531,9 @@ usaron para elegir el modelo, y 2025–2026 se guardaron para la prueba final.
 | **Error promedio** | Cuánto se equivoca un pronóstico, en promedio. Más bajo es mejor. |
 | **Desvío promedio** | Si el pronóstico tiende a quedarse corto (negativo) o a pasarse (positivo). |
 | **Techo** | Un valor alto que el precio real no debería superar en 9 de cada 10 semanas. Sirve para un depósito prudente. |
-| **¿La mejora es real?** | Si la diferencia con la regla es tan grande que no pudo ser suerte. |
+| **Estado de la evidencia** | Qué tanto respaldan los datos la mejora frente a la regla: indicio con evidencia débil (E26), evidencia estadística favorable (E16 y E24) o no concluyente (E19). Ninguno valida un modelo para fijar garantías. |
+| **Valor p** | Probabilidad de ver una diferencia así por azar (prueba de Diebold-Mariano). No corrige por haber elegido entre varias variantes. |
+| **E22** | Un monto monetario aproximado bajo supuestos, no el monto oficial del depósito. |
 | **Registro** | La lista de pronósticos guardados antes de saber el resultado. No se puede editar. |
 | **Modelo en prueba** | Una versión nueva que se registra al lado; si gana durante 26 semanas, reemplaza a la nuestra. |
 | **kWh** | Kilovatio-hora: la unidad en que se mide la energía. |
@@ -517,7 +545,9 @@ usaron para elegir el modelo, y 2025–2026 se guardaron para la prueba final.
 - **Techo:** cota conformal del 90 % con los errores de las últimas 104 semanas ya calificadas; en exportación, calculada aparte en las semanas con reglas especiales.
 - **Evaluación:** walk-forward con reentrenamiento cada 4 semanas y 2 semanas de embargo; significancia con Diebold-Mariano (varianza de Newey-West). Todos los experimentos están en `docs/EXPERIMENTOS.md`.
 """)
-        st.markdown((RAIZ / "docs" / "SUPUESTOS.md").read_text(encoding="utf-8"))
+        st.markdown(f"- **Regla temporal:** {pr.REGLA_ATRIBUIDA}\n- **Monto aproximado:** {pr.NOTA_E22}\n"
+                    f"- **Fuentes:** {pr.FUENTES}")
+        st.markdown(pr.sin_frases((RAIZ / "docs" / "SUPUESTOS.md").read_text(encoding="utf-8")))
 
 
 # APP_PAGINA permite abrir otra página por defecto (lo usan los tests para recorrerlas todas).
