@@ -294,7 +294,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
     # Objetivo complementario: precio realizado de exportación (E19). Sin exportaciones en s-1 no hay precio base.
-    r["expo"] = None
+    # Notas: ausencia de datos que no es una falla del modelo (no pone la emisión en vigilancia).
+    r["expo"], r["notas"] = None, []
     try:
         r["expo"] = pronosticar_expo(fe.preparar_expo(dp.tabla_expo(recalcular=True)), base)
         if r["expo"] is None:
@@ -303,8 +304,8 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
                 r["motivos"].append(f"Exportaciones publicadas solo hasta {corte:%Y-%m-%d}: la semana base no está "
                                     "completa y no se pronostica el precio de exportación")
             else:
-                r["motivos"].append("Sin exportaciones en la semana base (menos de 1 GWh): no hay precio de "
-                                    "exportación que pronosticar")
+                r["notas"].append("Sin exportaciones en la semana base (menos de 1 GWh): no hay precio realizado de "
+                                  "exportación que pronosticar")
     except Exception as e:
         print(f"No se pudo calcular el precio de exportación: {e}", flush=True)
     if r["expo"]:
@@ -314,7 +315,7 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
     # Objetivo principal: precio de las compras TIE en bolsa (E26). XM no publica compras TIE desde el
     # 1-ago-2026: mientras siga así, no hay precio base y solo se anota el motivo.
     # Es una nota y no un motivo: mientras XM no publique compras TIE pasaría cada semana a vigilancia.
-    r["compra"], r["notas"] = None, []
+    r["compra"] = None
     try:
         r["compra"] = pronosticar_compra(fe.preparar_compra(dp.tabla_expo()), base)
         if r["compra"] is None:

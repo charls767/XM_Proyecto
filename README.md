@@ -1,8 +1,8 @@
 # XM_Proyecto · Precios para la garantía TIE
 
-**En palabras simples:** Colombia le vende electricidad a Ecuador. Antes de cada semana, Ecuador deja un depósito (la *garantía*) para asegurar el pago. Para calcularlo, XM proyecta un precio para una semana que empieza dentro de 8 días, y hoy supone que será igual al de hace tres semanas. Este proyecto pronostica los precios relacionados con esa regla y los compara siempre con ella.
+**En palabras simples:** Colombia le vende electricidad a Ecuador. Antes de cada semana, Ecuador deja un depósito (la *garantía*) para asegurar el pago. Según el material de formación de XM (2025), para calcularlo se proyecta un precio para una semana que empieza dentro de 8 días, suponiendo que será igual al de hace tres semanas. Que esa regla siga vigente no se ha confirmado (limitación). Este proyecto pronostica los precios relacionados con esa regla y los compara siempre con ella.
 
-La regla de la garantía (Resolución CREG 004 de 2003, art. 23, según el material de formación de XM) fija el calendario: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los precios de la semana **s-1**. En la práctica, esa regla es un pronóstico ingenuo a tres semanas.
+Según el material de formación de XM (Reafirmación 2025, sesión 2), la regla de la garantía (Resolución CREG 004 de 2003, art. 23) usa este calendario, que el proyecto adopta como **supuesto**: el **viernes** de la semana s, el ASIC calcula el monto de la semana **s+2** (de sábado a viernes) con los precios de la semana **s-1**. En la práctica, esa regla es un pronóstico ingenuo a tres semanas.
 
 **XM no publica el precio oficial de la garantía.** Por eso el proyecto trabaja con tres objetivos, todos reconstruidos a partir de series oficiales de la API de XM y ninguno validado para fijar garantías. Su definición está en `src/config.py` (`OBJETIVOS`) y la equivalencia con el catálogo de XM, en [docs/VARIABLES_XM.md](docs/VARIABLES_XM.md):
 
@@ -45,7 +45,7 @@ Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes) y se
 | **Variables** | 11 de la semana s-1 (precio, embalse, aportes y época), el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24) | Las 11 nacionales sin ofertas y el sábado a martes de s, más 9 de exportación: nivel, diferencia con el precio nacional, momento, energía exportada, tasa de cambio implícita y días parciales |
 | **Cota del 90 %** | Conformal con los errores de las últimas 104 semanas ya calificadas | Conformal calibrada por régimen regulatorio de exportación (E20) |
 | **Resultado 2018–2026** | 93.7 frente a 115.3 de la regla (−19 %, p < 0.001); último año 113 frente a 127 (p = 0.18) | 4.83 frente a 5.31 de la regla (−9 %, p = 0.08); 117 semanas con exportación |
-| **Cuándo no hay pronóstico** | Si la semana s-1 no está completa. Si faltan los días de s, usa un respaldo sin ellos | Si en la semana s-1 no se exportó (menos de 1 GWh). Desde el 7-sep-2026 las exportaciones son mínimas |
+| **Cuándo no hay pronóstico** | Si la semana s-1 no está completa. Si faltan los días de s, usa un respaldo sin ellos | Si en la semana s-1 no se exportó (menos de 1 GWh). Desde mediados de septiembre de 2026 las exportaciones son mínimas o intermitentes (0.1 a 1.1 GWh por semana, con semanas de 5 a 7 GWh en noviembre) |
 
 - **Por qué estos modelos:** a tres semanas, las ganancias medidas vinieron de **información disponible el viernes** (los días de la semana en curso, el costo marginal), no de modelos más complejos. LightGBM, bosques, redes, procesos gaussianos y ensambles con pesos aprendidos no superaron a los elegidos (E23, E25). La corrección de sesgo adaptativa empeoró (E17).
 - **Candidato en paralelo (bolsa):** suma la hidrología de sábado a jueves y el precio del martes. Erra 92.1 frente a 93.7, sin ganar en todos los periodos. Lo decide el registro con 26 semanas.

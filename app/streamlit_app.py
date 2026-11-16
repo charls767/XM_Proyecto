@@ -261,7 +261,7 @@ def inicio():
 1. Colombia le vende electricidad a Ecuador.
 2. Para asegurar el pago, Ecuador deja **un depósito** antes de cada semana. A ese depósito se le llama *garantía*.
 3. Para calcular el depósito, XM necesita **adivinar el precio** de una semana que empieza dentro de 8 días.
-4. Hoy XM usa una **regla sencilla**: supone que el precio será igual al de hace tres semanas. **Este proyecto intenta adivinarlo mejor.**
+4. Según el material de formación de XM (2025), se usa una **regla sencilla**: suponer que el precio será igual al de hace tres semanas. No está confirmado que siga vigente. **Este proyecto intenta adivinarlo mejor.**
 """)
     with st.expander("Los tres objetivos del proyecto y qué tan oficiales son"):
         st.markdown("\n".join(
@@ -501,7 +501,7 @@ usaron para elegir el modelo, y 2025–2026 se guardaron para la prueba final.
 | Palabra | Qué significa |
 |---|---|
 | **Garantía** | El depósito que deja Ecuador antes de cada semana para asegurar que pagará. |
-| **Regla actual de XM** | Suponer que el precio será igual al de hace tres semanas. Es lo que se usa hoy. |
+| **Regla actual de XM** | Suponer que el precio será igual al de hace tres semanas, según el material de formación de XM (2025). Su vigencia no está confirmada. |
 | **Error promedio** | Cuánto se equivoca un pronóstico, en promedio. Más bajo es mejor. |
 | **Desvío promedio** | Si el pronóstico tiende a quedarse corto (negativo) o a pasarse (positivo). |
 | **Techo** | Un valor alto que el precio real no debería superar en 9 de cada 10 semanas. Sirve para un depósito prudente. |

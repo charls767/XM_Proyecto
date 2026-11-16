@@ -54,7 +54,7 @@ Es la semana base del ejemplo de exportación de XM (cálculo del viernes 31 de 
 **No se puede considerar así.** Es un **precio promedio realizado de exportación** (R):
 
 1. **(H)** El catálogo no tiene ninguna métrica de garantía. Las de exportación solo dicen "transferencias de energía".
-2. **(H)** El ejemplo de XM proyectó 22.75 centUSD/kWh ("Precio Medio Total − CEE"). Con la serie realizada y el CEE oficial queda 24.325 − 2.06 = **22.27**, unos 2 % menos. El CEE implícito que suponía el proyecto (1.57 centUSD/kWh) no coincide con el oficial. En cambio, el CEE del ejemplo de importación de XM (2.04 en febrero de 2025) sí cuadra con la serie oficial (84.81 COP/kWh), lo que sugiere que XM convierte el CEE oficial a USD.
+2. **(H)** El ejemplo de XM proyectó 22.75 centUSD/kWh ("Precio Medio Total − CEE"). Con la serie realizada y el CEE oficial queda 24.325 − 2.06 = **22.27**, unos 2 % menos. El CEE implícito que suponía el proyecto (1.57 centUSD/kWh) no coincide con el oficial. En cambio, el CEE del ejemplo de importación de XM (2.04 en febrero de 2025) sí coincide con la serie oficial (84.81 COP/kWh), lo que sugiere que XM convierte el CEE oficial a USD.
    - **(Hip)** La diferencia de unos 2 % puede venir de que XM usó la liquidación preliminar (TX1) en la fecha de cálculo, o una tasa de cambio distinta.
 3. **(H)** Incluye más que el precio de bolsa TIE: 324.83 COP/kWh adicionales en esa semana. La composición es P.
 4. **(H)** Desde el 1-ago-2026 no hay compras ni ventas TIE en bolsa, pero sí exportaciones (96.11 GWh en agosto; 13.82 GWh del 15-oct al 14-nov). **(Hip)** Podrían estar ocurriendo por otro mecanismo (por ejemplo, contratos bilaterales), en el que la garantía de la CREG 004 de 2003 podría no aplicar.

@@ -28,6 +28,12 @@ def test_emision_en_seco_se_reproduce_desde_el_snapshot():
     assert r["semana_base"] == pd.Timestamp("2026-10-24")
     assert r["semana_objetivo"] == pd.Timestamp("2026-11-14")
     assert r["estado"] in ("normal", "vigilancia", "respaldo")
+    # Sin compras TIE publicadas (desde el 1-ago-2026) el objetivo principal no se emite, y la ausencia de
+    # datos queda como nota informativa, no como motivo de vigilancia.
+    assert r["compra"] is None
+    assert any("compras TIE" in n for n in r["notas"])
+    assert not any("compras TIE" in m for m in r["motivos"])
+    assert not any("Sin exportaciones" in m for m in r["motivos"])
     assert r["cota90"] > r["pronostico"] > 0
     # El entrenamiento solo usa filas cuyo objetivo ya terminó antes de la emisión.
     hasta = pd.Timestamp(r["reproduccion"]["entrenamiento_hasta"])

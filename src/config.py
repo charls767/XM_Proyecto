@@ -71,6 +71,7 @@ OBJETIVOS = {
 FRASES_PROHIBIDAS = (
     "precio de la garantía", "el de la garantía", "que entra en la garantía", "que usa la garantía",
     "que usa el depósito", "precio oficial de la garantía", "precio_garantia",
+    "cuadra con los 22.75", "cuadra con su ejemplo",
 )
 
 

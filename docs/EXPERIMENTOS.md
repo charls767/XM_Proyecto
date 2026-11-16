@@ -42,7 +42,7 @@ Cada experimento se regenera con `python src/experimentos.py <comando>` y escrib
 | E22 | `e22` | ¿Cuánto vale el error en dinero de la garantía y qué nivel de cota conviene? | El modelo reduce sobre todo el exceso inmovilizado (−19 %), no el faltante (−1 %). La cota del 90 % solo conviene si quedarse corto cuesta ~10 veces más que inmovilizar; con 3 a 5 veces, la del 80 %. Las transiciones de régimen aportan el 3.5 % del error. |
 | E21 | (scratch) | Con regla especial, ¿el precio de exportación sigue el costo de las térmicas, y sirve para pronosticarlo? | Sí sigue el costo térmico (correlación 0.75 frente a 0.42 del precio de bolsa), pero a tres semanas no supera al elegido (7.60 frente a 7.78, p = 0.77). No se adopta. |
 | E20 | `e19` (cota) y scratch | ¿Se explica el precio de exportación con el máximo precio de oferta, las rentas de congestión o el régimen regulatorio? | Ninguna serie pública lo explica. El régimen (reglas del MME) no mejora el error, pero la cota por régimen sube la cobertura en esas semanas de 87 % a 92 %; adoptada. |
-| E19 | `e19` | ¿Qué tan bien se pronostica el precio de exportación, el que entra en la garantía? | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
+| E19 | `e19` | ¿Qué tan bien se pronostica el precio promedio realizado de exportación? (Su equivalencia con la garantía es una hipótesis no confirmada.) | Es mucho más volátil. Ningún modelo solo le gana a la regla en selección; la mitad de un Huber y la mitad de la regla erra 4.83 frente a 5.31 centUSD/kWh (−9 %, p = 0.08), −13.9 % en la prueba final (p = 0.06). |
 | Auditoría | `python src/auditoria.py` | ¿Resiste una revisión crítica? | Ver [AUDITORIA.md](AUDITORIA.md). |
 
 ## Registro de predicciones del motor
@@ -644,7 +644,9 @@ Prueba hecha fuera del repositorio, con el mismo esquema que E16 (461 semanas):
 
 Los embalses por región mejoran las semanas con embalse bajo (107.6 → 103.6), pero empeoran el último año y el sesgo (−25). No se adoptó ninguna.
 
-## E19: el precio de exportación, el que entra en la garantía
+## E19: el precio promedio realizado de exportación
+
+*Nota (16-nov-2026):* esta sección se escribió con un supuesto no confirmado: que este precio era el que usa XM para la garantía de exportación. Con el CEE oficial no reproduce el ejemplo de XM (22.27 frente a 22.75 centUSD/kWh): la equivalencia es una **hipótesis** no confirmada. Hoy es el objetivo complementario; ver [VARIABLES_XM.md](VARIABLES_XM.md).
 
 **Hallazgo.** Con las series públicas de la API de XM (`ExpoEner`, `ExpoMoneda`, `ExportMonedaUSD`, `VentBolsaTIE*`) se construyó el precio de exportación semanal, de sábado a viernes: lo cobrado por exportar entre la energía exportada. Para la semana base del 18 al 24 de enero de 2025 da 24.32 centUSD/kWh, y el ejemplo de exportación de XM proyectó 22.75 después de restar el CEE. El precio nacional de esa semana fue 15.75, y el de bolsa TIE 16.55.
 
