@@ -217,6 +217,34 @@ streamlit run app/streamlit_app.py
 
 El primer comando reúne en `results/app/` los resultados que muestra la app (la emisión semanal también lo hace). La app solo lee esa carpeta, así que no consulta la API de XM al abrirse.
 
+### Informe PDF automático
+
+```bash
+python src/informe_pdf.py
+```
+
+[src/informe_pdf.py](src/informe_pdf.py) arma un informe de 5 páginas con los resultados de `results/app/` y el registro:
+
+1. Resumen y pronóstico vigente, con su estado.
+2. Precio de bolsa: gráfica de los dos últimos años y error por periodo.
+3. Precio de exportación.
+4. Registro de pronósticos y explicación del pronóstico por variables.
+5. Supuestos, límites y cómo leer las gráficas.
+
+`correr_semanal.bat` lo genera en cada corrida, incluso si la emisión falla. Lo guarda en `informes/informe_TIE_AAAA-MM-DD.pdf` (histórico, incluido en el commit de la emisión) y en `results/app/informe_ultimo.pdf`, que se descarga desde la app (páginas Inicio y Pronóstico).
+
+### Estilo de las gráficas: ISA-101
+
+La app y el informe siguen la norma ANSI/ISA-101.01 de interfaces de alto desempeño. La paleta está en [src/isa101.py](src/isa101.py) y el tema de Streamlit en `.streamlit/config.toml`.
+
+- **Fondo y datos normales:** fondo gris neutro, y los datos en condición normal en escala de grises.
+- **Trazos:** lo que pasó va en negro grueso, la regla de XM en gris discontinuo y el techo en gris punteado. Nuestro modelo usa el único acento, azul pizarra.
+- **Color saturado, solo para lo anormal:**
+  - rojo con triángulo: el precio real superó el techo;
+  - amarillo: vigilancia, o un resultado peor que la regla;
+  - naranja: emisión de respaldo.
+- **Identidad sin depender del color:** cada serie se distingue también por el trazo o el símbolo, y los estados llevan símbolo y texto.
+
 ### Reproducir la evaluación
 
 ```bash
