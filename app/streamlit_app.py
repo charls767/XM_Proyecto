@@ -13,6 +13,7 @@ Páginas:
 """
 import json
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,8 @@ import streamlit as st
 
 RAIZ = Path(__file__).resolve().parents[1]
 DATOS = RAIZ / "results" / "app"
+sys.path.insert(0, str(RAIZ / "src"))
+import isa101 as isa  # noqa: E402  (paleta ISA-101 compartida con el informe PDF)
 
 st.set_page_config(page_title="Precio de la energía para Ecuador", page_icon="⚡", layout="wide")
 
@@ -50,12 +53,32 @@ NOMBRES_SIMPLES = {
     "Ingenuo": "Copiar la semana pasada",
 }
 
-# --- Colores: cada modelo tiene siempre el mismo color ----------------------------------------------
-INK, INK2, MUTED, GRID, BASE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
-COLOR = {REGLA: MUTED, NUESTRO: "#eb6834", PRUEBA: "#1baf7a", "Copiar la semana pasada": MUTED,
-         "Ridge 14 (oficial)": "#2a78d6", "Ridge 14 + costo marginal 3 días": "#eb6834",
-         "Ensamble Ridge + LEAR": "#1baf7a", "Ridge 14 + costo marginal": "#eda100",
-         "Ridge 14 con corrección de sesgo": "#6250d6"}
+# --- Colores según ISA-101 (src/isa101.py) ------------------------------------------------------------
+# Lo normal va en grises; un solo acento sobrio (azul pizarra) para nuestro modelo; el color saturado
+# solo marca lo anormal (rojo: el precio superó el techo). La identidad también va en el trazo.
+INK, INK2, MUTED, GRID, BASE = isa.TEXTO, isa.TEXTO_2, isa.TEXTO_TENUE, isa.REJILLA, isa.EJE
+COLOR = {REGLA: isa.REGLA, NUESTRO: isa.MODELO, PRUEBA: isa.PRUEBA, "Copiar la semana pasada": isa.REGLA,
+         "Ridge 14 (oficial)": isa.MODELO}
+TRAZO = {REGLA: "dash", "Copiar la semana pasada": "dash", NUESTRO: "solid", "Ridge 14 (oficial)": "solid"}
+TRAZOS_ALTERNATIVOS = ["dot", "dashdot", "longdash", "longdashdot"]
+
+
+ALARMA = ("Triángulo rojo: semana en que el precio real superó el techo. Es la única alarma de la gráfica: "
+          "lo normal va en grises (norma ISA-101).")
+
+
+def trazo(m, i=0):
+    """Color y trazo de una serie: la regla gris discontinua, nuestro modelo azul pizarra, el resto gris."""
+    return COLOR.get(m, isa.PRUEBA), TRAZO.get(m, TRAZOS_ALTERNATIVOS[i % len(TRAZOS_ALTERNATIVOS)])
+
+
+def indicador_estado(estado):
+    """Indicador de estado ISA-101: gris si es normal; color y símbolo solo si es anormal."""
+    e = str(estado or "normal").lower()
+    fondo = isa.ESTADO_COLOR.get(e, isa.FONDO_PANEL)
+    st.markdown(f"<div style='background:{fondo};border:1px solid {isa.EJE};padding:6px 12px;display:inline-block;"
+                f"font-weight:600;color:{isa.TEXTO}'>Estado: {isa.ESTADO_TEXTO.get(e, e)}</div>",
+                unsafe_allow_html=True)
 PERIODOS = {
     "2018 a 2026 (la evaluación principal)": ("2018-01-01", "2026-12-31"),
     "2025 a 2026 (prueba final, no se usó para elegir)": ("2025-01-01", "2026-12-31"),
@@ -167,37 +190,56 @@ def formato(unidad, decimales):
 # --- Gráficos ----------------------------------------------------------------------------------------
 
 def estilo(fig, alto=380, titulo_y=None):
+    """Estilo ISA-101: fondo gris neutro, rejilla tenue, sin decoración."""
     fig.update_layout(
-        height=alto, margin=dict(l=8, r=8, t=30, b=8), paper_bgcolor="#fcfcfb", plot_bgcolor="#fcfcfb",
-        font=dict(family="system-ui, -apple-system, Segoe UI, sans-serif", color=INK2, size=13),
+        height=alto, margin=dict(l=8, r=8, t=30, b=8), paper_bgcolor=isa.FONDO, plot_bgcolor=isa.FONDO,
+        font=dict(family=isa.FUENTE, color=isa.TEXTO_2, size=13),
         legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, title=None),
-        hovermode="x unified", hoverlabel=dict(bgcolor="white", font_color=INK))
-    fig.update_xaxes(showgrid=False, linecolor=BASE, ticks="outside", tickcolor=BASE)
-    fig.update_yaxes(gridcolor=GRID, zeroline=False, title=titulo_y, title_font_color=MUTED)
+        hovermode="x unified", hoverlabel=dict(bgcolor=isa.FONDO_PANEL, font_color=isa.TEXTO))
+    fig.update_xaxes(showgrid=False, linecolor=isa.EJE, ticks="outside", tickcolor=isa.EJE)
+    fig.update_yaxes(gridcolor=isa.REJILLA, zeroline=False, title=titulo_y, title_font_color=isa.TEXTO_TENUE)
     return fig
 
 
 def grafico(p, modelos, unidad, techo=None, puntos=False, alto=420):
-    """El precio real (negro) y lo que adivinó cada modelo; opcionalmente, el techo de uno."""
+    """Lo que pasó (negro), lo que adivinó cada modelo (gris o azul pizarra) y, si se pide, el techo de uno.
+
+    Las semanas en que el precio real superó el techo se marcan en rojo con un triángulo: es la única
+    condición anormal de la gráfica (ISA-101).
+    """
     fig = go.Figure()
-    if techo and f"cota|{techo}" in p:
-        fig.add_scatter(x=p.semana_objetivo, y=p[f"cota|{techo}"], name=f"Techo de {techo.lower()}",
-                        line=dict(color=COLOR.get(techo, INK2), width=1, dash="dot"), opacity=0.7)
+    if puntos:  # sin exportación no hay dato: huecos en vez de líneas que unen periodos vacíos
+        p = p.set_index("semana_objetivo")
+        p = p.reindex(pd.date_range(p.index.min(), p.index.max(), freq="7D")).rename_axis("semana_objetivo").reset_index()
+    cota = f"cota|{techo}" if techo else None
+    if cota and cota in p:
+        fig.add_scatter(x=p.semana_objetivo, y=p[cota], name="Techo (90 %)",
+                        line=dict(color=isa.TECHO, width=1.2, dash="dot"))
     modo = "lines+markers" if puntos else "lines"
     fig.add_scatter(x=p.semana_objetivo, y=p.real, name="Lo que pasó", mode=modo,
-                    line=dict(color=INK, width=2), marker=dict(size=5))
-    for m in modelos:
+                    line=dict(color=isa.REAL, width=2.5), marker=dict(size=5, color=isa.REAL))
+    for i, m in enumerate(modelos):
+        color, dash = trazo(m, i)
         fig.add_scatter(x=p.semana_objetivo, y=p[m], name=m, mode="markers" if puntos else "lines",
-                        line=dict(color=COLOR.get(m, INK2), width=2), marker=dict(size=7, color=COLOR.get(m, INK2)))
+                        line=dict(color=color, width=2, dash=dash),
+                        marker=dict(size=7, color=color, symbol="square" if m == NUESTRO else "circle"))
+    if cota and cota in p:
+        sobre = p[p.real > p[cota]]
+        if len(sobre):
+            fig.add_scatter(x=sobre.semana_objetivo, y=sobre.real, mode="markers",
+                            name=f"Superó el techo ({len(sobre)} semanas)",
+                            marker=dict(symbol="triangle-up", size=12, color=isa.ALARMA_ALTA,
+                                        line=dict(color=isa.TEXTO, width=1)))
     fig.update_traces(hovertemplate="%{y:,.2f}" if unidad.startswith("centavos") else "%{y:,.0f}")
     return estilo(fig, alto, unidad)
 
 
 def barras_explicacion(aportes):
+    """Gris oscuro: empuja hacia arriba; gris claro: hacia abajo. El color queda para las alarmas."""
     a = pd.DataFrame(aportes).assign(pct=lambda x: (np.exp(x.aporte_log) - 1) * 100)
     a = a.reindex(a.pct.abs().sort_values().index)
     fig = go.Figure(go.Bar(x=a.pct, y=a.nombre, orientation="h",
-                           marker=dict(color=np.where(a.pct >= 0, "#e34948", "#2a78d6")),
+                           marker=dict(color=np.where(a.pct >= 0, isa.SUBE, isa.BAJA), line=dict(color=isa.EJE, width=0.5)),
                            hovertemplate="%{y}: %{x:+.1f} %<extra></extra>"))
     fig.update_xaxes(title="Cuánto empuja el precio (%)", gridcolor=GRID, showgrid=True, zeroline=True,
                      zerolinecolor=BASE)
@@ -229,7 +271,7 @@ def inicio():
         c = st.columns(4)
         c[0].metric("Error de la regla actual", f"{er:,.{dec}f}")
         c[1].metric("Error de nuestro modelo", f"{en:,.{dec}f}", f"{(en / er - 1) * 100:+.0f} %",
-                    delta_color="inverse")
+                    delta_color="off")
         c[2].metric("¿La mejora es real?", confiable(p_valor(p, NUESTRO, REGLA)))
         c[3].metric("Semanas comparadas", f"{len(p)}")
 
@@ -242,6 +284,7 @@ def inicio():
 - **Nadie ve venir los saltos bruscos de precio**, ni la regla ni el modelo. Ahí está el límite.
 - **En el último año** (52 semanas), en el precio de bolsa: {en52:,.0f} frente a {er52:,.0f} pesos por kWh ({confiable(p_valor(ultimo, NUESTRO, REGLA)).lower()}).
 """)
+    boton_informe()
     st.info("**Es un prototipo de la universidad**, no una herramienta oficial de XM. Las cifras salen de una "
             "simulación con datos del pasado. La prueba de verdad es el registro de pronósticos, que empieza el "
             "20 de noviembre de 2026.")
@@ -258,7 +301,8 @@ Es el precio que usa el depósito (la garantía). Solo existe en las semanas en 
 """)
     periodo = st.selectbox("¿Qué años mirar?", list(PERIODOS), key="per_expo")
     p = filtrar(EXPO, periodo)
-    st.plotly_chart(grafico(p, [REGLA, NUESTRO], "centavos de dólar por kWh", puntos=True), width="stretch")
+    st.plotly_chart(grafico(p, [REGLA, NUESTRO], "centavos de dólar por kWh", techo=NUESTRO, puntos=True), width="stretch")
+    st.caption(ALARMA)
     st.dataframe(tabla(p, [REGLA, NUESTRO], REGLA), hide_index=True, width="stretch",
                  column_config=formato("centavos de dólar por kWh", 2))
     pv = p_valor(p, NUESTRO, REGLA)
@@ -274,9 +318,9 @@ Es el precio que usa el depósito (la garantía). Solo existe en las semanas en 
     with st.expander("Ver el precio de exportación al lado del precio nacional"):
         c = CTX_EXPO[CTX_EXPO.index >= "2018-01-01"]
         fig = go.Figure()
-        fig.add_scatter(x=c.index, y=c.precio, name="Precio nacional", line=dict(color=MUTED, width=2))
+        fig.add_scatter(x=c.index, y=c.precio, name="Precio nacional", line=dict(color=isa.REGLA, width=2, dash="dash"))
         fig.add_scatter(x=c.index, y=c.precio_expo_cop, name="Precio de exportación", mode="lines+markers",
-                        line=dict(color="#eb6834", width=2), marker=dict(size=5))
+                        line=dict(color=isa.MODELO, width=2), marker=dict(size=5))
         fig.update_traces(hovertemplate="%{y:,.0f}")
         st.plotly_chart(estilo(fig, 360, "pesos por kWh"), width="stretch")
         st.caption("Desde 2023 el precio de exportación se separa del nacional. Desde agosto de 2026 llega a ser varias veces mayor.")
@@ -296,6 +340,8 @@ y el precio que el sistema planea para los próximos días.
     principales = [REGLA, NUESTRO, PRUEBA]
     techo = st.toggle("Mostrar el techo de nuestro modelo", key="techo_bolsa")
     st.plotly_chart(grafico(p, [REGLA, NUESTRO], "pesos por kWh", techo=NUESTRO if techo else None), width="stretch")
+    if techo:
+        st.caption(ALARMA)
     st.dataframe(tabla(p, principales, REGLA), hide_index=True, width="stretch", column_config=formato("pesos por kWh", 1))
     st.caption("El **modelo en prueba** suma el clima de esta semana. Se registra al lado del nuestro; si después de "
                "26 semanas reales se equivoca menos, lo reemplaza.")
@@ -327,7 +373,7 @@ y el precio que el sistema planea para los próximos días.
                                                         columns=["Baja", "Igual", "Sube"], fill_value=0)
     fig = go.Figure(go.Heatmap(
         z=t.values, x=[f"Dijo: {c}" for c in t.columns], y=[f"Pasó: {r}" for r in t.index],
-        colorscale=[[0, "#f0efec"], [0.15, "#cde2fb"], [1, "#184f95"]], showscale=False,
+        colorscale=isa.ESCALA_GRISES, showscale=False,
         text=t.values, texttemplate="%{text}", textfont=dict(size=16),
         hovertemplate="%{y} · %{x}: %{z} semanas<extra></extra>", xgap=2, ygap=2))
     fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)")
@@ -338,8 +384,18 @@ y el precio que el sistema planea para los próximos días.
                 "cambios: siempre dice *Igual*.")
 
 
+def boton_informe():
+    """Descarga del informe PDF que se genera en cada corrida (src/informe_pdf.py)."""
+    pdf = DATOS / "informe_ultimo.pdf"
+    if pdf.exists():
+        st.download_button("Descargar el informe en PDF", pdf.read_bytes(), file_name="informe_garantia_TIE.pdf",
+                           mime="application/pdf", help="Resumen, gráficas, desempeño, registro y supuestos. "
+                                                        "Se genera automáticamente en cada corrida.")
+
+
 def pronostico():
     st.title("Pronóstico de esta semana")
+    boton_informe()
     archivo = DATOS / "registro_tie.csv"
     st.markdown("Cada viernes se guarda el pronóstico **antes de saber qué pasa**, en un registro que no se puede "
                 "editar (cada fila tiene una huella digital encadenada a la anterior). Es la prueba de verdad del modelo.")
@@ -352,7 +408,8 @@ def pronostico():
         c[0].metric("Regla de XM (pesos por kWh)", f"{u.regla_xm:,.0f}")
         c[1].metric("Nuestro modelo (pesos por kWh)", f"{u.pronostico:,.0f}")
         c[2].metric("Techo (pesos por kWh)", f"{u.cota90:,.0f}")
-        c[3].metric("Estado", str(u.estado).capitalize())
+        with c[3]:
+            indicador_estado(u.estado)
         if "expo_pronostico" in r and pd.notna(u.get("expo_pronostico")):
             c = st.columns(4)
             c[0].metric("Exportación, regla (centavos de dólar)", f"{u.expo_regla:,.2f}")
@@ -373,10 +430,11 @@ def pronostico():
     c[1].metric("Nuestro modelo (pesos por kWh)", f"{u['pronostico']:,.0f}",
                 f"{(u['pronostico'] / u['regla_xm'] - 1) * 100:+.0f} % frente a la regla", delta_color="off")
     c[2].metric("Techo (pesos por kWh)", f"{u['cota90']:,.0f}")
+    indicador_estado(u.get("estado"))
     if u.get("estado") == "respaldo":
         st.caption("Ese día faltaba un dato del sistema, así que se usó la versión de respaldo del modelo.")
     st.markdown("**¿Por qué dice eso?** Cada barra muestra cuánto empuja una pieza de información el precio "
-                "hacia arriba (rojo) o hacia abajo (azul), comparado con una semana normal.")
+                "hacia arriba (gris oscuro) o hacia abajo (gris claro), comparado con una semana normal. Siguiendo ISA-101, el color se reserva para las alarmas.")
     st.plotly_chart(barras_explicacion(u["aportes"]), width="stretch")
 
 
