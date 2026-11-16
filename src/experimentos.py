@@ -818,6 +818,84 @@ def correr_e17():
     return t
 
 
+def configuraciones_e19():
+    """Modelos para el precio de exportación TIE (centUSD/kWh), semana s+2 desde s-1."""
+    vn = config.VARIABLES_TIE
+    vx = vn + fe.VARIABLES_EXPO
+    solo = ["log_precio_expo", "spread", "spread_4s", "expo_momentum", "expo_parcial_rel", "expo_parcial_falta",
+            "parcial_rel", "log_energia_expo"]
+    return [models.Modelo("Regla XM"),
+            models.Modelo("Regla sáb-mar", columna_referencia="regla_parcial"),
+            models.NacionalSpread("Nacional×spread s-1", vn, "spread"),
+            models.NacionalSpread("Nacional×spread 4s", vn, "spread_4s"),
+            models.NacionalSpread("Nacional×spread 13s", vn, "spread_13s"),
+            models.Duan("Ridge expo", vx, models.ridge),
+            models.Duan("Ridge expo solo", solo, models.ridge),
+            models.Modelo("LightGBM expo", vx, models.lightgbm()),
+            # Ajuste (15-nov-2026): los saltos extremos piden una pérdida robusta.
+            models.Modelo("Huber expo", vx, models.huber)]
+
+
+# Combinaciones en escala de precio. La elegida por el MAE del periodo de selección es
+# "Mitad Huber + mitad regla" (config.VERSION_EXPO); las demás quedan como comparación.
+ENSAMBLES_E19 = {"Mitad Huber + mitad regla": ["Huber expo", "Regla XM"],
+                 "Ens Huber+sáb-mar": ["Huber expo", "Regla sáb-mar"],
+                 "Ens Ridge+sáb-mar": ["Ridge expo", "Regla sáb-mar"],
+                 "Ens Ridge+Nac4s+sáb-mar": ["Ridge expo", "Nacional×spread 4s", "Regla sáb-mar"],
+                 "Ens Huber+Nac4s+sáb-mar": ["Huber expo", "Nacional×spread 4s", "Regla sáb-mar"],
+                 "Ens Ridge+LightGBM": ["Ridge expo", "LightGBM expo"]}
+
+
+def correr_e19():
+    """E19: pronóstico del precio de exportación TIE, el que entra en la garantía.
+
+    Mismo esquema que E16 (sábado a viernes, s-1 → s+2, embargo de 2 semanas, cota con rezago 3),
+    sobre las semanas en que se exportó al menos 1 GWh en s-1 y en s+2.
+    """
+    d = fe.preparar_expo(dp.tabla_expo(recalcular=True))
+    m = configuraciones_e19()
+    requeridas = sorted({v for x in m for v in x.variables} | {"y", "regla_parcial"})
+    r = bt.backtest(d, m, inicio=INICIO, cada=4, progreso=True, requeridas=requeridas, embargo=dp.HORIZONTE_TIE - 1)
+    r["semana_objetivo"] = r.semana_base + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    r["fecha_emision"] = r.semana_base + pd.Timedelta(days=13)
+    r["periodo"] = bt.periodo(r.semana_objetivo)
+    bt.guardar(r, "E19")
+    w = bt.ancho(r)
+    for nombre, partes in ENSAMBLES_E19.items():
+        w[nombre] = w[partes].mean(axis=1)
+    for c in [x.nombre for x in m] + list(ENSAMBLES_E19):
+        w[f"cota_{c}"] = cal.conformal(w.real, w[c], ventana=config.VENTANA_CONFORMAL, rezago=dp.HORIZONTE_TIE)
+    w.to_parquet(bt.RESULTADOS / "E19_ancho.parquet")
+    return w
+
+
+def resumen_e19(w):
+    """Error por periodo frente a la regla; el modelo se elige por el MAE del periodo de selección."""
+    obj = w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE)
+    w = w[(obj >= INICIO_EVALUACION) & w.real.notna()]
+    periodos = bt.periodo(w.index + pd.Timedelta(weeks=dp.HORIZONTE_TIE))
+    puntuales = [c for c in w.columns if c not in ("real", "base") and not c.startswith("cota_")]
+    filas = []
+    for m in puntuales:
+        e, cubre = w[m] - w.real, w.real <= w[f"cota_{m}"]
+        fila = {"modelo": m, "semanas": int(e.notna().sum()), "MAE": e.abs().mean(),
+                **{f"MAE_{p}": e[periodos == p].abs().mean() for p in ("desarrollo", "seleccion", "final")},
+                **{f"n_{p}": int((periodos == p).sum()) for p in ("seleccion", "final")},
+                "sesgo": e.mean(), "error_%": (e.abs() / w.real).median() * 100,
+                "cobertura": cubre.mean(), "exceso_cota_%": ((w[f"cota_{m}"] - w.real) / w.real)[cubre].mean() * 100}
+        if m != "Regla XM":
+            fila["p_DM"] = ev.diebold_mariano(w, m, "Regla XM")[1]
+            sel = periodos == "final"
+            fila["p_DM_final"] = ev.diebold_mariano(w[sel], m, "Regla XM")[1]
+        filas.append(fila)
+    t = pd.DataFrame(filas).set_index("modelo")
+    for p in ("seleccion", "final"):
+        t[f"mejora_{p}_%"] = (1 - t[f"MAE_{p}"] / t.at["Regla XM", f"MAE_{p}"]) * 100
+    t = t.sort_values("MAE_seleccion")
+    t.to_csv(bt.RESULTADOS / "E19_resumen.csv")
+    return t
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 250)
     pd.set_option("display.float_format", "{:,.3f}".format)
@@ -863,6 +941,10 @@ if __name__ == "__main__":
         print(alerta.to_string())
     elif comando == "e17":
         print(correr_e17().to_string())
+    elif comando == "e19":
+        t = resumen_e19(correr_e19())
+        print(t[["semanas", "MAE", "MAE_seleccion", "MAE_final", "mejora_seleccion_%", "mejora_final_%", "sesgo",
+                 "cobertura", "p_DM", "p_DM_final"]].round(3).to_string())
     elif comando == "e16":
         print(resumen_e16(correr_e16()).T.to_string())
     elif comando == "e15":

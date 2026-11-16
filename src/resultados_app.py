@@ -120,6 +120,25 @@ def ultimo_tie():
     }
 
 
+EXPO = {"Regla XM": "Regla XM (repetir s-1)", "Regla sáb-mar": "Regla con sábado a martes de s",
+        "Mitad Huber + mitad regla": "Modelo elegido (Huber + regla)", "Ens Huber+sáb-mar": "Huber + sábado a martes",
+        "Huber expo": "Huber", "Nacional×spread 4s": "Precio nacional × diferencial",
+        "Ens Ridge+Nac4s+sáb-mar": "Ridge + nacional + sábado a martes", "LightGBM expo": "LightGBM"}
+
+
+def predicciones_expo():
+    """E19: precio de exportación TIE (centUSD/kWh), semana s+2 desde s-1, semanas con exportación."""
+    w = pd.read_parquet(RES / "E19_ancho.parquet")
+    p = w[["real", "base"]].copy()
+    for col, nombre in EXPO.items():
+        p[nombre] = w[col]
+        p[f"cota|{nombre}"] = w[f"cota_{col}"]
+    p = p.dropna(subset=["real"])
+    p.index.name = "semana_base"
+    p.insert(0, "semana_objetivo", p.index + pd.Timedelta(weeks=3))
+    return p
+
+
 def catalogo():
     return pd.DataFrame([{"modelo": n, "familia": f, "descripcion": d, "tiene_cota": n in COTAS}
                          for _, _, n, f, d in MODELOS])
@@ -162,6 +181,9 @@ def main():
     p = predicciones()
     p.to_parquet(SALIDA / "predicciones.parquet")
     predicciones_tie().to_parquet(SALIDA / "predicciones_tie.parquet")
+    predicciones_expo().to_parquet(SALIDA / "predicciones_expo.parquet")
+    te = dp.tabla_expo()
+    te[["precio", "precio_expo_cop", "precio_expo", "energia_expo_gwh"]].to_parquet(SALIDA / "contexto_expo.parquet")
     with open(SALIDA / "ultimo_tie.json", "w", encoding="utf-8") as f:
         json.dump(ultimo_tie(), f, ensure_ascii=False, indent=1)
     reg_tie = RAIZ / "registro" / "pronosticos_tie.csv"

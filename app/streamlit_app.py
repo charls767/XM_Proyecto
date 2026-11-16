@@ -67,11 +67,18 @@ def cargar(version):
     reg = pd.read_csv(DATOS / "registro.csv", parse_dates=["fecha_emision", "semana_base", "semana_objetivo"])
     ultimo = json.loads((DATOS / "ultimo.json").read_text(encoding="utf-8"))
     tie = pd.read_parquet(DATOS / "predicciones_tie.parquet")
-    return p, modelos, episodios, contexto, reg, ultimo, tie
+    expo = pd.read_parquet(DATOS / "predicciones_expo.parquet")
+    ctx_expo = pd.read_parquet(DATOS / "contexto_expo.parquet")
+    return p, modelos, episodios, contexto, reg, ultimo, tie, expo, ctx_expo
 
 
 # La versión cambia cuando se regeneran los resultados: así la caché no sirve datos viejos.
-P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO, TIE = cargar(max(a.stat().st_mtime for a in DATOS.iterdir()))
+P, MODELOS, EPISODIOS, CONTEXTO, REG, ULTIMO, TIE, EXPO, CTX_EXPO = cargar(
+    max(a.stat().st_mtime for a in DATOS.iterdir()))
+EXPO_MODELOS = [c for c in EXPO.columns if c not in ("semana_objetivo", "real", "base") and not c.startswith("cota|")]
+ELEGIDO_EXPO = "Modelo elegido (Huber + regla)"
+COLOR.update({ELEGIDO_EXPO: "#eb6834", "Huber + sábado a martes": "#1baf7a", "Huber": "#2a78d6",
+              "Precio nacional × diferencial": "#6250d6", "Ridge + nacional + sábado a martes": "#e87ba4", "LightGBM": "#eda100"})
 TIE_MODELOS = [c for c in TIE.columns if c not in ("semana_objetivo", "real", "base") and not c.startswith("cota|")]
 COLOR.update({"Regla XM (repetir s-1)": MUTED, "Regla con sábado a martes de s": INK2, "Ridge 14": "#2a78d6",
               "Ridge 14 + sábado a martes de s": "#1baf7a",
@@ -149,10 +156,51 @@ REGLA = "Regla XM (repetir s-1)"
 REGISTRADO = "Modelo registrado (sin ofertas + sábado a martes, con corrección de sesgo)"
 
 
+def metricas_expo(p):
+    filas = []
+    mae_regla = (p[REGLA] - p.real).abs().mean()
+    for m in EXPO_MODELOS:
+        e, cubre = p[m] - p.real, p.real <= p[f"cota|{m}"]
+        filas.append({"Modelo": m, "Semanas": len(p), "MAE": e.abs().mean(), "RMSE": np.sqrt((e ** 2).mean()),
+                      "Error %": (e.abs() / p.real).median() * 100, "Sesgo": e.mean(),
+                      "Mejora vs regla %": (1 - e.abs().mean() / mae_regla) * 100,
+                      "Cobertura cota 90 %": cubre.mean() * 100})
+    return pd.DataFrame(filas).sort_values("MAE")
+
+
+FORMATO_USD = {"MAE": st.column_config.NumberColumn("MAE (centUSD/kWh)", format="%.2f"),
+               "RMSE": st.column_config.NumberColumn("RMSE", format="%.2f"),
+               "Error %": st.column_config.NumberColumn("Error mediano %", format="%.0f"),
+               "Sesgo": st.column_config.NumberColumn("Sesgo", format="%+.2f", help="Negativo: se queda corto"),
+               "Mejora vs regla %": st.column_config.NumberColumn(format="%+.1f"),
+               "Cobertura cota 90 %": st.column_config.NumberColumn(format="%.0f")}
+
+
 def resumen():
-    st.title("Precio de bolsa para la garantía TIE")
-    st.caption("Caso XM–UNAL · precio promedio horario de la semana TIE (sábado a viernes), calculado el viernes "
-               "para dos semanas adelante · prototipo académico, no validado para fijar garantías")
+    st.title("Precio para la garantía TIE")
+    st.caption("Caso XM–UNAL · calculado el viernes para la semana TIE s+2 (sábado a viernes) · "
+               "prototipo académico, no validado para fijar garantías")
+
+    st.subheader("1. El precio que entra en la garantía: el de exportación")
+    te = metricas_expo(filtrar(EXPO, *PERIODOS["Evaluación 2018–2026"])).set_index("Modelo")
+    fin = metricas_expo(filtrar(EXPO, *PERIODOS["Prueba final 2025–2026"])).set_index("Modelo")
+    pe = p_diebold_mariano(filtrar(EXPO, *PERIODOS["Evaluación 2018–2026"]), ELEGIDO_EXPO, REGLA)
+    c = st.columns(4)
+    c[0].metric("Regla actual de XM (centUSD/kWh)", f"{te.loc[REGLA].MAE:.2f}", "error medio 2018–2026", delta_color="off")
+    c[1].metric("Modelo elegido (centUSD/kWh)", f"{te.loc[ELEGIDO_EXPO].MAE:.2f}",
+                f"{-te.loc[ELEGIDO_EXPO]['Mejora vs regla %']:.1f} % (p = {pe:.2f})", delta_color="inverse")
+    c[2].metric("Prueba final 2025–2026", f"{fin.loc[ELEGIDO_EXPO].MAE:.2f}",
+                f"{-fin.loc[ELEGIDO_EXPO]['Mejora vs regla %']:.1f} % frente a {fin.loc[REGLA].MAE:.2f}", delta_color="inverse")
+    c[3].metric("Semanas con exportación evaluadas", f"{te.loc[REGLA].Semanas:.0f}")
+    st.markdown(f"""
+- **El precio de la garantía de exportación no es el precio de bolsa:** es lo que se cobra por exportar (USD) entre la energía exportada, menos el CEE. Con datos públicos de XM cuadra con su ejemplo: 24.32 centUSD/kWh menos el CEE ≈ 22.75 para la semana base del 18 al 24 de enero de 2025.
+- **Se mueve distinto al precio nacional:** su cambio a tres semanas solo tiene una correlación de 0.27 con el del nacional, y desde 2023 suele estar muy por encima.
+- **Pronosticarlo es más difícil:** el mejor modelo, la mitad de un Huber y la mitad de la regla, erra {(1 - te.loc[ELEGIDO_EXPO].MAE / te.loc[REGLA].MAE) * 100:.0f} % menos que la regla en 2018–2026 (p = {pe:.2f}), con solo {te.loc[REGLA].Semanas:.0f} semanas con exportación. Detalle en *Precio de exportación*.
+""")
+
+    st.subheader("2. El precio de bolsa (nacional y TIE)")
+    st.caption("El precio de bolsa TIE se mueve casi igual que el nacional (correlación del cambio 0.90). "
+               "Es la base del mercado, pero no el precio que cobra la garantía de exportación.")
     total = metricas_tie(filtrar(TIE, *PERIODOS["Evaluación 2018–2026"])).set_index("Modelo")
     ultimo = TIE.tail(52)
     anio = metricas_tie(ultimo).set_index("Modelo")
@@ -194,6 +242,46 @@ def resumen():
     c[2].metric("Acierta si sube o baja", f"{of['Acierta el sentido %']:.0f} %")
     st.caption("Semana de lunes a domingo, ponderada por demanda. No sirve para la garantía: el costo marginal de la "
                "semana objetivo no existe el viernes de cálculo. Detalle en *Capacidad predictiva*.")
+
+
+def precio_exportacion():
+    st.title("Precio de exportación: el de la garantía")
+    st.markdown("""
+Según el ejemplo de XM (Reafirmación 2025), la garantía de exportación usa el **Precio Medio Total − CEE** de la semana
+s-1: lo cobrado por exportar en USD (`ExportMonedaUSD`) entre la energía exportada (`ExpoEner`). Ambas series son
+públicas en la API de XM. Solo hay precio en las semanas en que se exportó al menos 1 GWh.
+""")
+    c = CTX_EXPO[CTX_EXPO.index >= "2018-01-01"]
+    fig = go.Figure()
+    fig.add_scatter(x=c.index, y=c.precio, name="Precio nacional (promedio horario)", line=dict(color=MUTED, width=2))
+    fig.add_scatter(x=c.index, y=c.precio_expo_cop, name="Precio de exportación (COP/kWh)", mode="lines+markers",
+                    line=dict(color="#eb6834", width=2), marker=dict(size=5))
+    fig.update_traces(hovertemplate="%{y:,.0f}")
+    st.plotly_chart(estilo(fig, 380), width="stretch")
+    st.caption("Desde 2023 el precio de exportación se separa del nacional; desde agosto de 2026, en el período de riesgo, "
+               "llega a ser varias veces mayor.")
+
+    periodo = st.selectbox("Periodo de evaluación", list(PERIODOS), index=0, key="per_expo")
+    p = filtrar(EXPO, *PERIODOS[periodo])
+    st.dataframe(metricas_expo(p), hide_index=True, width="stretch", column_config=FORMATO_USD)
+    st.caption(f"{len(p)} semanas objetivo con exportación. Modelo elegido con el periodo de selección 2022–2024 "
+               "entre unas 30 variantes; la prueba final 2025–2026 no se usó para elegir.")
+    sel = st.multiselect("Modelos en el gráfico", EXPO_MODELOS, default=[REGLA, ELEGIDO_EXPO], key="sel_expo")
+    fig = go.Figure()
+    fig.add_scatter(x=p.semana_objetivo, y=p.real, name="Precio real", mode="lines+markers",
+                    line=dict(color=INK, width=2), marker=dict(size=6))
+    for m in sel:
+        fig.add_scatter(x=p.semana_objetivo, y=p[m], name=m, mode="markers",
+                        marker=dict(size=7, color=COLOR.get(m, INK2)))
+    fig.update_traces(hovertemplate="%{y:,.2f}")
+    st.plotly_chart(estilo(fig, 420, "centUSD/kWh"), width="stretch")
+    st.markdown("""
+**Qué significa**
+- La regla de XM ya es difícil de superar: el precio de exportación tiene saltos de régimen que ninguna variable anticipa.
+- Lo que funciona es **moderar la regla**: promediarla con un modelo robusto (Huber) que usa el diferencial
+  exportación/nacional, los días ya publicados y las variables del sistema.
+- Las mejoras no son significativas en todo 2018–2026 (pocas semanas y mucha variación); en la prueba final quedan al borde (p ≈ 0.06).
+""")
 
 
 def metricas_tie(p):
@@ -502,6 +590,8 @@ def metodologia():
 _INICIAL = os.environ.get("APP_PAGINA", "")
 pg = st.navigation([
     st.Page(resumen, title="Resumen", icon="🏠", default=_INICIAL == ""),
+    st.Page(precio_exportacion, title="Precio de exportación", icon="💵", url_path="exportacion",
+            default=_INICIAL == "exportacion"),
     st.Page(garantia_tie, title="Garantía TIE", icon="🛡️", url_path="garantia", default=_INICIAL == "garantia"),
     st.Page(capacidad, title="Capacidad predictiva", icon="📈", url_path="capacidad", default=_INICIAL == "capacidad"),
     st.Page(estres, title="Episodios de estrés", icon="⚠️", url_path="estres", default=_INICIAL == "estres"),

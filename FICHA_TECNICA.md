@@ -1,12 +1,22 @@
-# Ficha técnica: precio de bolsa para la garantía TIE (PAE-XM)
+# Ficha técnica: precio para la garantía TIE (PAE-XM)
 
-**Versión registrada:** `tie-ridge11-parcial-duan-conformal104-v1` (desde el 20-nov-2026) · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
+**Versiones registradas (desde el 20-nov-2026):** precio de exportación `expo-huber-mitad-regla-conformal104-v1` y precio de bolsa `tie-ridge11-parcial-duan-conformal104-v1` · **Responsable:** Carlos Acevedo (caso XM–UNAL) · **Actualizada:** 15 de noviembre de 2026
 
 ## Para qué sirve
 
-Estima el **precio de bolsa promedio horario de la semana TIE s+2** (sábado a viernes), calculado el viernes de la semana s, que es el precio que entra en la garantía de las transacciones internacionales con Ecuador (CREG 004 de 2003, art. 23). Incluye una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas. Se compara siempre con la regla de XM, que repite el precio de la semana s-1.
+Estima, el viernes de la semana s, el precio de la semana TIE s+2 (sábado a viernes) que entra en la garantía de las transacciones internacionales con Ecuador (CREG 004 de 2003, art. 23). Lo compara siempre con la regla de XM, que repite el de la semana s-1. Incluye una **cota superior** que el precio real no debería superar en 9 de cada 10 semanas.
 
-| Garantía TIE (semanas objetivo 2018–2026, E16) | |
+**Precio de exportación (el de la garantía, E19).** Es lo cobrado por exportar (USD) entre la energía exportada, menos el CEE; cuadra con el ejemplo de XM.
+
+| Precio de exportación (117 semanas con exportación, 2018–2026) | |
+|---|---|
+| Regla de XM | 5.31 centUSD/kWh de error medio |
+| Modelo (mitad Huber, mitad regla) | 4.83 (−9 %, p = 0.08); prueba final 2025–26: 6.05 frente a 7.03 (−13.9 %, p = 0.06) |
+| Limitación | Pocas semanas y saltos de régimen: la evidencia es débil. Sin exportaciones en s-1 no hay pronóstico |
+
+**Precio de bolsa (base del mercado, E16).**
+
+| Precio de bolsa (461 semanas, 2018–2026, E16) | |
 |---|---|
 | Regla de XM | 115.3 COP/kWh de error medio |
 | Modelo registrado | 98.3 COP/kWh, 14.8 % menos (p < 0.001); sesgo −16 |

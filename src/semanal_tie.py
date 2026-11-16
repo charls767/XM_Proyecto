@@ -14,6 +14,8 @@ viernes) se calcula la garantía de la semana s+2 con los precios horarios de la
 - Candidato en paralelo: el mismo modelo más la hidrología de sábado a jueves de s y el precio del
   martes. Se registra a su lado y lo decide el registro: con 26 semanas calificadas reemplaza al
   modelo si erra menos y su cota cubre al menos 85 %.
+- Precio de exportación (el que entra en la garantía, E19): promedio de un Huber sobre el cambio del
+  precio de exportación y la regla de XM, en centUSD/kWh. Solo si en la semana s-1 se exportó.
 - Vigilancia: hidrología atrasada, variables fuera de lo visto, o en las últimas 52 semanas calificadas
   un error mayor que la regla, cobertura bajo 80 % o sesgo significativo (lo pide la auditoría del
   15 de noviembre de 2026, hallazgo A1). La vigilancia no cambia el pronóstico: avisa.
@@ -49,10 +51,12 @@ COLUMNAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo",
             "motivos", "datos_precio_hasta", "precio_base", "precio_parcial", "regla_xm", "pronostico",
             "cambio_pct", "cota90", "real", "error", "error_regla", "cubierto", "fecha_calificacion",
             "candidato_version", "candidato_pronostico", "candidato_cota90", "candidato_error", "candidato_cubierto",
-            "huella"]
+            "expo_version", "expo_regla", "expo_pronostico", "expo_cota90", "expo_real", "expo_error",
+            "expo_error_regla", "expo_cubierto", "huella"]
 SELLADAS = ["fecha_emision", "semana_calculo", "semana_base", "semana_objetivo", "version_modelo", "estado",
             "motivos", "precio_base", "precio_parcial", "regla_xm", "pronostico", "cota90",
-            "candidato_version", "candidato_pronostico", "candidato_cota90"]
+            "candidato_version", "candidato_pronostico", "candidato_cota90",
+            "expo_version", "expo_regla", "expo_pronostico", "expo_cota90"]
 
 
 def semanas(fecha_emision):
@@ -92,6 +96,46 @@ def _pronosticar(d, base, variables):
                     "factor_duan": factor, "margen_log": float(np.log(cota / pred)),
                     "n_entrenamiento": len(entren), "entrenamiento_hasta": f"{entren.index.max():%Y-%m-%d}"}
     return pred, cota, reproduccion, h.iloc[:-1]
+
+
+def pronosticar_expo(dx, base):
+    """Precio de exportación de s+2 (centUSD/kWh): promedio de Huber y la regla de XM (E19).
+
+    `dx` es `fe.preparar_expo(dp.tabla_expo())`. Devuelve None si en la semana base no se exportó.
+    """
+    if base not in dx.index or pd.isna(dx.at[base, "precio"]):
+        return None
+    variables = config.VARIABLES_EXPO
+    completas = dx.dropna(subset=variables + ["y"])
+    entren = completas[completas.index < base - pd.Timedelta(weeks=dp.HORIZONTE_TIE - 1)]
+    est = models.huber().fit(entren[variables], entren.y)
+    regla = float(dx.at[base, "precio"])
+    huber = regla * float(np.exp(est.predict(dx.loc[[base], variables])[0]))
+    pred = (huber + regla) / 2
+    r = bt.backtest(completas, [models.Modelo("huber", variables, models.huber)], inicio=config.INICIO_BACKTEST,
+                    cada=4, embargo=dp.HORIZONTE_TIE - 1)
+    w = bt.ancho(r)
+    w = w[w.index < base]
+    h = pd.concat([pd.DataFrame({"real": w.real, "prediccion": (w.huber + w.base) / 2}),
+                   pd.DataFrame({"real": [np.nan], "prediccion": [pred]}, index=[base])])
+    cota = float(cal.conformal(h.real, h.prediccion, nivel=config.NIVEL_COTA, ventana=config.VENTANA_CONFORMAL,
+                               rezago=dp.HORIZONTE_TIE).iloc[-1])
+    esc, reg = est[0], est[-1]
+    return {"version": config.VERSION_EXPO, "regla": regla, "pronostico": pred, "cota90": cota,
+            "variables": {v: float(dx.at[base, v]) for v in variables},
+            "reproduccion": {"variables": list(variables), "media": [float(m) for m in esc.mean_],
+                             "escala": [float(s) for s in esc.scale_], "intercepto": float(reg.intercept_),
+                             "coeficientes": [float(c) for c in reg.coef_], "margen_log": float(np.log(cota / pred)),
+                             "n_entrenamiento": len(entren), "entrenamiento_hasta": f"{entren.index.max():%Y-%m-%d}"}}
+
+
+def reproducir_expo(expo):
+    """Pronóstico y cota de exportación a partir de lo guardado, sin datos ni reentrenar."""
+    m = expo["reproduccion"]
+    x = np.array([expo["variables"][v] for v in m["variables"]])
+    z = (x - np.array(m["media"])) / np.array(m["escala"])
+    pred = (expo["regla"] * float(np.exp(m["intercepto"] + z @ np.array(m["coeficientes"]))) + expo["regla"]) / 2
+    return pred, pred * float(np.exp(m["margen_log"]))
 
 
 def reproducir(snapshot):
@@ -169,6 +213,14 @@ def emitir(fecha_emision=None, actualizar=True, guardar=True):
                               "reproduccion": rep_c}
         except Exception as e:
             print(f"No se pudo calcular el candidato: {e}", flush=True)
+    # Precio de exportación (el de la garantía, E19). Sin exportaciones en s-1 no hay precio base.
+    r["expo"] = None
+    try:
+        r["expo"] = pronosticar_expo(fe.preparar_expo(dp.tabla_expo(recalcular=True)), base)
+        if r["expo"] is None:
+            r["motivos"].append("Sin exportaciones en la semana base: no hay precio de exportación que pronosticar")
+    except Exception as e:
+        print(f"No se pudo calcular el precio de exportación: {e}", flush=True)
     if guardar:
         registrar(r)
         calificar(d)
@@ -191,7 +243,8 @@ def _leer_registro():
     if not ARCHIVO.exists():
         return pd.DataFrame(columns=COLUMNAS)
     reg = pd.read_csv(ARCHIVO, parse_dates=FECHAS).reindex(columns=COLUMNAS)
-    return reg.astype({c: object for c in ("motivos", "huella", "cubierto", "candidato_version", "candidato_cubierto")})
+    return reg.astype({c: object for c in ("motivos", "huella", "cubierto", "candidato_version", "candidato_cubierto",
+                                           "expo_version", "expo_cubierto")})
 
 
 def _escribir(reg):
@@ -227,6 +280,9 @@ def registrar(r):
     if cand := r.get("candidato"):
         fila.update({"candidato_version": cand["version"], "candidato_pronostico": round(cand["pronostico"], 2),
                      "candidato_cota90": round(cand["cota90"], 2)})
+    if expo := r.get("expo"):
+        fila.update({"expo_version": expo["version"], "expo_regla": round(expo["regla"], 2),
+                     "expo_pronostico": round(expo["pronostico"], 2), "expo_cota90": round(expo["cota90"], 2)})
     anterior = reg.huella.iloc[-1] if len(reg) and pd.notna(reg.huella.iloc[-1]) else ""
     fila["huella"] = huella(fila, anterior)
     _escribir(pd.concat([reg, pd.DataFrame([fila])], ignore_index=True))
@@ -256,6 +312,14 @@ def calificar(d=None):
         con = reales.index[reg.loc[reales.index, "candidato_pronostico"].notna()]
         reg.loc[con, "candidato_error"] = (reg.loc[con, "candidato_pronostico"] - reales[con]).round(2)
         reg.loc[con, "candidato_cubierto"] = reales[con] <= reg.loc[con, "candidato_cota90"]
+        # Precio de exportación real de la semana objetivo, si se exportó.
+        expo = dp.tabla_expo().precio_expo.reindex(reg.loc[pendientes, "semana_objetivo"]).to_numpy()
+        reg.loc[pendientes, "expo_real"] = np.round(expo, 3)
+        c2 = reales.index[reg.loc[reales.index, "expo_pronostico"].notna() & ~np.isnan(expo)]
+        e2 = pd.Series(expo, index=reales.index)
+        reg.loc[c2, "expo_error"] = (reg.loc[c2, "expo_pronostico"] - e2[c2]).round(3)
+        reg.loc[c2, "expo_error_regla"] = (reg.loc[c2, "expo_regla"] - e2[c2]).round(3)
+        reg.loc[c2, "expo_cubierto"] = e2[c2] <= reg.loc[c2, "expo_cota90"]
         reg.loc[pendientes, "fecha_calificacion"] = pd.Timestamp.today().normalize()
         _escribir(reg)
         print(f"Calificadas {int(pendientes.sum())} emisiones TIE")
@@ -276,3 +340,6 @@ if __name__ == "__main__":
     if r["candidato"]:
         print(f"Candidato en paralelo: {r['candidato']['pronostico']:,.1f} COP/kWh, "
               f"cota 90 % {r['candidato']['cota90']:,.1f}")
+    if r["expo"]:
+        print(f"Precio de exportación (garantía): {r['expo']['pronostico']:,.2f} centUSD/kWh, "
+              f"cota 90 % {r['expo']['cota90']:,.2f}; regla XM {r['expo']['regla']:,.2f}")
