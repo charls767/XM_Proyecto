@@ -26,9 +26,30 @@ La regla de la garantía (Resolución CREG 004 de 2003, art. 23) fija el problem
 | Extra: la semana siguiente | El primer planteamiento, con 13 modelos comparados |
 | Cómo funciona | Los pasos, el glosario y los supuestos |
 
-> Prototipo académico; no es una publicación oficial de XM. La evaluación es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas. La evidencia independiente es el [registro TIE](registro/), que empieza el 20 de noviembre de 2026. Ver las auditorías: [5 de noviembre](docs/AUDITORIA.md), [10 de noviembre](docs/AUDITORIA_2026-11-10.md) y [15 de noviembre](docs/AUDITORIA_2026-11-15.md). **No usarlo para fijar garantías sin esa validación.**
+> Prototipo académico; no es una publicación oficial de XM. La evaluación es simulada y se usó para diseñar el modelo, así que sus cifras son optimistas. La evidencia independiente es el [registro TIE](registro/), que empieza el 20 de noviembre de 2026. Ver las auditorías: [5 de noviembre](docs/AUDITORIA.md), [10 de noviembre](docs/AUDITORIA_2026-11-10.md), 15 de noviembre ([general](docs/AUDITORIA_2026-11-15.md), [por partes](docs/AUDITORIA_2026-11-15_por_partes.md) y [exportación](docs/AUDITORIA_2026-11-15_exportacion.md)) y [16 de noviembre, app](docs/AUDITORIA_2026-11-16_app.md). **No usarlo para fijar garantías sin esa validación.**
 
-Las secciones siguientes explican el modelo a una semana, que fue el primer planteamiento. El modelo TIE usa la misma familia (Ridge sobre el cambio del precio), con 11 de esas variables más el precio de sábado a martes de la semana en curso.
+---
+
+## El núcleo: dos pronósticos cada viernes
+
+Cada viernes de la semana s se pronostica la semana s+2 (sábado a viernes). Los dos pronósticos se comparan con la regla de XM, que repite el valor de la semana s-1.
+
+| | Precio de exportación (el de la garantía) | Precio de bolsa (base del mercado) |
+|---|---|---|
+| **Qué es** | `ExportMonedaUSD` / `ExpoEner`, en centUSD/kWh (E19) | Promedio horario simple del precio de bolsa nacional, en COP/kWh (E16) |
+| **Modelo** | Mitad un Huber sobre el cambio del precio de exportación y mitad la regla de XM (`expo-huber-mitad-regla-...`) | Ridge sobre el cambio de s-1 a s+2, con corrección de sesgo de Duan (`tie-ridge11-parcial-cmg-duan-...`) |
+| **Variables** | Las 11 nacionales sin ofertas y el sábado a martes de s, más 9 de exportación: nivel, diferencia con el precio nacional, momento, energía exportada, tasa de cambio y días parciales | 11 de la semana s-1 (precio, embalse, aportes y época), el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s (E24) |
+| **Cota del 90 %** | Conformal calibrada por régimen regulatorio de exportación (E20) | Conformal con los errores de las últimas 104 semanas ya calificadas |
+| **Resultado 2018–2026** | 4.83 frente a 5.31 de la regla (−9 %, p = 0.08); 117 semanas con exportación | 93.7 frente a 115.3 de la regla (−19 %, p < 0.001); último año 113 frente a 127 (p = 0.18) |
+| **Cuándo no hay pronóstico** | Si en la semana s-1 no se exportó (menos de 1 GWh). Desde el 7-sep-2026 no hay exportaciones | Si la semana s-1 no está completa. Si faltan los días de s, usa un respaldo sin ellos |
+
+- **Por qué estos modelos:** a tres semanas, las ganancias medidas vinieron de **información disponible el viernes** (los días de la semana en curso, el costo marginal), no de modelos más complejos. LightGBM, bosques, redes, procesos gaussianos y ensambles con pesos aprendidos no superaron a los elegidos (E23, E25). La corrección de sesgo adaptativa empeoró (E17).
+- **Candidato en paralelo (bolsa):** suma la hidrología de sábado a jueves y el precio del martes. Erra 92.1 frente a 93.7, sin ganar en todos los periodos. Lo decide el registro con 26 semanas.
+- **Supuestos y riesgos:** [docs/SUPUESTOS.md](docs/SUPUESTOS.md). El principal pendiente es qué contiene el precio de exportación bajo las reglas especiales del período de riesgo. Las preguntas están listas para el CRM de XM en [docs/CONSULTA_CRM_XM.md](docs/CONSULTA_CRM_XM.md).
+
+---
+
+Las secciones siguientes explican el **pronóstico a una semana** (lunes a domingo, ponderado por demanda), que fue el primer planteamiento y hoy es un complemento. El modelo de bolsa TIE usa la misma familia (Ridge sobre el cambio del precio) y 11 de esas variables.
 
 ---
 
@@ -168,10 +189,11 @@ python -m pytest -q tests
 correr_semanal.bat
 ```
 
-Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE (CREG 004 de 2003, art. 23; ver [docs/SUPUESTOS.md](docs/SUPUESTOS.md)). El viernes de la semana s, [src/semanal_tie.py](src/semanal_tie.py) pronostica el precio promedio horario de la semana s+2, de sábado a viernes. Lo registra junto a la regla de XM, que repite el precio de s-1.
+Desde el 15 de noviembre de 2026 la emisión sigue la regla de la garantía TIE (CREG 004 de 2003, art. 23; ver [docs/SUPUESTOS.md](docs/SUPUESTOS.md)). El viernes de la semana s, [src/semanal_tie.py](src/semanal_tie.py) pronostica para la semana s+2, de sábado a viernes, los dos precios del núcleo. Cada uno se registra junto a la regla de XM, que repite el valor de s-1.
 
-- **Modelo:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s, con corrección de sesgo y cota del 90 % (E16, E24).
-- **Respaldo:** si faltan los días de s, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
+- **Precio de bolsa:** Ridge con 11 variables de s-1 (sin ofertas, que a tres semanas no aportan) más el precio de sábado a martes de s y el costo marginal programado de miércoles a viernes de s, con corrección de sesgo y cota del 90 % (E16, E24).
+- **Precio de exportación:** mitad Huber y mitad regla, con cota por régimen (E19, E20), en las columnas `expo_*` del registro. Antes de pronosticarlo, la emisión actualiza las series de exportación y verifica que la semana s-1 esté completa. Si no se exportó, lo deja anotado en los motivos.
+- **Respaldo:** si faltan los días de s o el costo marginal, usa el mismo Ridge sin ellos. Si la semana s-1 no está completa, no emite.
 - **Candidato en paralelo:** el mismo modelo más la hidrología de sábado a jueves de s y el precio del martes. Con el costo marginal, en el backtest erra 92.1 frente a 93.7 del registrado, pero no gana en todos los periodos. Se registra a su lado, y con 26 semanas calificadas reemplaza al modelo si erra menos y su cota cubre al menos 85 %.
 - **Registro:** `registro/pronosticos_tie.csv`, encadenado con SHA-256, con snapshots en `registro/snapshots_tie/`.
 
@@ -179,7 +201,7 @@ El script también califica las emisiones anteriores (incluidas las del registro
 
 Para probar sin registrar: `python src/semanal_tie.py --seco --fecha 2026-11-13`.
 
-**Por qué el viernes en la noche:** es el día de cálculo del ASIC. La API publica el precio con unos 3 días de rezago y la hidrología con 1: el precio del martes y la hidrología del jueves aparecen hacia el viernes en la tarde o la noche. Si se emite antes, el modelo cae a respaldo y el candidato no se calcula.
+**Por qué el viernes en la noche:** es el día de cálculo del ASIC. La API publica el precio con unos 3 días de rezago y la hidrología con 1: el precio del martes y la hidrología del jueves aparecen hacia el viernes en la tarde o la noche. El costo marginal programado del viernes se publica la víspera. Si se emite antes, el modelo cae a respaldo y el candidato no se calcula.
 
 El registro a una semana (`registro/pronosticos.csv`, [src/semanal.py](src/semanal.py)) se conserva como evidencia: sus filas no se borran y se siguen calificando.
 
@@ -198,10 +220,15 @@ El primer comando reúne en `results/app/` los resultados que muestra la app (la
 ### Reproducir la evaluación
 
 ```bash
-python src/experimentos.py e10
+python src/experimentos.py e16
 ```
 
-Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `e14`, `cortes`, `tuning`, `alertas`) regenera sus archivos en `results/`. La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
+Cada comando regenera sus archivos en `results/`:
+- **Núcleo TIE:** `e16` (precio de bolsa, incluye E24), `e19` (precio de exportación, incluye la cota por régimen de E20) y `e17`.
+- **Pronóstico a una semana:** `e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`, `e13`, `e14`, `e15`, `cortes`, `tuning` y `alertas`.
+- **Sin comando:** E18, E20 (salvo la cota), E21, E22, E23 y E25 se corrieron con guiones aparte. La bitácora deja sus resultados.
+
+La [bitácora de experimentos](docs/EXPERIMENTOS.md) explica cada uno.
 
 ---
 
@@ -212,21 +239,22 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 ├── FICHA_TECNICA.md          el modelo en una página
 ├── docs/SUPUESTOS.md         la regla de la garantía TIE y los supuestos del proyecto
 ├── docs/PREGUNTAS_XM.md      preguntas a XM y lo que ya respondieron
-├── docs/EXPERIMENTOS.md      bitácora de experimentos E0–E16, con tablas y decisiones
-├── docs/AUDITORIA*.md        auditorías del 5, 10 y 15 de noviembre (dos el 15)
+├── docs/EXPERIMENTOS.md      bitácora de experimentos E0–E25, con tablas y decisiones
+├── docs/CONSULTA_CRM_XM.md   preguntas regulatorias listas para el CRM de XM
+├── docs/AUDITORIA*.md        auditorías del 5, 10, 15 (general, por partes y exportación) y 16 de noviembre (app)
 ├── correr_semanal.bat        emisión semanal TIE (viernes después de las 20:00)
 ├── requirements.txt          dependencias fijas (Python 3.11)
 ├── app/
-│   ├── streamlit_app.py      app de resultados (7 páginas)
+│   ├── streamlit_app.py      app de resultados (6 páginas, con glosario)
 │   └── requirements.txt      dependencias mínimas para Streamlit Cloud
 ├── src/
-│   ├── config.py             modelos en operación (TIE y candidato), cota y umbrales del monitoreo
-│   ├── semanal_tie.py        emisión TIE: datos, pronóstico s+2, candidato, registro, calificación, reproducción
+│   ├── config.py             modelos en operación (bolsa TIE, candidato y exportación), cota y umbrales del monitoreo
+│   ├── semanal_tie.py        emisión TIE: datos, precios de bolsa y exportación de s+2, candidato, registro, calificación, reproducción
 │   ├── resultados_app.py     reúne en results/app/ lo que muestra la app
 │   ├── semanal.py            emisión a una semana (ya no emite; califica y reproduce su registro)
 │   ├── monitoreo.py          controles de calidad, rango histórico, desempeño reciente y estado
 │   ├── xm_client.py          descarga desde XM con pydataxm (o consulta directa) y caché mensual
-│   ├── data_pipeline.py      tabla semanal y variantes usadas en los experimentos
+│   ├── data_pipeline.py      tablas semanales: a una semana, TIE (bolsa) y exportación, y variantes de los experimentos
 │   ├── feature_engineering.py variables del modelo
 │   ├── models.py             Ridge y modelos comparados (árboles, cuantílicos, dos etapas, SARIMAX, ARIMA)
 │   ├── lear.py               LEAR diario agregado a la semana (candidato, E11)
@@ -248,5 +276,6 @@ Cada comando (`e1`, `e2`, `e3e4`, `e5e6`, `e7`, `e8`, `e9`, `e10`, `e11`, `e12`,
 
 ## Fuentes
 
-- API pública de XM (`servapibi.xm.com.co`), consultada con `pydataxm`.
+- API pública de XM (`servapibi.xm.com.co`), consultada con `pydataxm`: precio de bolsa, demanda, hidrología, ofertas, costo marginal programado, y exportaciones (`ExportMonedaUSD`, `ExpoEner`).
+- Material de formación de XM (Reafirmación 2025, sesión 2) para la regla de la garantía TIE (CREG 004 de 2003, art. 23).
 - Índice ONI de NOAA CPC (fase de El Niño–Oscilación del Sur, usado en los experimentos).
