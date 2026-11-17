@@ -74,7 +74,8 @@ def test_colores_de_las_series_en_bolsa(monkeypatch):
     assert principal["layout"]["paper_bgcolor"] == col.FONDO == principal["layout"]["plot_bgcolor"]
     series = {d["name"]: d["line"] for d in principal["data"]}
     assert series["Valor observado"]["color"] == col.REAL and series["Valor observado"]["width"] >= 2.5
-    assert series["Regla de referencia"] == {**series["Regla de referencia"], "color": col.REGLA, "dash": "dash"}
+    regla = series[pr.REGLA_NOMBRE]
+    assert regla == {**regla, "color": col.REGLA, "dash": "dash"}
     assert series["Modelo registrado"]["color"] == col.MODELO and series["Modelo registrado"]["dash"] == "solid"
     assert series["Modelo en prueba"]["color"] == col.PRUEBA and series["Modelo en prueba"]["dash"] == "dot"
     calor = next(f for f in figs if f["data"][0]["type"] == "heatmap")

@@ -31,12 +31,13 @@ st.set_page_config(page_title="Modelos para precios relacionados con las obligac
                    layout="wide")
 
 # --- Nombres de las series ------------------------------------------------------------------------------
-REGLA = "Regla de referencia"
-NUESTRO = "Modelo registrado"
-PRUEBA = "Modelo en prueba"
-OBSERVADO = "Valor observado"
-COTA = "Cota estadística calibrada (90 %)"
-SUPERA = "Semanas que superaron la cota"
+# Términos comunes con el informe PDF (src/presentacion.py).
+REGLA = pr.REGLA_CORTA
+NUESTRO = pr.MODELO
+PRUEBA = pr.PRUEBA
+OBSERVADO = pr.OBSERVADO
+COTA = pr.COTA_LEYENDA
+SUPERA = pr.SUPERA
 NOMBRES_SIMPLES = {
     # Objetivo de referencia (precio nacional de bolsa), complementario (exportación) y principal (compras TIE)
     "Regla XM (repetir s-1)": REGLA,
@@ -71,23 +72,22 @@ TRAZO = {REGLA: "dash", "Copiar la semana pasada": "dash", NUESTRO: "solid",
          "Ridge 14 (modelo base del experimento)": "solid", PRUEBA: "dot"}
 TRAZOS_ALTERNATIVOS = ["dashdot", "longdash", "longdashdot", "dot"]
 
-ALARMA = (f"Triángulo rojo: semana en que el valor observado superó la cota estadística calibrada del 90 % (no es "
-          f"una fórmula oficial de XM). Negro: valor observado; gris discontinuo: regla de referencia; naranja: "
-          f"modelo registrado; azul punteado: cota.")
+ALARMA = (f"Triángulo rojo: semana en que el valor observado superó la {pr.COTA.lower()} "
+          f"({pr.COTA_DEFINICION.lower()}; no es una cota oficial de XM). Negro: valor observado; gris discontinuo: regla de referencia; naranja: modelo "
+          "registrado; azul punteado: cota.")
 HUECOS = ("Los huecos son semanas sin observación pública calificada para ese periodo: no se unen con líneas ni se "
           "cuentan como cero.")
 NOTA_UNIDADES = "Los errores solo son comparables dentro del mismo objetivo y unidad."
-AVISO_REGISTRO = ("Registro prospectivo aún no consolidado: la primera emisión prevista es el viernes 20 de noviembre "
-                  "de 2026. Hasta que acumule semanas calificadas, las cifras salen del backtest simulado.")
+AVISO_REGISTRO = pr.AVISO_REGISTRO
 ORIENTACION = ("El panel compara modelos estadísticos del proyecto contra una regla de referencia basada en material "
                "público de formación de XM. No reproduce una fórmula oficial de garantía y ningún modelo está validado "
                "para fijar garantías.")
 
 # Etiquetas metodológicas de cada objetivo: se muestran como texto, no solo con color.
 ETIQUETAS = {
-    "principal": ["Objetivo principal", "E26", "Evidencia débil", "Reconstruido; no es una fórmula oficial de XM"],
-    "referencia": ["Objetivo de referencia", "E16 y E24", "Evidencia estadística favorable frente a la regla"],
-    "complementario": ["Objetivo complementario", "E19 y E20", "Resultado no concluyente", "Evidencia débil",
+    "principal": [pr.ETIQUETA["principal"], "E26", pr.EVIDENCIA_DEBIL, "Reconstruido; no es una fórmula oficial de XM"],
+    "referencia": [pr.ETIQUETA["referencia"], "E16 y E24", "Evidencia estadística favorable frente a la regla"],
+    "complementario": [pr.ETIQUETA["complementario"], "E19 y E20", pr.NO_CONCLUYENTE, pr.EVIDENCIA_DEBIL,
                        "Reconstruido; no es una fórmula oficial de XM"],
 }
 TITULO_E22 = pr.TITULO_E22[0].lower() + pr.TITULO_E22[1:]  # "monto … del MXT" (respeta la sigla)
@@ -262,9 +262,11 @@ def resumen_objetivo(clave, p=None):
     p = filtrar(DATOS_OBJETIVO[clave], PRINCIPAL) if p is None else p
     p = p.dropna(subset=["real", REGLA, NUESTRO])
     er, en = (p[REGLA] - p.real).abs().mean(), (p[NUESTRO] - p.real).abs().mean()
+    cota = f"cota|{NUESTRO}"
+    cobertura, exceso = pr.medidas_cota(p.real, p[cota]) if cota in p else (np.nan, np.nan)
     return {"semanas": len(p), "desde": p.semana_objetivo.min(), "hasta": p.semana_objetivo.max(),
             "error_regla": er, "error_modelo": en, "diferencia": (en / er - 1) * 100,
-            "p": p_valor(p, NUESTRO, REGLA)}
+            "p": p_valor(p, NUESTRO, REGLA), "cobertura": cobertura, "exceso": exceso}
 
 
 def periodo_texto(p):
@@ -287,20 +289,22 @@ def estado_modelo(m, referencia, clave):
 
 
 def tabla(p, modelos, referencia, clave=None, objetivo="", unidad=""):
-    """Una fila por modelo: objetivo, unidad, periodo, semanas, errores, cobertura de la cota, valor p y estado."""
+    """Una fila por modelo: objetivo, unidad, periodo, semanas, errores, cobertura observada y exceso de la cota,
+    valor p y estado."""
     filas = []
     error_ref = (p[referencia] - p.real).abs().mean()
     for m in modelos:
         s = p.dropna(subset=[m, "real"])
         e = s[m] - s.real
         cota = f"cota|{m}"
+        cobertura, exceso = pr.medidas_cota(s.real, s[cota]) if cota in s else (np.nan, np.nan)
         filas.append({
             "Modelo": m, "Objetivo": objetivo, "Unidad": unidad, "Periodo": periodo_texto(s),
             "Semanas evaluadas": len(s), "Error promedio": e.abs().mean(),
             "Error típico (% del valor)": (e.abs() / s.real).median() * 100,
             "Diferencia frente a la regla (%)": (e.abs().mean() / error_ref - 1) * 100 if m != referencia else 0.0,
             "Desvío promedio": e.mean(),
-            "Cobertura de la cota (%)": (s.real <= s[cota]).mean() * 100 if cota in s else np.nan,
+            "Cobertura observada (%)": cobertura, "Exceso de la cota (%)": exceso,
             "Valor p (DM)": "—" if m == referencia else pr.valor_p(p_valor(p, m, referencia)),
             "Estado de la evidencia": estado_modelo(m, referencia, clave)})
     return pd.DataFrame(filas).sort_values("Error promedio")
@@ -314,12 +318,15 @@ def formato(unidad, decimales):
         "Error típico (% del valor)": st.column_config.NumberColumn(
             format="%.0f %%", help="Mediana del error absoluto como porcentaje del valor observado."),
         "Diferencia frente a la regla (%)": st.column_config.NumberColumn(
-            format="%+.0f %%", help="Negativo: el modelo se equivoca menos que la regla de referencia."),
+            format="%+.1f %%", help="Negativo: el modelo se equivoca menos que la regla de referencia."),
         "Desvío promedio": st.column_config.NumberColumn(
             format=f"%+.{decimales}f", help="Negativo: en promedio el pronóstico queda por debajo del valor observado."),
-        "Cobertura de la cota (%)": st.column_config.NumberColumn(
-            format="%.0f %%", help="Semanas en que el valor observado no superó la cota estadística calibrada. "
-                                   "La meta es 90 %."),
+        "Cobertura observada (%)": st.column_config.NumberColumn(
+            format="%.1f %%", help=f"Semanas en que el valor observado no superó la cota. Nivel nominal: "
+                                   f"{pr.NIVEL_NOMINAL} %."),
+        "Exceso de la cota (%)": st.column_config.NumberColumn(
+            format="%.1f %%", help="Cuánto quedó la cota por encima del valor observado, en promedio, en las "
+                                   "semanas cubiertas."),
         "Valor p (DM)": st.column_config.TextColumn(
             help="Prueba de Diebold-Mariano frente a la regla. No corrige por haber elegido entre variantes."),
     }
@@ -351,7 +358,7 @@ def grafico(p, modelos, unidad, techo=None, puntos=False, alto=420):
     `unidad` es "COP/kWh" o "centUSD/kWh". Las semanas en que el valor observado superó la cota se marcan con
     un triángulo rojo. Con `puntos`, las semanas sin observación quedan como huecos (no se unen ni valen cero).
     """
-    d = 2 if unidad.startswith("centUSD") else 0
+    d = 2 if unidad.startswith("centUSD") else 1
     fig = go.Figure()
     if puntos:  # sin observación no hay dato: huecos en vez de líneas que unen periodos vacíos
         p = p.set_index("semana_objetivo")
@@ -367,7 +374,8 @@ def grafico(p, modelos, unidad, techo=None, puntos=False, alto=420):
                     line=dict(color=col.REAL, width=2.5), marker=dict(size=5, color=col.REAL))
     for i, m in enumerate(modelos):
         color, dash = trazo(m, i)
-        fig.add_scatter(x=p.semana_objetivo, y=p[m], name=m, mode="markers" if puntos else "lines",
+        fig.add_scatter(x=p.semana_objetivo, y=p[m], name=pr.REGLA_NOMBRE if m == REGLA else m,
+                        mode="markers" if puntos else "lines",
                         hovertemplate=valor, line=dict(color=color, width=2, dash=dash),
                         marker=dict(size=7, color=color, symbol="square" if m == NUESTRO else "circle"))
     if cota and cota in p:
@@ -439,7 +447,10 @@ def tarjeta_objetivo(clave):
              ("Error de la regla de referencia", f"{r['error_regla']:,.{d}f} {o['unidad']}"),
              ("Error del modelo registrado", f"{r['error_modelo']:,.{d}f} {o['unidad']}"),
              ("Diferencia frente a la regla", f"{r['diferencia']:+.1f} %"),
-             ("Valor p (Diebold-Mariano)", pr.valor_p(r["p"]))]
+             ("Valor p (Diebold-Mariano)", pr.valor_p(r["p"])),
+             ("Cota: nivel nominal", f"{pr.NIVEL_NOMINAL} % (conformal)"),
+             ("Cota: cobertura observada", f"{r['cobertura']:.1f} %"),
+             ("Cota: exceso promedio", f"{r['exceso']:.1f} %")]
     tabla_html = "".join(f"<tr><td>{a}</td><td>{b}</td></tr>" for a, b in filas)
     chips = "".join(f"<span class='etiqueta'>{e}</span>" for e in ETIQUETAS[clave])
     st.markdown(f"<div class='objetivo'>{chips}"
@@ -465,7 +476,8 @@ def resumen_metricas(clave, p):
         tarjeta("Estado de la evidencia (evaluación 2018–2026)", o["estado"])
     st.caption(f"Periodo del cálculo: {r['desde']:%d/%m/%Y} a {r['hasta']:%d/%m/%Y} (semanas objetivo de sábado a "
                f"viernes). Errores absolutos medios en {UNIDAD_LARGA[o['unidad']]}. El valor p no corrige por haber "
-               "elegido entre variantes.")
+               f"elegido entre variantes. {pr.COTA_DEFINICION}: cobertura observada {r['cobertura']:.1f} %, exceso "
+               f"promedio {r['exceso']:.1f} %.")
 
 
 def que_es(clave, limitacion, disponibilidad=None):
@@ -543,7 +555,7 @@ def compras():
     st.plotly_chart(grafico(p, [REGLA, NUESTRO], "COP/kWh", techo=NUESTRO, puntos=True), width="stretch")
     notas_grafico(puntos=True, cota=True)
     st.markdown("**Errores por modelo en el periodo elegido**")
-    mostrar_tabla(tabla(p, [REGLA, NUESTRO], REGLA, "principal", "Compras TIE en bolsa", "COP/kWh"), "COP/kWh", 0)
+    mostrar_tabla(tabla(p, [REGLA, NUESTRO], REGLA, "principal", "Compras TIE en bolsa", "COP/kWh"), "COP/kWh", 1)
     st.markdown("""
 **Cómo se lee:** el modelo registrado pronostica el precio nacional de bolsa de la semana s+2 y lo ajusta con la
 diferencia entre las compras TIE y el precio nacional de la semana s-1. Se eligió entre 9 variantes; el valor p no
@@ -678,9 +690,9 @@ def emision():
                     f"{u.semana_objetivo:%d/%m/%Y} al {u.semana_objetivo + pd.Timedelta(days=6):%d/%m/%Y} "
                     "(objetivo de referencia: precio nacional de bolsa, COP/kWh).")
         c = st.columns(4)
-        c[0].metric("Regla de referencia (COP/kWh)", f"{u.regla_xm:,.0f}")
-        c[1].metric("Modelo registrado (COP/kWh)", f"{u.pronostico:,.0f}")
-        c[2].metric("Cota estadística calibrada (COP/kWh)", f"{u.cota90:,.0f}")
+        c[0].metric(f"{REGLA} (COP/kWh)", f"{u.regla_xm:,.1f}")
+        c[1].metric(f"{NUESTRO} (COP/kWh)", f"{u.pronostico:,.1f}")
+        c[2].metric(f"{pr.COTA} (COP/kWh)", f"{u.cota90:,.1f}", help=pr.COTA_DEFINICION)
         with c[3]:
             indicador_estado(u.estado)
         with st.expander("Ver todo el registro"):
@@ -692,8 +704,8 @@ def emision():
     u = ULTIMO
     estado = str(u.get("estado") or "normal").lower()
     fecha, objetivo = pd.Timestamp(u["fecha_calculo"]), pd.Timestamp(u["semana_objetivo"])
-    st.subheader("Ejemplo de emisión simulada")
-    st.markdown("**Cálculo retrospectivo; no pertenece todavía al registro prospectivo.**")
+    st.subheader(pr.EJEMPLO)
+    st.markdown(f"**{pr.RETROSPECTIVO}.**")
     st.warning("Este cálculo corresponde al objetivo de referencia: precio nacional de bolsa. No es una emisión actual "
                "de E26 ni representa el precio oficial de una garantía.")
     modelo = (f"Variante de respaldo del modelo registrado (sin la variable faltante; versión {config.VERSION_TIE})"
@@ -713,10 +725,10 @@ def emision():
 | Tipo | Ejemplo retrospectivo (cálculo en seco); no está en el registro prospectivo |
 """)
     c = st.columns(3)
-    c[0].metric("Regla de referencia (COP/kWh)", f"{u['regla_xm']:,.0f}")
-    c[1].metric("Modelo (COP/kWh)", f"{u['pronostico']:,.0f}",
+    c[0].metric(f"{REGLA} (COP/kWh)", f"{u['regla_xm']:,.1f}")
+    c[1].metric("Modelo (COP/kWh)", f"{u['pronostico']:,.1f}",
                 f"{(u['pronostico'] / u['regla_xm'] - 1) * 100:+.1f} % frente a la regla", delta_color="off")
-    c[2].metric("Cota estadística calibrada (COP/kWh)", f"{u['cota90']:,.0f}")
+    c[2].metric(f"{pr.COTA} (COP/kWh)", f"{u['cota90']:,.1f}", help=pr.COTA_DEFINICION)
     if estado == "respaldo":
         st.markdown(f"<div class='orientacion' style='border-left-color:{col.ALARMA_MEDIA}'><b>Estado: modelo de "
                     "respaldo</b><br>Se utilizó una variante alternativa porque faltaba una variable necesaria para el "
@@ -795,7 +807,7 @@ Se descargan series públicas de la API de XM (Sinergox) y se agregan por semana
 - **Comparación contra la regla de referencia:** cada modelo se compara con la regla en las mismas semanas.
 - **Error absoluto medio:** promedio de |pronóstico − valor observado|, en la unidad de cada objetivo.
 - **Prueba de Diebold-Mariano:** dice qué tan probable es que la diferencia de errores frente a la regla sea azar (varianza de Newey-West).
-- **Cota estadística calibrada (conformal):** un valor alto que el valor observado no debería superar en 9 de cada 10 semanas, calibrado con los errores de las últimas 104 semanas ya calificadas. **Cobertura:** porcentaje de semanas en que no se superó; la meta es 90 %.
+- **Cota estadística conformal con nivel nominal del 90 %:** un valor alto que el valor observado no debería superar en 9 de cada 10 semanas, calibrado con los errores de las últimas 104 semanas ya calificadas. **Cobertura observada:** porcentaje de semanas en que no se superó (se compara con el nivel nominal del 90 %). **Exceso promedio:** cuánto quedó la cota por encima del valor observado en las semanas cubiertas.
 - **Selección de variantes:** E26 se eligió entre 9 variantes y E19 entre unas 30; el valor p no corrige por esa búsqueda, por eso la evidencia de esos objetivos es débil o no concluyente.
 - **Backtest histórico frente a registro prospectivo:** el backtest es una simulación con datos del pasado; el registro guarda cada emisión antes de conocer el resultado y es la prueba que falta.
 """)
@@ -810,7 +822,7 @@ Se descargan series públicas de la API de XM (Sinergox) y se agregan por semana
 | **Objetivo reconstruido** | Una variable calculada por el proyecto con series públicas de XM; no es una cifra oficial. |
 | **Error promedio** | Error absoluto medio. Más bajo es mejor. |
 | **Desvío promedio** | Si el pronóstico tiende a quedar por debajo (negativo) o por encima (positivo). |
-| **Cota estadística calibrada** | Un valor alto que el valor observado no debería superar en 9 de cada 10 semanas. No es una fórmula oficial de XM. |
+| **Cota estadística calibrada** | {pr.COTA_EXPLICACION} |
 | **Estado de la evidencia** | Indicio favorable con evidencia débil (E26), evidencia estadística favorable frente a la regla base (E16 y E24) o no concluyente (E19). Ningún modelo está validado para fijar garantías. |
 | **Valor p** | Probabilidad de ver una diferencia así por azar (Diebold-Mariano). No corrige por haber elegido entre variantes. |
 | **E22** | {pr.TITULO_E22}; no es el monto oficial de la garantía. |

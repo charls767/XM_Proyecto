@@ -49,8 +49,8 @@ def test_inicio_orientacion_orden_y_cifras(monkeypatch):
         o = pr.OBJETIVO[c]
         assert o["estado"] in texto and o["variable"] in texto and pr.NOTA_CORTA[c] in texto
     # Cifras del backtest 2018–2026 (no cambian): semanas, errores, diferencia y valor p, con su unidad.
-    for cifra in ("<td>113</td>", "160 COP/kWh", "142 COP/kWh", "-10.9 %", "p = 0.044",
-                  "<td>461</td>", "115 COP/kWh", "94 COP/kWh", "-18.7 %", "p < 0.001",
+    for cifra in ("<td>113</td>", "159.6 COP/kWh", "142.2 COP/kWh", "-10.9 %", "p = 0.044",
+                  "<td>461</td>", "115.3 COP/kWh", "93.7 COP/kWh", "-18.7 %", "p < 0.001",
                   "<td>117</td>", "5.31 centUSD/kWh", "4.83 centUSD/kWh", "-9.0 %", "p = 0.081"):
         assert cifra in texto, cifra
     assert "Los errores solo son comparables dentro del mismo objetivo y unidad" in texto
@@ -67,7 +67,7 @@ def test_paginas_de_objetivo(pagina, unidad, monkeypatch):
     figura = json.loads(at.get("plotly_chart")[0].proto.spec)
     assert unidad in figura["layout"]["yaxis"]["title"]["text"]
     nombres = {d["name"] for d in figura["data"]}
-    assert {"Valor observado", "Regla de referencia", "Modelo registrado"} <= nombres
+    assert {pr.OBSERVADO, pr.REGLA_NOMBRE, pr.MODELO} <= nombres
     assert not any("techo" in n.lower() or "regla actual" in n.lower() for n in nombres)
 
 

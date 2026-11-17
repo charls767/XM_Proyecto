@@ -11,12 +11,12 @@ import config
 ORDEN = ("principal", "referencia", "complementario")
 
 OBJETIVO = {
-    "principal": {"nombre": "Compras TIE en bolsa", "experimento": "E26", "unidad": "COP/kWh", "decimales": 0,
+    "principal": {"nombre": "Compras TIE en bolsa", "experimento": "E26", "unidad": "COP/kWh", "decimales": 1,
                   "variable": "CompBolsaTIEMoneda / CompBolsaTIEEner",
                   "funcion": "precio de las compras TIE en bolsa; podría estar relacionado con el componente económico "
                              "de las obligaciones TIE, sin confirmación pública de que sea la variable que usa XM",
                   "estado": "Indicio favorable; evidencia débil"},
-    "referencia": {"nombre": "Precio nacional de bolsa", "experimento": "E16 y E24", "unidad": "COP/kWh", "decimales": 0,
+    "referencia": {"nombre": "Precio nacional de bolsa", "experimento": "E16 y E24", "unidad": "COP/kWh", "decimales": 1,
                    "variable": "PrecBolsNaci",
                    "funcion": "precio general del mercado eléctrico colombiano; referencia y apoyo analítico. No equivale "
                               "automáticamente al valor usado en la garantía ni al precio de las compras TIE o de "
@@ -50,6 +50,48 @@ TITULO_E22 = "Monto monetario aproximado bajo supuestos de transferencia y dispo
 NOTA_E22 = ("E22 estima un monto monetario aproximado bajo supuestos: máxima transferencia constante de 74.25 GWh "
             "por semana (sin serie pública) y el CEE oficial, que no cambia faltantes ni excesos. No es el monto "
             "oficial de la garantía, ni un cálculo de XM, ni un valor aplicable directamente a un contrato.")
+
+# --- Términos comunes de la app y el PDF (los dos los toman de aquí) ---------------------------------------
+ETIQUETA = {"principal": "Objetivo principal", "referencia": "Objetivo de referencia",
+            "complementario": "Objetivo complementario"}
+EVIDENCIA_DEBIL = "Evidencia débil"
+NO_CONCLUYENTE = "Resultado no concluyente"
+EMISION = "Emisión ilustrativa"
+REGISTRO = "Registro prospectivo"
+EJEMPLO = "Ejemplo de emisión simulada"
+RETROSPECTIVO = "Cálculo retrospectivo; no pertenece todavía al registro prospectivo"
+AVISO_REGISTRO = ("Registro prospectivo aún no consolidado. La primera emisión prospectiva está prevista para el viernes "
+                  "20 de noviembre de 2026. Hasta acumular semanas calificadas, los resultados provienen del backtest "
+                  "histórico.")
+
+# Series de los gráficos y filas de las tablas.
+OBSERVADO = "Valor observado"
+REGLA_CORTA = "Regla de referencia"
+MODELO = "Modelo registrado"
+PRUEBA = "Modelo en prueba"
+SUPERA = "Semanas que superaron la cota"
+
+# Cota: nunca "garantía" ni "techo". Nivel nominal, cobertura observada y exceso se muestran por separado.
+NIVEL_NOMINAL = 90
+COTA = "Cota estadística calibrada"
+COTA_DEFINICION = f"Cota estadística conformal con nivel nominal del {NIVEL_NOMINAL} %"
+COTA_LEYENDA = f"{COTA} (conformal, nivel nominal {NIVEL_NOMINAL} %)"
+COTA_EXPLICACION = (f"{COTA_DEFINICION}: calibrada con los errores de las últimas 104 semanas ya calificadas. "
+                    "«Cobertura observada»: porcentaje de semanas en que el valor observado no la superó. «Exceso "
+                    "promedio»: cuánto quedó por encima del valor observado, en promedio, en las semanas cubiertas. "
+                    "No es una cota oficial de XM.")
+
+
+def medidas_cota(real, cota):
+    """Cobertura observada y exceso promedio (%), con la definición de experimentos.py (exceso_cota_%)."""
+    import numpy as np
+    import pandas as pd
+    d = pd.DataFrame({"real": real, "cota": cota}).dropna()
+    if d.empty:
+        return np.nan, np.nan
+    cubre = d.real <= d.cota
+    return cubre.mean() * 100, ((d.cota - d.real) / d.real)[cubre].mean() * 100
+
 
 # La regla con la que se compara todo: nombre y advertencia (vigencia no confirmada).
 REGLA_NOMBRE = "Regla de referencia basada en material público de formación de XM"
