@@ -81,7 +81,7 @@ def test_pdf_tres_objetivos(tmp_path):
 
 
 st_testing = pytest.importorskip("streamlit.testing.v1")
-PAGINAS = ["", "exportacion", "bolsa", "pronostico", "semana", "como"]
+PAGINAS = ["", "compras", "bolsa", "exportacion", "pronostico", "informe", "como", "semana"]
 
 
 def textos_app(pagina, monkeypatch):

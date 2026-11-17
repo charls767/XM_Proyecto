@@ -412,8 +412,9 @@ def generar(destino=None, generado=None, copiar=True):
         p_precio(pdf, compra, modelos["principal"][1], f"Principal: {o['nombre']} ({o['experimento']})",
                  "COP/kWh", 0, (
                      "Precio de las compras TIE en la bolsa colombiana: suma de CompBolsaTIEMoneda entre suma de "
-                     "CompBolsaTIEEner de cada semana TIE (variable reconstruida a partir de series oficiales; "
-                     "componente económico de las obligaciones TIE en bolsa). El modelo pronostica el precio de bolsa "
+                     "CompBolsaTIEEner de cada semana TIE (variable reconstruida a partir de series oficiales; podría "
+                     "estar relacionada con el componente económico de las obligaciones TIE, sin confirmación "
+                     "pública). El modelo pronostica el precio de bolsa "
                      "nacional de s+2 y lo ajusta con la diferencia entre las compras TIE y el precio nacional de s-1. "
                      f"Estado de la evidencia: {o['estado'].lower()} (113 semanas; elegido entre 9 variantes). "
                      + pr.AVISOS_DISPONIBILIDAD[0]), 2, generado, puntos=True, desde=pd.Timestamp("2022-01-01"))
@@ -423,6 +424,7 @@ def generar(destino=None, generado=None, copiar=True):
                      "El precio general de la energía en Colombia, promedio por hora de la semana TIE (sábado a "
                      "viernes). El modelo usa el precio y la hidrología de la semana s-1, los días de sábado a martes "
                      "de la semana s y el costo marginal programado de miércoles a viernes, con corrección de sesgo. "
+                     "Es una referencia: no equivale automáticamente al valor usado en la garantía. "
                      f"Estado de la evidencia: {o['estado'].lower()}."), 3, generado,
                  desde=tie.semana_objetivo.max() - pd.Timedelta(weeks=104))
         o = pr.OBJETIVO["complementario"]
