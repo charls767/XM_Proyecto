@@ -1,13 +1,17 @@
-"""Cada página de la app de Streamlit abre sin errores con los resultados de results/app/."""
+"""Cada una de las ocho páginas de la app de Streamlit abre sin errores con los resultados de results/app/."""
 from pathlib import Path
 
 import pytest
 
 APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 DATOS = APP.parents[1] / "results" / "app" / "predicciones_tie.parquet"
-PAGINAS = {"": "¿Cuánto costará la energía", "exportacion": "Precio de exportación", "bolsa": "Precio de bolsa",
-           "pronostico": "Pronóstico de esta semana", "semana": "Extra: el precio de la semana siguiente",
-           "como": "Cómo funciona"}
+PAGINAS = {"": "Modelos para anticipar precios relacionados con las obligaciones TIE",
+           "compras": "Compras TIE en bolsa — objetivo principal",
+           "bolsa": "Precio nacional de bolsa — objetivo de referencia",
+           "exportacion": "Precio realizado de exportación — objetivo complementario",
+           "pronostico": "Emisión ilustrativa y registro prospectivo", "informe": "Informe PDF",
+           "como": "Cómo se construyen y evalúan los modelos",
+           "semana": "Experimento complementario: horizonte de una semana"}
 
 st_testing = pytest.importorskip("streamlit.testing.v1")
 

@@ -73,9 +73,10 @@ def test_colores_de_las_series_en_bolsa(monkeypatch):
     principal = figs[0]
     assert principal["layout"]["paper_bgcolor"] == col.FONDO == principal["layout"]["plot_bgcolor"]
     series = {d["name"]: d["line"] for d in principal["data"]}
-    assert series["Lo que pasó"]["color"] == col.REAL and series["Lo que pasó"]["width"] >= 2.5
-    assert series["Regla actual de XM"] == {**series["Regla actual de XM"], "color": col.REGLA, "dash": "dash"}
-    assert series["Nuestro modelo"]["color"] == col.MODELO and series["Nuestro modelo"]["dash"] == "solid"
+    assert series["Valor observado"]["color"] == col.REAL and series["Valor observado"]["width"] >= 2.5
+    regla = series[pr.REGLA_NOMBRE]
+    assert regla == {**regla, "color": col.REGLA, "dash": "dash"}
+    assert series["Modelo registrado"]["color"] == col.MODELO and series["Modelo registrado"]["dash"] == "solid"
     assert series["Modelo en prueba"]["color"] == col.PRUEBA and series["Modelo en prueba"]["dash"] == "dot"
     calor = next(f for f in figs if f["data"][0]["type"] == "heatmap")
     assert calor["data"][0]["colorscale"][-1][1] == "#184f95"  # escala azul, no gris
@@ -85,9 +86,9 @@ def test_colores_de_las_series_en_bolsa(monkeypatch):
 def test_techo_y_alerta_en_exportacion(monkeypatch):
     at = abrir("exportacion", monkeypatch)
     series = {d["name"]: d for d in graficos(at)[0]["data"]}
-    techo = next(v for k, v in series.items() if k.startswith("Techo"))
+    techo = next(v for k, v in series.items() if k.startswith("Cota estadística calibrada"))
     assert techo["line"]["color"] == col.TECHO and techo["line"]["dash"] == "dot"
-    alerta = next((v for k, v in series.items() if k.startswith("Superó el techo")), None)
+    alerta = next((v for k, v in series.items() if k.startswith("Semanas que superaron la cota")), None)
     if alerta is not None:  # triángulo rojo: la alerta no depende solo del color
         assert alerta["marker"]["color"] == col.ALARMA_ALTA and alerta["marker"]["symbol"] == "triangle-up"
     texto = textos(at).lower()

@@ -8,7 +8,7 @@ Lo corre `correr_semanal.bat` después de cada emisión. Deja dos copias:
 - `results/app/informe_ultimo.pdf`: el que descarga la app.
 
 Páginas: 1) los tres objetivos, su estado metodológico y el pronóstico vigente, 2) compras TIE en
-bolsa (objetivo principal, E26), 3) precio de bolsa (referencia, E16 y E24), 4) precio realizado de
+bolsa (objetivo principal, E26), 3) precio nacional de bolsa (referencia, E16 y E24), 4) precio realizado de
 exportación (complementario, E19), 5) registro y explicación del pronóstico, 6) supuestos, límites y
 fuentes. Solo lee resultados ya calculados (results/app/ y registro/): no consulta la API ni reentrena.
 Los estados de la evidencia y los textos compartidos con la app vienen de `presentacion.py`.
@@ -79,15 +79,17 @@ def cargar():
 
 
 def medidas(p, modelo):
-    """Error de la regla y del modelo, mejora, p de Diebold-Mariano y cobertura del techo."""
+    """Error de la regla y del modelo, diferencia, p de Diebold-Mariano, cobertura observada y exceso de la cota."""
     p = p.dropna(subset=["real", modelo, REGLA])
     if len(p) < 10:
         return None
     er, em = (p[REGLA] - p.real).abs().mean(), (p[modelo] - p.real).abs().mean()
-    techo = f"cota|{modelo}"
-    return {"semanas": len(p), "regla": er, "modelo": em, "mejora": (1 - em / er) * 100,
+    cota = f"cota|{modelo}"
+    cobertura, exceso = pr.medidas_cota(p.real, p[cota]) if cota in p else (np.nan, np.nan)
+    # Diferencia con el mismo signo que la app: negativa cuando el modelo se equivoca menos que la regla.
+    return {"semanas": len(p), "regla": er, "modelo": em, "diferencia": (em / er - 1) * 100,
             "p": ev.diebold_mariano(p, modelo, REGLA)[1], "sesgo": (p[modelo] - p.real).mean(),
-            "cobertura": (p.real <= p[techo]).mean() * 100 if techo in p else np.nan}
+            "cobertura": cobertura, "exceso": exceso}
 
 
 def guardar(pdf, fig):
@@ -141,6 +143,12 @@ def tabla(ax, filas, columnas, anchos=None, alarma=None, tam=8):
             c.get_text().set_weight("bold")
         if alarma and (i, j) in alarma:
             c.set_facecolor(alarma[(i, j)])
+    lineas = {}
+    for (i, j), c in t.get_celld().items():
+        lineas[i] = max(lineas.get(i, 1), c.get_text().get_text().count("\n") + 1)
+    for (i, j), c in t.get_celld().items():
+        if lineas[i] > 1:
+            c.set_height(c.get_height() * (0.25 + 0.75 * lineas[i]))
     return t
 
 
@@ -157,8 +165,8 @@ def caja_estado(fig, x, y, estado, motivos):
                 interlinea=0.013)
 
 
-def grafico_serie(ax, p, modelo, unidad, puntos=False, nombre_modelo="Nuestro modelo"):
-    """Real, regla, modelo y techo en grises; las semanas en que el real superó el techo, en rojo."""
+def grafico_serie(ax, p, modelo, unidad, puntos=False, nombre_modelo=pr.MODELO):
+    """Valor observado, regla, modelo y cota en grises; las semanas que superaron la cota, en rojo."""
     estilo = dict(marker="o", markersize=3, linestyle="none") if puntos else {}
     techo = f"cota|{modelo}"
     if puntos:
@@ -166,10 +174,10 @@ def grafico_serie(ax, p, modelo, unidad, puntos=False, nombre_modelo="Nuestro mo
         p = p.set_index("semana_objetivo")
         p = p.reindex(pd.date_range(p.index.min(), p.index.max(), freq="7D")).rename_axis("semana_objetivo").reset_index()
     if techo in p:
-        ax.plot(p.semana_objetivo, p[techo], color=isa.TECHO, linestyle=":", linewidth=1.0, label="Techo (90 %)")
-    ax.plot(p.semana_objetivo, p.real, color=isa.REAL, linewidth=1.8, label="Lo que pasó",
+        ax.plot(p.semana_objetivo, p[techo], color=isa.TECHO, linestyle=":", linewidth=1.0, label=pr.COTA_LEYENDA)
+    ax.plot(p.semana_objetivo, p.real, color=isa.REAL, linewidth=1.8, label=pr.OBSERVADO,
             **({"marker": "o", "markersize": 3} if puntos else {}))
-    ax.plot(p.semana_objetivo, p[REGLA], color=isa.REGLA, linewidth=1.2, label="Regla de XM",
+    ax.plot(p.semana_objetivo, p[REGLA], color=isa.REGLA, linewidth=1.2, label=pr.REGLA_NOMBRE,
             **(estilo if puntos else {"linestyle": "--"}))
     ax.plot(p.semana_objetivo, p[modelo], color=isa.MODELO, linewidth=1.5, label=nombre_modelo,
             **(dict(marker="s", markersize=3, linestyle="none") if puntos else {}))
@@ -177,10 +185,10 @@ def grafico_serie(ax, p, modelo, unidad, puntos=False, nombre_modelo="Nuestro mo
         sobre = p[p.real > p[techo]]
         if len(sobre):
             ax.scatter(sobre.semana_objetivo, sobre.real, marker="^", s=40, color=isa.ALARMA_ALTA, zorder=5,
-                       edgecolor=isa.TEXTO, linewidth=0.5, label=f"Superó el techo ({len(sobre)} semanas)")
+                       edgecolor=isa.TEXTO, linewidth=0.5, label=f"{pr.SUPERA} ({len(sobre)})")
     ax.set_ylabel(unidad)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
-    ax.legend(loc="upper left", fontsize=7.5, ncol=3)
+    ax.legend(loc="upper left", fontsize=7, ncol=2)
 
 
 def filas_periodos(p, modelo, dec):
@@ -190,19 +198,21 @@ def filas_periodos(p, modelo, dec):
         q = ultimas if ini is None else filtrar(p, ini, fin)
         m = medidas(q, modelo)
         if m is None:
-            filas.append([nombre, "—", "—", "—", "—", "—", "—"])
+            filas.append([nombre, "—", "—", "—", "—", "—", "—", "—"])
             continue
         filas.append([nombre, f"{m['semanas']}", f"{m['regla']:,.{dec}f}", f"{m['modelo']:,.{dec}f}",
-                      f"{m['mejora']:+.0f} %", pr.valor_p(m["p"]),
-                      "—" if np.isnan(m["cobertura"]) else f"{m['cobertura']:.0f} %"])
-        if m["mejora"] < 0:
+                      f"{m['diferencia']:+.1f} %", pr.valor_p(m["p"]),
+                      "—" if np.isnan(m["cobertura"]) else f"{m['cobertura']:.1f} %",
+                      "—" if np.isnan(m["exceso"]) else f"{m['exceso']:.1f} %"])
+        if m["diferencia"] > 0:
             alarma[(i, 4)] = isa.ALARMA_MEDIA  # el modelo erró más que la regla
         if not np.isnan(m["cobertura"]) and m["cobertura"] < 80:
             alarma[(i, 6)] = isa.ALARMA_MEDIA
     return filas, alarma
 
 
-COLUMNAS_PERIODO = ["Periodo", "Semanas", "Error regla", "Error modelo", "Mejora", "Valor p (DM)", "Bajo el techo"]
+COLUMNAS_PERIODO = ["Periodo", "Semanas", "Error\nregla", "Error\nmodelo", "Diferencia", "Valor p (DM)",
+                    "Cobertura\nobservada", "Exceso de\nla cota"]
 
 
 # --- Páginas -------------------------------------------------------------------------------------------
@@ -225,21 +235,25 @@ def p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj):
     for clave in pr.ORDEN:
         o, m = pr.OBJETIVO[clave], medidas_obj[clave]
         d = o["decimales"]
-        filas.append([f"{clave.capitalize()} ({o['experimento']})", o["unidad"], f"{m['semanas']}",
+        nombre = f"{pr.ETIQUETA[clave]}\n({o['experimento']})"
+        filas.append([nombre, o["unidad"], f"{m['semanas']}",
                       f"{m['desde']:%m/%y}–{m['hasta']:%m/%y}", f"{m['regla']:,.{d}f}", f"{m['modelo']:,.{d}f}",
-                      f"{m['mejora']:+.1f} %", pr.valor_p(m["p"])])
-        estados.append([f"{clave.capitalize()} ({o['experimento']})", o["estado"]])
-    ax = fig.add_axes([0.07, y - 0.1, 0.86, 0.085])
-    tabla(ax, filas, ["Objetivo", "Unidad", "Semanas", "Periodo", "Error regla", "Error modelo", "Mejora", "Valor p (DM)"],
-          anchos=[0.25, 0.12, 0.08, 0.12, 0.1, 0.11, 0.09, 0.13], tam=7.5)
-    y -= 0.105
-    ax = fig.add_axes([0.07, y - 0.085, 0.86, 0.075])
-    tabla(ax, estados, ["Objetivo", "Estado de la evidencia"], anchos=[0.3, 0.68], tam=7.5)
-    y -= 0.105
+                      f"{m['diferencia']:+.1f} %", pr.valor_p(m["p"])])
+        estados.append([nombre, o["estado"], f"{pr.NIVEL_NOMINAL} %", f"{m['cobertura']:.1f} %", f"{m['exceso']:.1f} %"])
+    ax = fig.add_axes([0.07, y - 0.13, 0.86, 0.115])
+    tabla(ax, filas, ["Objetivo", "Unidad", "Semanas", "Periodo", "Error\nregla", "Error\nmodelo", "Diferencia",
+                      "Valor p (DM)"], anchos=[0.22, 0.12, 0.09, 0.13, 0.1, 0.1, 0.11, 0.13], tam=7.5)
+    y -= 0.15
+    ax = fig.add_axes([0.07, y - 0.13, 0.86, 0.115])
+    tabla(ax, [[n, e.replace("frente a la regla base", "frente a\nla regla base"), *r] for n, e, *r in estados],
+          ["Objetivo", "Estado de la evidencia", "Cota: nivel\nnominal", "Cobertura\nobservada", "Exceso\npromedio"],
+          anchos=[0.22, 0.38, 0.13, 0.13, 0.14], tam=7.5)
+    y -= 0.172
     y = parrafo(fig, 0.07, y, (
-        "«Valor p (DM)»: prueba de Diebold-Mariano frente a la regla. No corrige por haber elegido entre variantes: "
-        "E26 se eligió entre 9 y E19 entre unas 30. Errores promedio en la unidad de cada objetivo."), ancho=128,
-        tam=7.5, color=isa.TEXTO_2, interlinea=0.0135)
+        "«Diferencia»: error del modelo registrado frente a la regla de referencia (negativa: menos error). «Valor p "
+        "(DM)»: prueba de Diebold-Mariano; no corrige por haber elegido entre variantes (E26 entre 9 y E19 entre unas "
+        "30). " + pr.COTA_EXPLICACION + " Los errores solo son comparables dentro del mismo objetivo y unidad."),
+        ancho=134, tam=7.2, color=isa.TEXTO_2, interlinea=0.0128)
 
     # Avisos de disponibilidad de datos.
     y -= 0.012
@@ -248,36 +262,40 @@ def p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj):
     for aviso in pr.AVISOS_DISPONIBILIDAD:
         y = parrafo(fig, 0.085, y, "• " + aviso, ancho=114, tam=8.5, interlinea=0.0155) - 0.003
 
-    # Pronóstico vigente: el último registrado o, si aún no hay, el ejemplo con los datos de hoy.
-    y -= 0.015
+    # Pronóstico vigente: el último registrado o, si aún no hay, la emisión ilustrativa (cálculo retrospectivo).
+    y -= 0.008
     if reg is not None and len(reg):
         u = reg.iloc[-1]
         titulo = f"Último pronóstico registrado ({u.fecha_emision:%d/%m/%Y})"
         objetivo, estado = u.semana_objetivo, u.estado
         motivos = [m for m in str(u.motivos).split(" | ") if m and m != "nan"]
-        valores = [("Precio de bolsa (COP/kWh)", u.regla_xm, u.pronostico, u.cota90, 0)]
+        valores = [("Precio nacional de bolsa (COP/kWh)", u.regla_xm, u.pronostico, u.cota90, 1)]
         if pd.notna(u.get("compra_pronostico")):
-            valores.insert(0, ("Compras TIE en bolsa (COP/kWh)", u.compra_regla, u.compra_pronostico, u.compra_cota90, 0))
+            valores.insert(0, ("Compras TIE en bolsa (COP/kWh)", u.compra_regla, u.compra_pronostico, u.compra_cota90, 1))
         if pd.notna(u.get("expo_pronostico")):
             valores.append(("Precio realizado de exportación (centUSD/kWh)", u.expo_regla, u.expo_pronostico,
                             u.expo_cota90, 2))
         notas = []
     else:
-        titulo = (f"Ejemplo con los datos de hoy (calculado como el viernes "
-                  f"{pd.Timestamp(ultimo['fecha_calculo']):%d/%m/%Y}; no registrado)")
+        titulo = f"{pr.EJEMPLO} (viernes {pd.Timestamp(ultimo['fecha_calculo']):%d/%m/%Y})"
         objetivo, estado, motivos = pd.Timestamp(ultimo["semana_objetivo"]), ultimo.get("estado"), ultimo.get("motivos", [])
-        valores = [("Precio de bolsa (COP/kWh)", ultimo["regla_xm"], ultimo["pronostico"], ultimo["cota90"], 0)]
+        valores = [("Precio nacional de bolsa (COP/kWh)", ultimo["regla_xm"], ultimo["pronostico"], ultimo["cota90"], 1)]
         notas = ultimo.get("notas", [])
     fig.text(0.07, y, titulo, fontsize=11, weight="bold")
     y -= 0.02
-    fig.text(0.07, y, f"Semana objetivo: {objetivo:%d/%m/%Y} al {objetivo + pd.Timedelta(days=6):%d/%m/%Y} "
-                      "(sábado a viernes)", fontsize=9, color=isa.TEXTO_2)
+    y = parrafo(fig, 0.07, y, f"Semana objetivo: {objetivo:%d/%m/%Y} al {objetivo + pd.Timedelta(days=6):%d/%m/%Y} "
+                              "(sábado a viernes)." + ("" if reg is not None and len(reg) else
+                                                       f" Objetivo de referencia: precio nacional de bolsa. "
+                                                       f"{pr.RETROSPECTIVO}."),
+                ancho=120, tam=8.5, color=isa.TEXTO_2, interlinea=0.015) + 0.015
     y -= 0.035
     caja_estado(fig, 0.07, y, estado, motivos)
-    ax = fig.add_axes([0.07, y - 0.025 - 0.028 * (len(valores) + 1), 0.86, 0.028 * (len(valores) + 1)])
+    ax = fig.add_axes([0.07, y - 0.03 - 0.03 * (len(valores) + 1), 0.86, 0.03 * (len(valores) + 1)])
     tabla(ax, [[n, f"{r:,.{d}f}", f"{m:,.{d}f}", f"{(m / r - 1) * 100:+.1f} %", f"{c:,.{d}f}"] for n, r, m, c, d in valores],
-          ["Precio", "Regla de XM", "Modelo", "Diferencia", "Techo (90 %)"], anchos=[0.36, 0.14, 0.14, 0.14, 0.17])
-    y -= 0.04 + 0.028 * (len(valores) + 1)
+          ["Objetivo", "Regla de\nreferencia", "Modelo\nregistrado", "Diferencia", "Cota estadística\ncalibrada"],
+          anchos=[0.34, 0.15, 0.15, 0.13, 0.17], tam=7.5)
+    y -= 0.05 + 0.03 * (len(valores) + 1)
+    y = parrafo(fig, 0.07, y, pr.AVISO_REGISTRO, ancho=140, tam=7.5, color=isa.TEXTO_2, interlinea=0.0135) - 0.004
     for nota in notas:
         y = parrafo(fig, 0.07, y, "Nota: " + pr.legible(nota) + ".", ancho=140, tam=7.5, color=isa.TEXTO_2,
                     interlinea=0.0135)
@@ -294,14 +312,16 @@ def p_precio(pdf, p, modelo, titulo, unidad, dec, explicacion, numero, generado,
     y -= 0.48
     fig.text(0.07, y, "Error promedio por periodo", fontsize=11, weight="bold")
     filas, alarma = filas_periodos(p, modelo, dec)
-    ax = fig.add_axes([0.07, y - 0.16, 0.86, 0.14])
-    tabla(ax, filas, COLUMNAS_PERIODO, anchos=[0.26, 0.1, 0.12, 0.13, 0.1, 0.17, 0.12], alarma=alarma)
-    y -= 0.2
+    ax = fig.add_axes([0.07, y - 0.17, 0.86, 0.15])
+    tabla(ax, filas, COLUMNAS_PERIODO, anchos=[0.22, 0.08, 0.1, 0.11, 0.1, 0.12, 0.14, 0.13], alarma=alarma,
+          tam=7.5)
+    y -= 0.17
     parrafo(fig, 0.07, y, (
-        f"Errores en {unidad}. «Mejora»: cuánto menos se equivoca el modelo que la regla. «Valor p (DM)»: prueba de "
-        "Diebold-Mariano frente a la regla; no corrige por haber elegido entre variantes. «Bajo el techo»: semanas en "
-        "que el precio real no superó el techo; la meta es 90 %. Una celda amarilla marca una condición anormal: el "
-        "modelo erró más que la regla o el techo cubrió menos de 80 %."), ancho=118, tam=8, color=isa.TEXTO_2)
+        f"Errores en {unidad}, frente a la regla de referencia. «Diferencia»: negativa cuando el modelo registrado se "
+        "equivoca menos que la regla. «Valor p (DM)»: prueba de Diebold-Mariano; no corrige por haber elegido entre "
+        f"variantes. {pr.COTA_DEFINICION}: cobertura observada y exceso promedio como en la página 1. Una celda "
+        "amarilla marca una condición anormal: el modelo erró más que la regla o la cobertura observada fue menor "
+        "de 80 %."), ancho=118, tam=8, color=isa.TEXTO_2)
     guardar(pdf, fig)
 
 
@@ -309,12 +329,11 @@ def p4_registro(pdf, reg, ultimo, generado):
     fig = pagina(pdf, "Registro de pronósticos y explicación", 5, generado)
     y = parrafo(fig, 0.07, 0.915, (
         "Cada viernes el pronóstico se guarda antes de conocer el resultado, en un registro que no se puede editar: "
-        "cada fila lleva una huella SHA-256 encadenada a la anterior. Cuando se publica el precio real, se califica."),
+        "cada fila lleva una huella SHA-256 encadenada a la anterior. Cuando se publica el valor observado, se califica."),
         ancho=100)
     if reg is None or not len(reg):
-        y = parrafo(fig, 0.07, y - 0.01, "El registro aún no tiene emisiones. La primera es el viernes 20 de "
-                                         "noviembre de 2026, para la semana del 28 de noviembre al 4 de diciembre.",
-                    ancho=100, color=isa.TEXTO_2)
+        y = parrafo(fig, 0.07, y - 0.01, pr.AVISO_REGISTRO + " La primera emisión es para la semana del 28 de "
+                                         "noviembre al 4 de diciembre.", ancho=100, color=isa.TEXTO_2)
     else:
         r = reg.tail(12)
         filas, alarma = [], {}
@@ -329,8 +348,8 @@ def p4_registro(pdf, reg, ultimo, generado):
             if pd.notna(f.real) and f.real > f.cota90:
                 alarma[(i, 6)] = isa.ALARMA_ALTA
         ax = fig.add_axes([0.07, y - 0.03 - 0.025 * (len(filas) + 1), 0.86, 0.025 * (len(filas) + 1)])
-        tabla(ax, filas, ["Emitido", "Semana objetivo", "Estado", "Regla", "Modelo", "Techo", "Real", "Error regla",
-                          "Error modelo"])
+        tabla(ax, filas, ["Emitido", "Semana objetivo", "Estado", "Regla", "Modelo", "Cota", "Observado",
+                          "Error regla", "Error modelo"])
         y -= 0.06 + 0.025 * (len(filas) + 1)
         cal = reg.dropna(subset=["real"])
         if len(cal):
@@ -341,7 +360,7 @@ def p4_registro(pdf, reg, ultimo, generado):
     # Explicación del pronóstico de ejemplo: barras en grises (sube oscuro, baja claro).
     a = pd.DataFrame(ultimo["aportes"]).assign(pct=lambda x: (np.exp(x.aporte_log) - 1) * 100)
     a = a.reindex(a.pct.abs().sort_values().index).tail(12)
-    fig.text(0.07, y - 0.01, f"¿Por qué el modelo dice lo que dice? (ejemplo del viernes "
+    fig.text(0.07, y - 0.01, f"¿Por qué el modelo dice lo que dice? ({pr.EJEMPLO.lower()} del viernes "
                              f"{pd.Timestamp(ultimo['fecha_calculo']):%d/%m/%Y})", fontsize=11, weight="bold")
     alto = min(0.42, max(0.25, y - 0.12))
     ax = fig.add_axes([0.38, y - 0.04 - alto, 0.55, alto])
@@ -370,15 +389,15 @@ Límites conocidos
 • {pr.AVISOS_DISPONIBILIDAD[1]}
 • Mientras rija la CREG 101 127 de 2026 (período de riesgo, hasta el 31 de mayo de 2027), el valor que XM aplique en la garantía de exportación puede diferir del precio realizado que se pronostica. Es una pregunta abierta no resuelta con la información pública disponible.
 • {pr.NOTA_E22}
-• Ningún modelo anticipa los saltos bruscos de precio. El techo es ancho: cuando cubre, queda muy por encima del precio.
+• Ningún modelo anticipa los saltos bruscos de precio. La cota estadística calibrada es ancha: cuando cubre, queda muy por encima del valor observado (ver «Exceso promedio» en la página 1).
 
 Preguntas abiertas no resueltas con la información pública disponible
 • La fórmula vigente de la garantía y su relación con el PONE, el precio de bolsa TIE y las compras TIE en bolsa; la composición de ExpoMoneda; el MXT y la conversión del CEE; el mecanismo de exportación desde agosto de 2026.
 
 Cómo leer las gráficas (ISA-101)
 • Fondo gris y datos normales en grises: la vista descansa y lo anormal resalta.
-• Negro grueso: lo que pasó. Gris discontinuo: la regla de XM. Azul pizarra: el modelo. Gris punteado: el techo.
-• Rojo con triángulo: el precio real superó el techo (alarma alta). Amarillo: vigilancia o resultado peor que la regla. Naranja: emisión de respaldo.
+• Negro grueso: valor observado. Gris discontinuo: regla de referencia. Azul pizarra: modelo registrado. Gris punteado: cota estadística calibrada.
+• Rojo con triángulo: el valor observado superó la cota estadística calibrada (alarma alta). Amarillo: vigilancia o resultado peor que la regla. Naranja: emisión de respaldo.
 
 Fuentes
 • {pr.FUENTES}
@@ -410,19 +429,21 @@ def generar(destino=None, generado=None, copiar=True):
         p1_resumen(pdf, ultimo, reg, datos_hasta, generado, medidas_obj)
         o = pr.OBJETIVO["principal"]
         p_precio(pdf, compra, modelos["principal"][1], f"Principal: {o['nombre']} ({o['experimento']})",
-                 "COP/kWh", 0, (
+                 "COP/kWh", 1, (
                      "Precio de las compras TIE en la bolsa colombiana: suma de CompBolsaTIEMoneda entre suma de "
-                     "CompBolsaTIEEner de cada semana TIE (variable reconstruida a partir de series oficiales; "
-                     "componente económico de las obligaciones TIE en bolsa). El modelo pronostica el precio de bolsa "
+                     "CompBolsaTIEEner de cada semana TIE (variable reconstruida a partir de series oficiales; podría "
+                     "estar relacionada con el componente económico de las obligaciones TIE, sin confirmación "
+                     "pública). El modelo pronostica el precio de bolsa "
                      "nacional de s+2 y lo ajusta con la diferencia entre las compras TIE y el precio nacional de s-1. "
                      f"Estado de la evidencia: {o['estado'].lower()} (113 semanas; elegido entre 9 variantes). "
                      + pr.AVISOS_DISPONIBILIDAD[0]), 2, generado, puntos=True, desde=pd.Timestamp("2022-01-01"))
         o = pr.OBJETIVO["referencia"]
         p_precio(pdf, tie, modelos["referencia"][1], f"Referencia: {o['nombre']} ({o['experimento']})",
-                 "COP/kWh", 0, (
+                 "COP/kWh", 1, (
                      "El precio general de la energía en Colombia, promedio por hora de la semana TIE (sábado a "
                      "viernes). El modelo usa el precio y la hidrología de la semana s-1, los días de sábado a martes "
                      "de la semana s y el costo marginal programado de miércoles a viernes, con corrección de sesgo. "
+                     "Es una referencia: no equivale automáticamente al valor usado en la garantía. "
                      f"Estado de la evidencia: {o['estado'].lower()}."), 3, generado,
                  desde=tie.semana_objetivo.max() - pd.Timedelta(weeks=104))
         o = pr.OBJETIVO["complementario"]
@@ -430,7 +451,7 @@ def generar(destino=None, generado=None, copiar=True):
                  "centUSD/kWh", 2, (
                      "Lo que Ecuador paga por cada kWh que le vende Colombia: ExportMonedaUSD entre ExpoEner (precio "
                      "realizado y reconstruido; no es una cifra oficial de XM). Solo existe en las semanas con "
-                     "exportaciones (al menos 1 GWh). El modelo promedia la regla de XM con una regresión robusta "
+                     "exportaciones (al menos 1 GWh). El modelo promedia la regla de referencia con una regresión robusta "
                      f"(Huber). Estado de la evidencia: {o['estado'].lower()}."), 4, generado, puntos=True,
                  desde=pd.Timestamp("2022-01-01"))
         p4_registro(pdf, reg, ultimo, generado)
